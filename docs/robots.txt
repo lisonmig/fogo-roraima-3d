@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://fogororaima.com.br/sitemap.xml
