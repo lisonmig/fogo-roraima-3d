@@ -1,0 +1,2271 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta name="description" content="Mapa 3D dos focos de incêndio, da seca e do risco para propriedades rurais em Roraima, com dados do INPE e da ANA. Projeto de extensão da UERR.">
+<meta property="og:title" content="Fogo em Roraima 3D">
+<meta property="og:description" content="Focos de incêndio, seca dos rios e risco para a sua propriedade, atualizados a cada 2 horas.">
+<meta name="theme-color" content="#c2410c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icone-192.png">
+<link rel="apple-touch-icon" href="icone-192.png">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fogo em Roraima 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Layout: 3D viewport (top-left), timeline below it, control panel on the right (summary first); stacks on phones */
+:root {
+  --bg: #f3f1ee; --panel: #fbfaf8; --ink: #1d1a17; --muted: #6b645c; --line: #ddd6cd;
+  --accent: #c2410c; --chip: #ece8e2; --sky-top: #b9c8d2; --sky-bot: #e9eeec; --plain: #8d927d;
+  --rain: #2f6fb3; --warn-bg: #fdecd9; --warn-ink: #8a3200;
+  --f-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-data: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121110; --panel: #1a1816; --ink: #efe9e1; --muted: #a39a8f; --line: #312c27;
+  --accent: #ff7a2f; --chip: #27231f; --sky-top: #04070b; --sky-bot: #1b2024; --plain: #4f5446;
+  --rain: #6fa8e6; --warn-bg: #3a2216; --warn-ink: #ffb98a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121110; --panel: #1a1816; --ink: #efe9e1; --muted: #a39a8f; --line: #312c27;
+  --accent: #ff7a2f; --chip: #27231f; --sky-top: #04070b; --sky-bot: #1b2024; --plain: #4f5446;
+  --rain: #6fa8e6; --warn-bg: #3a2216; --warn-ink: #ffb98a; color-scheme: dark }
+
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14.5px; line-height: 1.45; overflow: hidden; }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: minmax(0, 1fr) auto; height: 100%; }
+.view { grid-column: 1; grid-row: 1; position: relative; min-width: 0; min-height: 0; overflow: hidden;
+  background: linear-gradient(180deg, var(--sky-top), var(--sky-bot)); }
+.view canvas.gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.view.picking canvas.gl { cursor: crosshair; }
+.timeline { grid-column: 1; grid-row: 2; background: var(--panel); border-top: 1px solid var(--line); min-width: 0;
+  padding-block: 10px 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 16px; display: flex; flex-direction: column; gap: 8px; }
+.panel { grid-column: 2; grid-row: 1 / 3; background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; min-width: 0; }
+.panel-in { display: flex; flex-direction: column; gap: 20px; padding-block: 18px 26px; padding-left: 18px; padding-right: max(18px, env(safe-area-inset-right, 0px)); }
+
+h1 { font-family: var(--f-display); font-weight: 700; font-size: 32px; line-height: 1; margin: 0; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.sub { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 0 0 8px; }
+.sec { display: flex; flex-direction: column; min-width: 0; }
+.note { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+
+.summary { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.summary p { margin: 0 0 6px; font-size: 14px; }
+.summary p:last-child { margin: 0; }
+.summary b.big { font-family: var(--f-display); font-size: 30px; line-height: 1; color: var(--accent); }
+
+/* period chips, in the timeline bar: recent periods, then the seasons (colored underline) */
+.periods { display: flex; gap: 6px; align-items: center; margin-left: auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.periods::-webkit-scrollbar { display: none; }
+.seg, .season { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--chip); flex: none; }
+.seg button, .season button { border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--ink); font: 600 12.5px var(--f-body); padding: 6px 10px; cursor: pointer; white-space: nowrap; }
+.seg button:last-child, .season button:last-child { border-right: 0; }
+.season button { box-shadow: inset 0 -3px 0 var(--c, transparent); }
+.seg button[aria-pressed="true"], .season button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+/* fire situation filter: small pills in the bottom-right corner of the map */
+.sit { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); bottom: 12px; display: flex; flex-direction: column; gap: 4px; align-items: stretch; z-index: 2; }
+.sit button { display: grid; grid-template-columns: 18px auto auto; align-items: center; gap: 7px; border: 0; border-radius: 999px; background: rgba(12,12,12,.68); color: #f4efe8; padding: 5px 11px 5px 9px; cursor: pointer; font: 600 12px var(--f-body); backdrop-filter: blur(4px); text-align: left; }
+.sit button[aria-pressed="false"] { opacity: .55; }
+.sit button[aria-pressed="false"] b { text-decoration: line-through; }
+.sit i { display: block; height: 0; border-top: 3px solid var(--c); width: 18px; }
+.sit i.dash { border-top-style: dashed; }
+.sit .n { font: 600 12px var(--f-data); color: #fff; text-align: right; min-width: 3ch; }
+.sit .sub { display: none; }
+.defs p { position: relative; padding-left: 30px; font-size: 13px; margin: 0 0 6px; }
+.defs i { position: absolute; left: 0; top: 9px; width: 22px; height: 0; border-top: 3px solid var(--c); }
+.defs i.dash { border-top-style: dashed; }
+.psub { margin: 8px 0 0; font: 11.5px var(--f-data); color: var(--muted); }
+.kpis { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+.kpis b { font: 600 13px var(--f-data); color: var(--ink); }
+/* "my place" status, shown at the top of the summary */
+.mystatus { border-radius: 10px; padding: 11px 13px; font-size: 13.5px; background: #e6f4ea; color: #14532d; border: 1px solid #b7dfc3; }
+.mystatus.warn { background: var(--warn-bg); color: var(--warn-ink); border-color: #f2c39b; }
+.mystatus.baixo { background: #fdf6d8; color: #5c4a06; border-color: #ecd98a; }
+.mystatus.alto { background: #b42318; color: #fff; border-color: #8f1c13; }
+.mystatus.alto .btn { background: rgba(255,255,255,.95); color: #7a1209; border-color: transparent; }
+.mystatus.alto .dg-badge { background: #fff; color: #b42318; }
+.dg-badge { display: inline-block; font: 700 13px var(--f-body); letter-spacing: .04em; padding: 3px 10px; border-radius: 999px; background: rgba(0,0,0,.08); }
+.dg-main { margin: 8px 0 2px; font: 700 16px/1.3 var(--f-body); }
+.dg-time { margin: 6px 0 2px; font-size: 15px; }
+.dg-sub { margin: 4px 0 0; font-size: 12.5px; opacity: .9; }
+.dg-prop { margin-top: 8px; padding-top: 8px; border-top: 1px solid currentColor; border-top-color: color-mix(in srgb, currentColor 25%, transparent); font-size: 13px; }
+.dg-note { margin: 8px 0 0; font-size: 11.5px; opacity: .8; }
+.dg-msg { margin: 6px 0 0; font-size: 12.5px; font-weight: 600; }
+.dg-text { width: 100%; margin-top: 6px; font: 12px var(--f-data); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px; resize: vertical; }
+.dg-share .btn { text-decoration: none; display: inline-flex; align-items: center; }
+.dg-sharebtn { font-weight: 700; }
+.dg-risk { display: block; width: 100%; margin-top: 8px; font-weight: 700; text-align: left; }
+.lbl.risk { pointer-events: auto; cursor: pointer; border: 2px solid #fff; border-radius: 999px; padding: 2px 9px 3px; background: #c47d00; color: #fff; text-shadow: none; font: 700 12px var(--f-body);
+  transform: translate(-50%, calc(-100% - 8px)); box-shadow: 0 2px 8px rgba(0,0,0,.5); z-index: 3; animation: riskPulse 1.6s ease-in-out infinite; }
+.lbl.risk.alto { background: #d92d20; } .lbl.risk.atencao { background: #e37400; } .lbl.risk.baixo { background: #a87f00; }
+.lbl.risk::after { width: 10px; height: 10px; margin-left: -5px; bottom: -14px; background: #ff3b30; border: 2px solid #fff; }
+@keyframes riskPulse { 50% { box-shadow: 0 0 0 6px rgba(255,59,48,.25), 0 2px 8px rgba(0,0,0,.5); } }
+@media (prefers-reduced-motion: reduce) { .lbl.risk { animation: none; } }
+.dg-vals { display: flex; flex-direction: column; gap: 6px; }
+.dg-vals input { font: 14px var(--f-data); padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+.mystatus details.more > summary { color: inherit; }
+.mystatus details.more { color: inherit; }
+.mystatus b.t { display: block; font: 700 15px var(--f-body); margin-bottom: 2px; }
+.mystatus .row { margin-top: 8px; }
+.mystatus .btn { padding: 4px 9px; font-size: 12.5px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mystatus:not(.warn):not(.alto):not(.baixo) { background: #12301d; color: #bff0cd; border-color: #24553a; } }
+:root[data-theme="dark"] .mystatus:not(.warn):not(.alto):not(.baixo) { background: #12301d; color: #bff0cd; border-color: #24553a; }
+/* tabs at the top of the panel */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; background: var(--panel); margin: -6px -2px 0; padding-top: 4px; }
+.tabs button { flex: 1; border: 0; background: none; color: var(--muted); font: 600 13.5px var(--f-body); padding: 9px 4px 8px; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.pane { display: flex; flex-direction: column; gap: 18px; }
+.grab { display: none; }
+/* drought tab */
+.seca-now .big { font-family: var(--f-display); font-size: 40px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.seca-now .big small { font-size: 18px; margin-left: 3px; }
+.seca-now p { margin: 6px 0 0; font-size: 13.5px; }
+.seca-flag { display: inline-block; margin-top: 6px; font: 700 12.5px var(--f-body); padding: 3px 9px; border-radius: 999px; background: #b42318; color: #fff; }
+.seca-flag.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.seca-flag.ok { background: var(--chip); color: var(--ink); }
+.seca-chart { position: relative; height: 190px; margin-top: 10px; }
+.seca-chart canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.secamini { display: block; width: 100%; margin-top: 8px; text-align: left; border: 1px solid var(--line); border-left: 4px solid #3f86c6; border-radius: 8px; background: var(--bg); color: var(--ink); padding: 8px 10px; font: 13px var(--f-body); cursor: pointer; }
+.secamini b { font-weight: 700; }
+.lbl.gauge { pointer-events: auto; cursor: pointer; border: 0; border-radius: 999px; padding: 2px 8px 3px; background: var(--c); color: #fff; text-shadow: none; font: 700 11px var(--f-body);
+  transform: translate(-50%, calc(-100% - 6px)); box-shadow: 0 1px 6px rgba(0,0,0,.5); }
+.lbl.gauge::after { width: 8px; height: 8px; margin-left: -4px; bottom: -11px; background: var(--c); border: 2px solid #fff; }
+.pop .gv { margin: 2px 0 2px; font-size: 14px; }
+.pop .gv b { font-family: var(--f-display); font-size: 22px; }
+.pop .gchart { display: block; width: 100%; height: 96px; margin-top: 4px; }
+.kv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; font-size: 13px; }
+.kv span:nth-child(even) { font-family: var(--f-data); text-align: right; }
+
+.btn { border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 6px; padding: 7px 10px; cursor: pointer; font: 600 13.5px var(--f-body); }
+.btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.search { display: flex; gap: 6px; }
+.search input { flex: 1; min-width: 0; font: 14px var(--f-body); color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; }
+.near { margin-top: 8px; font-size: 13.5px; }
+.near .alert { background: var(--warn-bg); color: var(--warn-ink); border-radius: 6px; padding: 7px 9px; margin-top: 6px; font-weight: 600; }
+
+/* timeline: one row of controls and the chart (drag on it to move in time); can shrink to a thin bar */
+.tl-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.play { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--accent); color: #fff; font-size: 14px; cursor: pointer; flex: none; }
+.clock { font-family: var(--f-display); font-weight: 700; font-size: 23px; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; }
+.clock small { display: block; font: 10.5px var(--f-data); color: var(--muted); margin-top: 2px; }
+.speed { flex: none; border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 999px; font: 600 12px var(--f-data); padding: 5px 10px; cursor: pointer; white-space: nowrap; }
+.tl-toggle { flex: none; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; background: var(--chip); color: var(--ink); cursor: pointer; font-size: 14px; line-height: 1; }
+#slider { width: 100%; accent-color: var(--accent); margin: 0; display: none; }
+.chart-wrap { position: relative; height: 92px; }
+#chart { position: absolute; inset: 0; width: 100%; height: 100%; cursor: ew-resize; touch-action: none; }
+.chart-leg { margin: 0; font: 11px var(--f-data); color: var(--muted); }
+.chart-leg i { display: inline-block; width: 10px; height: 8px; margin: 0 4px 0 10px; vertical-align: 0; }
+.chart-leg i:first-child { margin-left: 0; }
+.timeline.min { padding-block: 8px; }
+.timeline.min .tl-body, .timeline.min .periods { display: none; }
+.timeline.min #slider { display: block; }
+.timeline.min .tl-row { gap: 12px; }
+select { font: 13.5px var(--f-body); color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+.play:focus-visible, select:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* panel controls */
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+.checks label { display: flex; align-items: center; gap: 6px; font-size: 13.5px; cursor: pointer; }
+.checks input { accent-color: var(--accent); }
+label.fl { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+label.fl select, label.fl input[type=range] { width: 100%; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font: 12px var(--f-data); color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; box-shadow: 0 0 6px currentColor; }
+.legend .sq { border-radius: 2px; box-shadow: none; }
+.legend .ln { width: 16px; height: 0; border-radius: 0; box-shadow: none; border-top: 2px solid; }
+
+.events { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.events button { width: 100%; text-align: left; background: none; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; cursor: pointer; color: var(--ink);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; font: inherit; }
+.events button:hover { background: var(--chip); }
+.events .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.events .km { font: 500 13px var(--f-data); color: var(--accent); font-variant-numeric: tabular-nums; }
+.events .dt { grid-column: 1 / -1; font: 11.5px var(--f-data); color: var(--muted); }
+
+.detail { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; padding: 11px 13px; background: var(--bg); }
+.detail h3 { font-family: var(--f-display); font-size: 21px; margin: 0 0 6px; line-height: 1.05; }
+.detail dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 12px; margin: 0; font-size: 13px; }
+.detail dt { color: var(--muted); } .detail dd { margin: 0; font: 12.5px var(--f-data); overflow-wrap: anywhere; }
+.push { margin: 8px 0 0; font-size: 13px; padding: 7px 9px; border-radius: 5px; background: var(--chip); }
+.empty { color: var(--muted); font-size: 13px; }
+.src { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+.src p { margin: 0 0 6px; } .src a { color: var(--muted); }
+
+/* overlays on the 3D view */
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.lbl { position: absolute; transform: translate(-50%, -100%); font: 600 12px var(--f-body); color: #fff; white-space: nowrap;
+  text-shadow: 0 1px 2px #000, 0 0 6px rgba(0,0,0,.8); padding-bottom: 5px; }
+.lbl::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: #fff; box-shadow: 0 0 3px #000; }
+.lbl.peak { font-style: italic; color: #fde3b5; }
+.lbl.ti { color: #e6c8ff; font-weight: 600; font-size: 11.5px; }
+.lbl.ti::after { display: none; }
+.lbl.pin { color: #fff; font-size: 12px; background: rgba(12,12,12,.78); padding: 2px 8px 3px; border-radius: 4px; text-shadow: none; transform: translate(-50%, calc(-100% - 14px)); z-index: 2; }
+.lbl.pin::after { width: 10px; height: 10px; margin-left: -5px; bottom: -19px; background: #ff7a2f; border: 2px solid #fff; }
+.lbl.vil { font-size: 11px; }
+.lbl.vil::after { width: 3px; height: 3px; margin-left: -1.5px; }
+.lbl.farm { font-size: 10.5px; font-weight: 500; color: #e2f5c4; }
+.lbl.farm::after { background: #c7e89a; }
+.lbl.road { transform: translate(-50%, -50%); padding: 0 4px 1px; font: 600 10.5px var(--f-body); background: rgba(20,18,14,.74); border-radius: 3px; text-shadow: none; }
+.lbl.road::after { display: none; }
+.lbl.road.br { background: #f2b33d; color: #1b1406; font-weight: 700; }
+.lbl.road.rr { background: #efe0a8; color: #1b1406; font-weight: 700; }
+.pop .where { font-size: 13px; margin: 0 0 8px; }
+.sel-ring { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(0,0,0,.7); pointer-events: none; }
+.topleft { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); left: max(12px, env(safe-area-inset-left, 0px)); width: min(360px, calc(100% - 150px)); display: flex; flex-direction: column; gap: 8px; z-index: 3; }
+.search.floating { background: var(--panel); border-radius: 10px; padding: 4px; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+.search.floating input { border: 0; background: transparent; font-size: 14.5px; padding: 7px 8px; }
+.search.floating .btn { border-radius: 7px; }
+.hud { pointer-events: none; }
+.hud-card { background: rgba(12, 12, 12, .62); color: #f4efe8; border-radius: 6px; padding: 7px 10px; font: 12px var(--f-data); backdrop-filter: blur(4px); }
+.hud-card b { font-family: var(--f-display); font-size: 17px; font-weight: 700; display: block; letter-spacing: .02em; }
+.tools { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); top: max(10px, env(safe-area-inset-top, 0px)); display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.compass { width: 44px; height: 44px; border-radius: 50%; background: rgba(12,12,12,.62); color: #fff; display: grid; place-items: center; font: 700 13px var(--f-display); cursor: pointer; border: 0; }
+.compass span { display: block; }
+.compass span::before { content: "▲"; display: block; font-size: 10px; color: #ff7a2f; line-height: 1; text-align: center; }
+.vbtn { border: 0; border-radius: 6px; background: rgba(12,12,12,.62); color: #fff; font: 600 12px var(--f-body); padding: 6px 9px; cursor: pointer; }
+.pickhint { position: absolute; left: 50%; top: max(12px, env(safe-area-inset-top, 0px)); transform: translateX(-50%); background: var(--accent); color: #fff; font: 600 13px var(--f-body); padding: 6px 12px; border-radius: 999px; pointer-events: none; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; font: 600 15px var(--f-body); color: var(--ink); background: linear-gradient(180deg, var(--sky-top), var(--sky-bot)); z-index: 5; text-align: center; padding: 16px; }
+.hint { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 10px; font: 11.5px var(--f-data); color: #f4efe8; background: rgba(12,12,12,.55); padding: 3px 8px; border-radius: 4px; pointer-events: none; }
+
+/* collapsible text: a small arrow opens the full explanation */
+details.more { font-size: 12.5px; color: var(--muted); }
+details.more > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font: 600 12px var(--f-body); color: var(--muted); padding: 2px 0; user-select: none; }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary::before { content: "▸"; display: inline-block; transition: transform .15s; }
+details.more[open] > summary::before { transform: rotate(90deg); }
+details.more > div { margin-top: 6px; line-height: 1.5; }
+details.more p { margin: 0 0 6px; }
+details.block { border-top: 1px solid var(--line); padding-top: 10px; }
+details.block > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-family: var(--f-display); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); }
+details.block > summary::-webkit-details-marker { display: none; }
+details.block > summary::after { content: "▸"; transition: transform .15s; font-size: 14px; }
+details.block[open] > summary::after { transform: rotate(90deg); }
+details.block > div { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+
+/* fine simulator */
+details.fine { margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; background: var(--bg); }
+details.fine > summary { font-size: 13px; color: var(--ink); }
+details.fine > div { display: flex; flex-direction: column; gap: 8px; }
+details.fine input[type=number] { font: 15px var(--f-data); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; }
+details.fine select { width: 100%; white-space: normal; }
+.ckline { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--ink); }
+.ckline input { accent-color: var(--accent); }
+.fineOut { background: var(--panel); border-radius: 6px; padding: 8px 10px; color: var(--ink); }
+.fineOut b { display: block; font-family: var(--f-display); font-size: 28px; line-height: 1.05; color: var(--accent); font-variant-numeric: tabular-nums; }
+.fineOut span { font: 12px var(--f-data); color: var(--muted); }
+
+/* "could it be illegal?" box and 2026 loss estimate */
+details.legal { margin: 6px 0 2px; }
+details.legal > summary { color: var(--ink); font-size: 13px; }
+details.legal ul { margin: 0; padding-left: 18px; color: var(--ink); font-size: 12.5px; }
+details.legal li { margin-bottom: 4px; }
+.verdict { font: 600 11.5px var(--f-body); padding: 2px 7px; border-radius: 999px; margin-left: 4px; background: var(--chip); color: var(--ink); }
+.verdict.strong { background: #b42318; color: #fff; }
+.verdict.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.loss b.big { display: block; font-family: var(--f-display); font-size: 32px; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.loss p { margin: 0 0 6px; font-size: 13.5px; }
+.loss .rows { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; font-size: 12.5px; }
+.loss .rows span:nth-child(even) { font-family: var(--f-data); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* collapsible sidebar: a tab on the right edge of the map */
+.app.collapsed { grid-template-columns: minmax(0, 1fr) 0; }
+.app.collapsed .panel { display: none; }
+.sidetab { position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 22px; height: 64px; border: 0; border-radius: 8px 0 0 8px;
+  background: var(--panel); color: var(--ink); box-shadow: -2px 0 10px rgba(0,0,0,.25); cursor: pointer; font-size: 16px; line-height: 1; padding: 0; z-index: 3; }
+.sidetab:hover { background: var(--chip); }
+
+/* info card over the map */
+.pop { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 12px; width: min(300px, calc(100% - 24px)); max-height: calc(100% - 80px); overflow-y: auto;
+  background: var(--panel); color: var(--ink); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.35); border-left: 4px solid var(--accent); padding: 12px 14px 10px; z-index: 4; }
+.pop h3 { font-family: var(--f-display); font-size: 22px; margin: 0 26px 2px 0; line-height: 1.05; }
+.pop .when { font: 12px var(--f-data); color: var(--muted); margin: 0 0 8px; }
+.pop dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 10px; margin: 0; font-size: 13px; }
+.pop dt { color: var(--muted); } .pop dd { margin: 0; overflow-wrap: anywhere; }
+.pop .x { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: var(--chip); color: var(--ink); cursor: pointer; font-size: 15px; line-height: 1; }
+.pop .tag { display: inline-block; font: 600 12px var(--f-body); padding: 3px 8px; border-radius: 999px; background: var(--chip); margin: 0 4px 6px 0; }
+.pop .tag.hot { background: var(--accent); color: #fff; }
+.pop .wind { margin: 8px 0 4px; font-size: 13px; padding: 6px 8px; border-radius: 6px; background: var(--chip); }
+
+/* phones: the map fills the screen and the panel is a drawer that slides up from the bottom (its tabs always visible) */
+@media (max-width: 880px) {
+  .app, .app.collapsed { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; padding-bottom: 54px; }
+  .panel, .app.collapsed .panel { position: fixed; left: 0; right: 0; bottom: 0; height: min(80vh, 680px); z-index: 10; display: flex; flex-direction: column; overflow: hidden;
+    border-left: 0; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; box-shadow: 0 -6px 24px rgba(0,0,0,.3);
+    transform: translateY(calc(100% - 54px)); transition: transform .25s ease; }
+  .panel.open { transform: none; }
+  .panel-in { flex: 1; overflow-y: auto; padding-top: 0; gap: 16px; padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); padding-bottom: max(20px, env(safe-area-inset-bottom, 0px)); }
+  .panel-in > header { order: 2; } .tabs { order: 1; margin: 0; } .pane { order: 3; }
+  h1 { font-size: 22px; }
+  .grab { display: block; flex: none; width: 100%; height: 14px; border: 0; background: var(--panel); cursor: pointer; padding: 6px 0 0; }
+  .grab span { display: block; width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 0 auto; }
+  .timeline { padding-right: max(14px, env(safe-area-inset-right, 0px)); padding-left: max(14px, env(safe-area-inset-left, 0px)); }
+  .tl-row { flex-wrap: wrap; gap: 8px; }
+  .periods { order: 5; flex: 1 0 100%; margin-left: 0; }
+  .clock { font-size: 20px; }
+  .hint, .sidetab { display: none; }
+  .topleft { width: calc(100% - 78px); }
+  .hud { display: none; } /* the weather is in the summary tab */
+  .sit { right: 8px; bottom: 8px; } .sit button { padding: 4px 9px 4px 8px; font-size: 11px; }
+  .pop { bottom: 8px; max-height: calc(100% - 130px); }
+}
+</style>
+
+<div class="app" id="app">
+  <main class="view" id="view">
+    <div class="labels" id="labels"></div>
+    <div class="sel-ring" id="selRing" hidden></div>
+    <div class="topleft">
+      <form class="search floating" id="searchForm" autocomplete="off" role="search">
+        <input id="searchIn" list="placesList" placeholder="Buscar vila, vicinal, município ou coordenada" aria-label="Buscar vila, vicinal, município, Terra Indígena, código do CAR ou coordenada GPS">
+        <button class="btn" type="submit" aria-label="Buscar">Ir</button>
+      </form>
+      <datalist id="placesList"></datalist>
+      <div class="hud"><div class="hud-card" id="hudWx"><b>Boa Vista</b>–</div></div>
+    </div>
+    <div class="tools">
+      <button class="compass" id="compass" title="Virar para o norte"><span id="needle">N</span></button>
+      <button class="vbtn" id="home">Estado todo</button>
+      <button class="vbtn" id="topView">Vista de cima</button>
+    </div>
+    <div class="sit" id="sit" role="group" aria-label="Situação dos incêndios do INPE: clique para mostrar ou esconder"></div>
+    <div class="pickhint" id="pickHint" hidden>Clique no mapa para marcar o local</div>
+    <div class="hint" id="hint">Clique num foco para ver detalhes</div>
+    <button class="sidetab" id="sideTab" aria-controls="panel" aria-expanded="true" title="Ocultar painel">›</button>
+    <div class="pop" id="pop" hidden role="dialog" aria-label="Detalhes da seleção">
+      <button class="x" id="popX" aria-label="Fechar">×</button>
+      <div id="popBody"></div>
+    </div>
+    <div class="loading" id="loading">Carregando relevo, imagem e focos de Roraima…</div>
+  </main>
+
+  <section class="timeline" id="timeline" aria-label="Linha do tempo">
+    <div class="tl-row">
+      <button class="play" id="play" aria-label="Reproduzir">▶</button>
+      <div class="clock" id="clock">–<small>horário de Roraima</small></div>
+      <button class="speed" id="speed" title="Velocidade da animação">1 dia/s</button>
+      <div class="periods" id="periods" role="group" aria-label="Período">
+        <div class="seg" id="pRecent"></div>
+        <div class="season" id="pSeason"></div>
+      </div>
+      <button class="tl-toggle" id="tlToggle" aria-expanded="true" title="Esconder o gráfico">▾</button>
+    </div>
+    <input type="range" id="slider" min="0" max="100" step="30" value="100" aria-label="Momento no tempo">
+    <div class="tl-body" id="tlBody">
+      <div class="chart-wrap"><canvas id="chart" tabindex="0" aria-label="Locais com fogo, chuva e umidade ao longo do período. Arraste ou use as setas para mudar o momento."></canvas></div>
+      <p class="chart-leg" id="chartLeg"></p>
+    </div>
+  </section>
+
+  <aside class="panel" id="panel">
+    <button class="grab" id="grab" aria-label="Abrir ou fechar o painel"><span></span></button>
+    <div class="panel-in">
+      <header>
+        <h1>Fogo em <span>Roraima</span> 3D</h1>
+        <p class="sub" id="updated"></p>
+      </header>
+
+      <nav class="tabs" role="tablist" aria-label="Seções do painel">
+        <button role="tab" id="tab-resumo" aria-controls="pane-resumo" aria-selected="true">Resumo</button>
+        <button role="tab" id="tab-local" aria-controls="pane-local" aria-selected="false">Meu local</button>
+        <button role="tab" id="tab-seca" aria-controls="pane-seca" aria-selected="false">Seca</button>
+        <button role="tab" id="tab-mapa" aria-controls="pane-mapa" aria-selected="false">Mapa</button>
+        <button role="tab" id="tab-dados" aria-controls="pane-dados" aria-selected="false">Dados</button>
+      </nav>
+
+      <!-- RESUMO -->
+      <div class="pane" id="pane-resumo" role="tabpanel" aria-labelledby="tab-resumo">
+        <div class="mystatus" id="myStatus" hidden></div>
+        <section class="sec" aria-live="polite">
+          <div class="summary" id="summary"></div>
+          <button class="secamini" id="secaMini" hidden></button>
+          <p class="kpis"><span><b id="stArea">–</b> com fogo no período</span><span><b id="stRain">–</b> de chuva em 24 h</span></p>
+          <span hidden><b id="stPlaces"></b><span id="stPlacesLbl"></span></span>
+          <p class="psub" id="pSub"></p>
+        </section>
+        <section class="sec">
+          <h2 id="evTitle">Maiores incêndios</h2>
+          <ul class="events" id="events"></ul>
+        </section>
+      </div>
+
+      <!-- MEU LOCAL -->
+      <div class="pane" id="pane-local" role="tabpanel" aria-labelledby="tab-local" hidden>
+        <section class="sec">
+          <h2>Minha propriedade ou local</h2>
+          <div class="mystatus" id="danger" hidden style="margin-bottom:10px"></div>
+          <p class="note" style="margin:0 0 8px">Marque no mapa, use o GPS ou digite as coordenadas na busca do mapa. O local fica salvo <b>só neste aparelho</b> e o mapa avisa ao abrir se há fogo perto.</p>
+          <div class="row">
+            <button class="btn" id="pickBtn" aria-pressed="false">Marcar no mapa</button>
+            <button class="btn" id="gpsBtn" hidden>Usar meu GPS</button>
+            <select id="radius" aria-label="Raio"><option value="1">1 km</option><option value="2">2 km</option><option value="5">5 km</option><option value="10" selected>10 km</option><option value="20">20 km</option><option value="50">50 km</option></select>
+            <button class="btn" id="pinClear" hidden>Remover local</button>
+          </div>
+          <p class="note" id="gpsMsg" hidden></p>
+          <div class="near" id="near"></div>
+          <details class="more fine" id="fineBox" hidden>
+            <summary>Simular multa</summary>
+            <div>
+              <label class="fl" for="fineHa">Área queimada (hectares)
+                <input id="fineHa" type="number" min="0" step="1" inputmode="decimal"></label>
+              <p class="note" id="fineHaNote" style="margin:0"></p>
+              <label class="fl" for="fineType">Tipo de infração
+                <select id="fineType">
+                  <option value="3000">Queimada em pasto ou roça sem autorização · R$ 3.000/ha (art. 58)</option>
+                  <option value="10000">Incêndio em floresta ou vegetação nativa · R$ 10.000/ha (art. 58-A)</option>
+                  <option value="5000">Incêndio em floresta plantada · R$ 5.000/ha (art. 58-B)</option>
+                </select></label>
+              <label class="ckline"><input type="checkbox" id="fineTi"> Atingiu Terra Indígena (multa em dobro)</label>
+              <div class="fineOut" id="fineOut"></div>
+              <details class="more"><summary>Base legal e limites da simulação</summary><div>
+                <p>Valores do Decreto 6.514/2008, com a redação do Decreto 12.189/2024: art. 58 (uso de fogo em área agropastoril sem autorização), art. 58-A (incêndio em floresta ou vegetação nativa) e art. 58-B (floresta plantada), por hectare <b>ou fração</b> — por isso a área é arredondada para cima. O art. 60, II manda aplicar em dobro quando a infração afeta Terra Indígena.</p>
+                <p>Há ainda o art. 58-C (deixar de prevenir e combater incêndios na propriedade): R$ 5 mil a R$ 10 milhões, valor que depende do fiscal e não entra aqui.</p>
+                <p>É uma <b>simulação educativa</b>, não um parecer jurídico. A multa real depende de fiscalização, de autorização de queima, de quem provocou o fogo, de laudo e de defesa. A área vem de satélite (quadrados de 375 m) e o círculo não é o limite da propriedade: se souber a área real, digite-a acima.</p>
+              </div></details>
+            </div>
+          </details>
+        </section>
+        <details class="more"><summary>Como buscar um local</summary><div>
+          <p>Na busca do mapa (no alto, à esquerda), digite o nome de uma vila, comunidade, fazenda, vicinal (ex.: “Vicinal 10”), rodovia (ex.: “BR-174”), município, Terra Indígena ou código do CAR.</p>
+          <p>Para achar sua propriedade, cole as <b>coordenadas do GPS</b> do celular, por exemplo <b>2.8235, -60.6758</b> ou 2°49'25"N 60°40'33"O.</p>
+        </div></details>
+      </div>
+
+      <!-- SECA -->
+      <div class="pane" id="pane-seca" role="tabpanel" aria-labelledby="tab-seca" hidden>
+        <section class="sec">
+          <h2>Rio Branco em Boa Vista</h2>
+          <div class="seca-now" id="secaNow"><p class="note">Carregando dados da ANA…</p></div>
+          <div class="seca-chart"><canvas id="secaChart" aria-label="Nível do Rio Branco neste ano comparado com todos os anos desde 1967"></canvas></div>
+          <p class="chart-leg" id="secaLeg"></p>
+          <details class="more"><summary>Como ler o nível do rio</summary><div>
+            <p>O número é a <b>altura na régua</b> da estação da ANA no Rio Branco em Boa Vista, não a profundidade do rio. Por isso pode ficar negativo: a água desceu abaixo do zero da régua.</p>
+            <p>O gráfico vai de agosto a julho. O rio enche até junho e julho e seca até fevereiro e março. A faixa cinza mostra o que aconteceu em todos os anos desde 1967; a faixa mais escura, 8 em cada 10 anos.</p>
+          </div></details>
+        </section>
+        <section class="sec">
+          <h2>Rios de Roraima agora</h2>
+          <p class="note" id="riverSum" style="margin:0 0 6px"></p>
+          <ul class="events" id="riverList"></ul>
+          <p class="note">Cada régua da ANA comparada com todos os anos anteriores na mesma data. No mapa, clique num rio ou num ponto 💧 para ver os detalhes.</p>
+        </section>
+        <section class="sec">
+          <h2>Chuva e dias sem chuva</h2>
+          <div id="secaRain"></div>
+        </section>
+        <section class="sec">
+          <h2>Seca e fogo</h2>
+          <p class="note" style="margin:0">Com o rio baixo e sem chuva, o lavrado e o pasto secam e o fogo se espalha mais rápido. Em secas fortes, como 2015/16 e 2023/24, o fogo em Roraima aumentou muito. Abastecimento de água, gado, lavouras, pesca e transporte pelo rio também sofrem.</p>
+        </section>
+        <p class="note">Fontes: nível do rio da <a href="https://www.snirh.gov.br/hidroweb/" target="_blank" rel="noopener">ANA</a> (estação 14620000, série desde 1967 e telemetria a cada 15 min); chuva do Open-Meteo (modelo); dias sem chuva do INPE. <span id="secaUpd"></span></p>
+      </div>
+
+      <!-- MAPA -->
+      <div class="pane" id="pane-mapa" role="tabpanel" aria-labelledby="tab-mapa" hidden>
+        <section class="sec">
+          <h2>Camadas</h2>
+          <label class="fl" for="base">Fundo do mapa
+            <select id="base"><option value="sat">Imagem de satélite (2025, sem nuvens)</option><option value="lc">Tipo de vegetação (MODIS 2023)</option><option value="none">Só relevo</option></select></label>
+          <div class="checks" style="margin-top:10px">
+            <label><input type="checkbox" id="lyFire" checked> Focos</label>
+            <label><input type="checkbox" id="lyPer" checked> Contornos</label>
+            <label><input type="checkbox" id="lyInpe" checked> Eventos do INPE</label>
+            <label><input type="checkbox" id="lyScar" checked> Cicatrizes</label>
+            <label><input type="checkbox" id="lyTI" checked> Terras Indígenas</label>
+            <label><input type="checkbox" id="lyMun"> Municípios</label>
+            <label><input type="checkbox" id="lyCar"> Imóveis rurais (CAR)</label>
+            <label><input type="checkbox" id="lyDeter"> Desmatamento (DETER)</label>
+            <label><input type="checkbox" id="lyWind" checked> Vento</label>
+            <label><input type="checkbox" id="lyLbl" checked> Nomes</label>
+            <label><input type="checkbox" id="lyRios" checked> Rios</label>
+          </div>
+          <label class="fl" for="roads" style="margin-top:10px">Estradas
+            <select id="roads"><option value="off">Não mostrar</option><option value="main">Só rodovias (BR e RR)</option><option value="all">Todas, com vicinais e ramais</option></select></label>
+          <p class="note" id="roadsNote" hidden>Nas cidades aparecem só as avenidas principais; no interior, todas as estradas, vicinais e ramais. Aproxime o mapa para ver os nomes.</p>
+        </section>
+        <section class="sec">
+          <h2>Situação dos incêndios (INPE)</h2>
+          <p class="psub" id="sitDay" style="margin:0 0 6px"></p>
+          <div class="defs">
+            <p><i style="--c:#ff4a2a"></i><b>Queimando:</b> o satélite viu fogo no evento neste dia.</p>
+            <p><i class="dash" style="--c:#ffb347"></i><b>Em observação:</b> o fogo parou há 1 a 7 dias. O INPE continua vigiando porque pode voltar; o satélite não vê fogo pequeno, sob nuvem ou brasa.</p>
+            <p><i style="--c:#c8c8c8"></i><b>Apagados:</b> sem fogo há mais de 7 dias. A área queimada continua marcada até 60 dias. Só uma vistoria confirma que o fogo acabou.</p>
+          </div>
+          <p class="note">Os botões no canto do mapa mostram ou escondem cada situação.</p>
+        </section>
+        <details class="block">
+          <summary>Legenda</summary>
+          <div>
+          <div class="legend" id="legendFire">
+            <span style="color:#ff4d1f"><i style="background:#ff4d1f"></i>fogo fraco</span>
+            <span style="color:#ff8c1a"><i style="background:#ff8c1a"></i>médio</span>
+            <span style="color:#ffd23f"><i style="background:#ffd23f"></i>forte</span>
+            <span style="color:#fff3b0"><i style="background:#fff3b0"></i>muito forte</span>
+            <span><i class="ln" style="color:#ff6a1f"></i>incêndio ativo (até 29/09)</span>
+            <span><i class="ln" style="color:#f2c38f"></i>incêndio apagado (até 29/09)</span>
+            <span><i class="ln" style="color:#ff4a2a"></i>INPE: queimando</span>
+            <span><i class="ln" style="color:#ffb347;border-top-style:dashed"></i>INPE: em observação</span>
+            <span><i class="ln" style="color:#c8c8c8"></i>INPE: apagado</span>
+            <span><i class="ln" style="color:#d8a4ff"></i>Terra Indígena</span>
+            <span><i class="ln" style="color:#5eead4"></i>imóvel rural (CAR) com fogo</span>
+            <span><i class="ln" style="color:#ff5c7a"></i>desmatamento recente (DETER)</span>
+            <span><i class="ln" style="color:#5fb4ff"></i>rio (forte: rio largo ou principal, barreira para o fogo)</span>
+            <span><i class="ln" style="color:#f2b33d"></i>rodovia federal</span>
+            <span><i class="ln" style="color:#efe0a8"></i>rodovia estadual ou avenida</span>
+            <span><i class="ln" style="color:#ffffff"></i>vicinal ou rua</span>
+            <span><i class="ln" style="color:#c9a77a"></i>estrada de terra ou ramal</span>
+            <span><i class="sq" style="background:#5a1a0a"></i>queimou nas últimas 24 h</span>
+            <span><i class="sq" style="background:#241a16"></i>queimou há até 60 dias (clareia com o tempo)</span>
+          </div>
+          <div class="legend" id="legendLc" hidden></div>
+          <details class="more"><summary>O que é um foco?</summary><div>
+            <p>Um <b>foco de calor</b> é um local mais quente que o normal visto por satélite. Quase sempre é fogo, mas não é um incêndio confirmado.</p>
+            <p>Um <b>local com fogo</b> é um quadrado de cerca de 2 km com pelo menos um foco. Assim, o mesmo fogo visto várias vezes pelo satélite GOES conta uma vez só.</p>
+            <p>A intensidade vem da potência do fogo medida pelo satélite (FRP): fraco &lt; 10 MW, médio 10–50, forte 50–200, muito forte ≥ 200.</p>
+            <p>As <b>cicatrizes</b> (manchas escuras) são a área estimada que pegou fogo: cada foco VIIRS pinta um quadrado de 375 m, mais escuro quanto mais recente, até 60 dias.</p>
+          </div></details>
+          </div>
+        </details>
+        <details class="block">
+          <summary>Mais opções</summary>
+          <div>
+          <div class="row2">
+            <label class="fl" for="mode">Satélites
+              <select id="mode"><option value="0">Todos</option><option value="1">Só VIIRS (375 m)</option><option value="2">Referência INPE (AQUA)</option></select></label>
+            <label class="fl" for="win">Mostrar detecções das últimas
+              <select id="win"><option value="720">12 horas</option><option value="1440" selected>24 horas</option><option value="4320">3 dias</option><option value="10080">7 dias</option></select></label>
+          </div>
+          <label class="fl" for="exag">Exagero do relevo: <span id="exagV">3×</span>
+            <input type="range" id="exag" min="1" max="12" step="0.5" value="3"></label>
+          <div class="checks"><label><input type="checkbox" id="lyLight"> Modo leve</label></div>
+          <p class="note" id="lightNote" style="margin:0">Modo leve: menos relevo e animação, para celulares simples.</p>
+          </div>
+        </details>
+      </div>
+
+      <!-- DADOS -->
+      <div class="pane" id="pane-dados" role="tabpanel" aria-labelledby="tab-dados" hidden>
+        <section class="sec">
+          <h2>Prejuízo estimado em 2026</h2>
+          <div id="loss"></div>
+        </section>
+        <details class="block">
+          <summary>Como a área é calculada</summary>
+          <div class="src" style="border:0;padding:0">
+            <p>Até 29/09, focos VIIRS a menos de 1,2 km e 48 h uns dos outros formam um incêndio, e a área soma os quadrados de 375 m com foco. A partir de 30/09, os incêndios, contornos e áreas são os eventos oficiais do INPE.</p>
+            <p>É uma aproximação: pode exagerar em focos espalhados e não vê o que queimou sob nuvem. Não substitui produtos oficiais de área queimada (INPE AQ1km, MapBiomas Fogo).</p>
+          </div>
+        </details>
+        <details class="block" open>
+          <summary>Fontes</summary>
+          <div class="src" style="border:0;padding:0">
+          <p><b>Fontes.</b> Focos: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>. Terras Indígenas: <a href="https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas" target="_blank" rel="noopener">FUNAI</a>. Municípios e limite estadual: IBGE. Imóveis rurais: <a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">SICAR</a> (CAR, dados públicos, sem nome de dono). Desmatamento: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE DETER</a>. Eventos de fogo oficiais (contorno, tipo e uso da terra): <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">INPE, Evento de Fogo</a>; o INPE lista só os eventos ativos ou em observação, então o mapa guarda cada atualização para formar o histórico a partir de 30/09/2026. Estradas, rios, vilas e fazendas: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© colaboradores do OpenStreetMap</a> (ODbL); o mapa colaborativo pode ter falhas ou estradas faltando. Vegetação: MODIS Land Cover (IGBP) 2023, NASA GIBS. Relevo: Terrarium/Mapzen (SRTM). Imagem: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2025 by EOX IT Services GmbH</a> (dados Copernicus Sentinel modificados, CC BY-NC-SA 4.0). Vento, umidade, temperatura e chuva: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (modelo, não estação).</p>
+          <p>Unidades de conservação ficaram de fora: o serviço do MMA consultado trazia nomes trocados com os desenhos.</p>
+          <p>Projeto de extensão · UERR.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(async function () {
+  const $ = id => document.getElementById(id);
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const fmt = (n, d = 0) => n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const DIRS = ['norte', 'nordeste', 'leste', 'sudeste', 'sul', 'sudoeste', 'oeste', 'noroeste'];
+  const dirName = deg => DIRS[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
+  const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const TZ = -4; // Roraima (UTC-4)
+  let LIGHT = false;
+  try { const v = localStorage.getItem('rr3d-light'); LIGHT = v === null ? (matchMedia('(max-width: 880px)').matches || (navigator.deviceMemory || 8) <= 4) : v === '1'; } catch (e) { LIGHT = matchMedia('(max-width: 880px)').matches; }
+  $('lyLight').checked = LIGHT;
+
+  // ---------- load
+  let D, hImg, tImg, lcImg;
+  const riosP = fetch('rios.json').then(r => r.ok ? r.json() : null).catch(() => null);
+  const secaP = fetch('seca.json').then(r => r.ok ? r.json() : null).catch(() => null);
+  const inpeP = fetch('eventos_inpe.json').then(r => r.ok ? r.json() : null).catch(() => null);
+  const roadsP = fetch('estradas.json').then(r => r.ok ? r.json() : null).catch(() => null);
+  try {
+    const load = src => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error(src)); i.src = src; });
+    [D, hImg, tImg, lcImg] = await Promise.all([fetch('roraima3d.json').then(r => { if (!r.ok) throw new Error('dados'); return r.json(); }), load('relevo.png'), load('imagem.jpg'), load('cobertura.png')]);
+  } catch (e) { $('loading').textContent = 'Não foi possível carregar os dados (' + e.message + '). Recarregue a página.'; return; }
+
+  const [W, S, E, N] = D.meta.bbox, [GW, GH] = D.meta.grid;
+  const cLon = (W + E) / 2, cLat = (S + N) / 2;
+  const KX = 111.32 * Math.cos(cLat * Math.PI / 180), KZ = 110.57;
+  const WKM = (E - W) * KX, HKM = (N - S) * KZ;
+  const toX = lon => (lon - cLon) * KX, toZ = lat => (cLat - lat) * KZ;
+  const T0 = Date.parse(D.meta.t0.replace('Z', ':00Z'));
+  const minOf = (y, m, d) => (Date.UTC(y, m - 1, d, -TZ) - T0) / 60000; // local midnight
+  const loc = t => new Date(T0 + t * 60000 + TZ * 3600000);
+  const two = n => String(n).padStart(2, '0');
+  const fmtD = t => { const d = loc(t); return two(d.getUTCDate()) + '/' + two(d.getUTCMonth() + 1); };
+  const fmtH = t => { const d = loc(t); return two(d.getUTCHours()) + 'h' + (d.getUTCMinutes() ? two(d.getUTCMinutes()) : ''); };
+  const fmtT = t => fmtD(t) + ' às ' + fmtH(t);
+  const distKm = (lo1, la1, lo2, la2) => Math.hypot((lo2 - lo1) * 111.32 * Math.cos((la1 + la2) / 2 * Math.PI / 180), (la2 - la1) * 110.57);
+  const bearing = (lo1, la1, lo2, la2) => (Math.atan2((lo2 - lo1) * Math.cos((la1 + la2) / 2 * Math.PI / 180), la2 - la1) * 180 / Math.PI + 360) % 360;
+
+  // elevation grid
+  const hc = document.createElement('canvas'); hc.width = GW; hc.height = GH;
+  const hx = hc.getContext('2d'); hx.drawImage(hImg, 0, 0);
+  const px = hx.getImageData(0, 0, GW, GH).data, elev = new Float32Array(GW * GH);
+  for (let i = 0; i < GW * GH; i++) elev[i] = px[i * 4] * 256 + px[i * 4 + 1];
+  function elevAt(lon, lat) {
+    let gx = (lon - W) / (E - W) * (GW - 1), gy = (N - lat) / (N - S) * (GH - 1);
+    gx = Math.max(0, Math.min(GW - 1.001, gx)); gy = Math.max(0, Math.min(GH - 1.001, gy));
+    const x0 = gx | 0, y0 = gy | 0, fx = gx - x0, fy = gy - y0, i = y0 * GW + x0;
+    return elev[i] * (1 - fx) * (1 - fy) + elev[i + 1] * fx * (1 - fy) + elev[i + GW] * (1 - fx) * fy + elev[i + GW + 1] * fx * fy;
+  }
+  let exag = 3;
+  const yAt = (lon, lat) => elevAt(lon, lat) / 1000 * exag;
+
+  // ---------- three.js scene
+  const view = $('view');
+  const renderer = new THREE.WebGLRenderer({ antialias: !LIGHT, alpha: true });
+  renderer.setPixelRatio(LIGHT ? 1 : Math.min(window.devicePixelRatio || 1, 2));
+  renderer.domElement.className = 'gl';
+  view.insertBefore(renderer.domElement, view.firstChild);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(36, 1, 0.5, 6000);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 6; controls.maxDistance = 1800;
+  controls.screenSpacePanning = false;
+  function orbitPose(x, z, dist, az, pol) {
+    return { pos: new THREE.Vector3(x + dist * Math.sin(pol) * Math.sin(az), dist * Math.cos(pol), z + dist * Math.sin(pol) * Math.cos(az)), tgt: new THREE.Vector3(x, 0, z) };
+  }
+  const HOME = orbitPose(toX(-60.9), toZ(2.3), 640, 0.18, 0.92);
+  camera.position.copy(HOME.pos); controls.target.copy(HOME.tgt);
+
+  // terrain
+  const SEG_X = LIGHT ? 200 : 409, SEG_Z = LIGHT ? 230 : 470;
+  const geo = new THREE.PlaneGeometry(WKM, HKM, SEG_X, SEG_Z); geo.rotateX(-Math.PI / 2);
+  const gpos = geo.attributes.position, vLon = new Float32Array(gpos.count), vLat = new Float32Array(gpos.count);
+  for (let i = 0; i < gpos.count; i++) { vLon[i] = cLon + gpos.getX(i) / KX; vLat[i] = cLat - gpos.getZ(i) / KZ; }
+  function applyExag() { for (let i = 0; i < gpos.count; i++) gpos.setY(i, yAt(vLon[i], vLat[i])); gpos.needsUpdate = true; geo.computeVertexNormals(); geo.computeBoundingSphere(); }
+  applyExag();
+  const mkTex = img => { const t = new THREE.Texture(img); t.needsUpdate = true; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t; };
+  const texImg = mkTex(tImg), texLc = mkTex(lcImg);
+  texLc.magFilter = THREE.NearestFilter;
+  const burnCanvas = document.createElement('canvas'); burnCanvas.width = LIGHT ? 1024 : 1536; burnCanvas.height = Math.round(burnCanvas.width * HKM / WKM);
+  const bx = burnCanvas.getContext('2d');
+  const texBurn = new THREE.CanvasTexture(burnCanvas);
+  const terrainMat = new THREE.ShaderMaterial({
+    uniforms: { uMap: { value: texImg }, uBurn: { value: texBurn }, uMapOn: { value: 1 }, uBurnOn: { value: 1 }, uPlain: { value: new THREE.Color(css('--plain')) } },
+    vertexShader: `varying vec2 vUv; varying vec3 vN; void main(){ vUv = uv; vN = normal; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform sampler2D uMap; uniform sampler2D uBurn; uniform float uMapOn; uniform float uBurnOn; uniform vec3 uPlain;
+      varying vec2 vUv; varying vec3 vN;
+      void main(){
+        vec3 base = mix(uPlain, texture2D(uMap, vUv).rgb, uMapOn);
+        vec4 b = texture2D(uBurn, vUv); base = mix(base, b.rgb, b.a * uBurnOn);
+        vec3 n = normalize(vN); vec3 L = normalize(vec3(-0.55, 0.75, -0.40));
+        float l = 0.42 + 0.85 * max(dot(n, L), 0.0) + 0.10 * (1.0 - n.y);
+        gl_FragColor = vec4(base * l, 1.0);
+      }`
+  });
+  const terrain = new THREE.Mesh(geo, terrainMat); scene.add(terrain);
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(WKM, 6, HKM), new THREE.MeshBasicMaterial({ color: 0x2a231d })); slab.position.y = -3.02; scene.add(slab);
+
+  // ---------- draped lines (state border, TIs, municipalities, highlight, nearby circle)
+  function drapeSegments(rings, step, cb) {
+    for (const ring of rings) for (let k = 0; k + 1 < ring.length; k++) {
+      const [a0, b0] = ring[k], [a1, b1] = ring[k + 1];
+      const len = Math.hypot((a1 - a0) * KX, (b1 - b0) * KZ), n = Math.max(1, Math.ceil(len / step));
+      for (let j = 0; j < n; j++) cb(a0 + (a1 - a0) * j / n, b0 + (b1 - b0) * j / n, a0 + (a1 - a0) * (j + 1) / n, b0 + (b1 - b0) * (j + 1) / n);
+    }
+  }
+  const flatToRing = r => { const out = []; for (let j = 0; j < r.length; j += 2) out.push([r[j], r[j + 1]]); return out; };
+  const draped = [];
+  function makeDraped(rings, color, opacity, lift, step, dash) {
+    const ll = []; drapeSegments(rings, step || 1.5, (a, b, c, d) => ll.push(a, b, c, d));
+    const pos = new Float32Array(ll.length / 2 * 3), g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const mat = dash ? new THREE.LineDashedMaterial({ color, transparent: true, opacity, depthWrite: false, dashSize: dash, gapSize: dash * 0.8 })
+      : new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false });
+    const obj = new THREE.LineSegments(g, mat);
+    obj.frustumCulled = false; scene.add(obj);
+    const d = { obj, ll, pos, lift, place() { for (let k = 0; k < ll.length / 2; k++) { const lon = ll[k * 2], lat = ll[k * 2 + 1]; pos[k * 3] = toX(lon); pos[k * 3 + 1] = yAt(lon, lat) + lift; pos[k * 3 + 2] = toZ(lat); } g.attributes.position.needsUpdate = true; if (dash) obj.computeLineDistances(); } };
+    d.place(); draped.push(d); return d;
+  }
+  function removeDraped(d) { if (!d) return; scene.remove(d.obj); d.obj.geometry.dispose(); const i = draped.indexOf(d); if (i >= 0) draped.splice(i, 1); }
+  makeDraped([D.rr], 0xfad678, 0.9, 0.4);
+  const tiLines = makeDraped(D.tis.flatMap(t => t.r.map(flatToRing)), 0xd8a4ff, 0.85, 0.35, 1.2);
+  const munLines = makeDraped(D.munis.flatMap(m => m.r.map(flatToRing)), 0xffffff, 0.4, 0.3, 1.5); munLines.obj.visible = false;
+  // rural properties with fire (CAR) and deforestation alerts (DETER): drawn on first use
+  const CAR = D.car || [], DET = D.deter || [];
+  let carLayer = null, deterLayer = null, carSel = null;
+  const CAR_TIPO = { IRU: 'Imóvel rural', AST: 'Assentamento', PCT: 'Povos e comunidades tradicionais' };
+  const carBox = CAR.map(c => { let a = 1e9, b = -1e9, y0 = 1e9, y1 = -1e9; c.r.forEach(r => { for (let j = 0; j < r.length; j += 2) { a = Math.min(a, r[j]); b = Math.max(b, r[j]); y0 = Math.min(y0, r[j + 1]); y1 = Math.max(y1, r[j + 1]); } }); return [a, y0, b, y1]; });
+
+  // ---------- fires
+  const F = D.fires, NF = F.t.length, refSat = D.sats.indexOf('AQUA_M-T');
+  const geoSat = new Set(['GOES-19', 'GOES-16', 'MSG-03', 'MSG-04'].map(s => D.sats.indexOf(s)).filter(i => i >= 0));
+  const fPos = new Float32Array(NF * 3), fTime = new Float32Array(NF), fFrp = new Float32Array(NF), fKind = new Float32Array(NF), fGeo = new Float32Array(NF);
+  const fCell = new Int32Array(NF);
+  for (let i = 0; i < NF; i++) {
+    fTime[i] = F.t[i]; fFrp[i] = F.f[i] < 0 ? 5 : F.f[i];
+    fKind[i] = F.v[i] ? 0 : (F.s[i] === refSat ? 1 : 2); fGeo[i] = geoSat.has(F.s[i]) ? 1 : 0;
+    fCell[i] = Math.round(F.lat[i] / 0.018) * 100000 + Math.round(F.lon[i] / 0.018);
+  }
+  const fireGeo = new THREE.BufferGeometry();
+  fireGeo.setAttribute('position', new THREE.BufferAttribute(fPos, 3));
+  fireGeo.setAttribute('aTime', new THREE.BufferAttribute(fTime, 1));
+  fireGeo.setAttribute('aFrp', new THREE.BufferAttribute(fFrp, 1));
+  fireGeo.setAttribute('aKind', new THREE.BufferAttribute(fKind, 1));
+  fireGeo.setAttribute('aGeo', new THREE.BufferAttribute(fGeo, 1));
+  function placeFires() {
+    for (let i = 0; i < NF; i++) { fPos[i * 3] = toX(F.lon[i]); fPos[i * 3 + 1] = yAt(F.lon[i], F.lat[i]) + 0.5; fPos[i * 3 + 2] = toZ(F.lat[i]); }
+    fireGeo.attributes.position.needsUpdate = true;
+  }
+  const fireMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uWin: { value: 1440 }, uMode: { value: 0 }, uScale: { value: 1500 } },
+    vertexShader: `attribute float aTime; attribute float aFrp; attribute float aKind; attribute float aGeo;
+      uniform float uTime; uniform float uWin; uniform float uMode; uniform float uScale;
+      varying float vI; varying vec3 vC; varying float vG;
+      void main(){
+        float age = uTime - aTime;
+        bool vis = age >= 0.0 && age <= uWin;
+        if (uMode > 0.5 && uMode < 1.5 && aKind > 0.5) vis = false;
+        if (uMode > 1.5 && abs(aKind - 1.0) > 0.5) vis = false;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        if (!vis) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vI = 0.0; vC = vec3(0.0); vG = 0.0; return; }
+        gl_Position = projectionMatrix * mv;
+        vI = 1.0 - age / uWin; vG = aGeo;
+        float f = max(aFrp, 1.0);
+        vC = f < 10.0 ? vec3(1.0, 0.30, 0.12) : f < 50.0 ? vec3(1.0, 0.55, 0.10) : f < 200.0 ? vec3(1.0, 0.82, 0.25) : vec3(1.0, 0.95, 0.69);
+        float fresh = smoothstep(0.0, 1.0, vI);
+        gl_PointSize = clamp((3.0 + 2.2 * log(f)) * (0.4 + 0.6 * fresh) * (1.0 - 0.35 * aGeo) * uScale / -mv.z, 4.0, 22.0);
+      }`,
+    fragmentShader: `varying float vI; varying vec3 vC; varying float vG;
+      void main(){
+        float d = length(gl_PointCoord - 0.5) * 2.0; if (d > 1.0) discard;
+        float core = smoothstep(0.34, 0.0, d); float glow = pow(1.0 - d, 2.0);
+        vec3 col = vC * glow + vec3(1.0, 0.96, 0.85) * core * 0.9;
+        gl_FragColor = vec4(col, (glow * 0.9 + core) * (0.35 + 0.65 * vI) * (1.0 - 0.45 * vG));
+      }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  const firePts = new THREE.Points(fireGeo, fireMat); firePts.frustumCulled = false; scene.add(firePts);
+
+  // ---------- perimeters
+  const perLL = [], perFrom = [], perTo = [], perEnd = [];
+  D.events.forEach(ev => {
+    ev.snaps.forEach((sn, k) => {
+      const to = k + 1 < ev.snaps.length ? ev.snaps[k + 1].t : 1e9;
+      drapeSegments(sn.rings.map(flatToRing), 0.5, (a, b, c, d) => { perLL.push(a, b, c, d); for (let q = 0; q < 2; q++) { perFrom.push(sn.t); perTo.push(to); perEnd.push(ev.end); } });
+    });
+  });
+  const NPV = perLL.length / 2, perPos = new Float32Array(NPV * 3);
+  const perGeo = new THREE.BufferGeometry();
+  perGeo.setAttribute('position', new THREE.BufferAttribute(perPos, 3));
+  perGeo.setAttribute('aFrom', new THREE.BufferAttribute(Float32Array.from(perFrom), 1));
+  perGeo.setAttribute('aTo', new THREE.BufferAttribute(Float32Array.from(perTo), 1));
+  perGeo.setAttribute('aEnd', new THREE.BufferAttribute(Float32Array.from(perEnd), 1));
+  const perMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uPStart: { value: 0 }, uCut: { value: 1e12 } },
+    vertexShader: `attribute float aFrom; attribute float aTo; attribute float aEnd; uniform float uTime; uniform float uPStart; uniform float uCut;
+      varying float vA; varying float vOk;
+      void main(){
+        // hide 60 days after the last fire, like the scars; from uCut on, the official INPE contours are drawn instead
+        vOk = (uTime >= aFrom && uTime < aTo && uTime - aEnd < 86400.0 && uTime < uCut) ? 1.0 : 0.0;
+        vA = (uTime - aEnd) < 2880.0 ? 1.0 : 0.0;
+        gl_Position = vOk > 0.5 ? projectionMatrix * modelViewMatrix * vec4(position, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
+      }`,
+    fragmentShader: `varying float vA; varying float vOk;
+      void main(){ if (vOk < 0.5) discard; gl_FragColor = vA > 0.5 ? vec4(1.0, 0.42, 0.12, 1.0) : vec4(0.95, 0.77, 0.56, 0.75); }`,
+    transparent: true, depthWrite: false
+  });
+  const perLines = new THREE.LineSegments(perGeo, perMat); perLines.frustumCulled = false; scene.add(perLines);
+  function placePerims() {
+    for (let k = 0; k < NPV; k++) { const lon = perLL[k * 2], lat = perLL[k * 2 + 1]; perPos[k * 3] = toX(lon); perPos[k * 3 + 1] = yAt(lon, lat) + 0.3; perPos[k * 3 + 2] = toZ(lat); }
+    perGeo.attributes.position.needsUpdate = true;
+  }
+  function placeAll() { placeFires(); placePerims(); draped.forEach(d => d.place()); }
+  placeAll();
+
+  // burned cells (VIIRS)
+  const cellFirst = new Map();
+  for (let i = 0; i < NF; i++) if (F.v[i]) {
+    const k = Math.round(F.lat[i] / 0.003375) * 100000 + Math.round(F.lon[i] / 0.003375);
+    const c = cellFirst.get(k); if (!c || c.t > F.t[i]) cellFirst.set(k, { t: F.t[i], lat: F.lat[i], lon: F.lon[i] });
+  }
+  const cells = [...cellFirst.values()].sort((a, b) => a.t - b.t);
+  const cellTimes = Float64Array.from(cells, c => c.t);
+  const cellsUpTo = t => { let lo = 0, hi = cellTimes.length; while (lo < hi) { const m = (lo + hi) >> 1; if (cellTimes[m] <= t) lo = m + 1; else hi = m; } return lo; };
+  const cellPx = Math.max(2, 0.375 * burnCanvas.width / WKM * 1.3);
+  // scars: everything that burned in the 60 days before the current moment, fading with age
+  // (a burned patch of lavrado regrows in a few weeks; contours of finished fires follow the same rule)
+  const SCAR_MIN = 60 * 1440;
+  let burnKey = -1, lastPaint = 0;
+  function paintBurn(t, force) {
+    const key = Math.floor(t / 60); if (key === burnKey) return;
+    const now = performance.now(); if (!force && st.playing && now - lastPaint < 150) return;
+    burnKey = key; lastPaint = now;
+    bx.clearRect(0, 0, burnCanvas.width, burnCanvas.height);
+    for (let k = cellsUpTo(t - SCAR_MIN), n = cellsUpTo(t); k < n; k++) {
+      const c = cells[k], age = t - c.t;
+      if (age < 1440) { bx.globalAlpha = 0.92; bx.fillStyle = '#5a1a0a'; } else { bx.globalAlpha = 0.85 - 0.55 * age / SCAR_MIN; bx.fillStyle = '#241a16'; }
+      bx.fillRect((c.lon - W) / (E - W) * burnCanvas.width - cellPx / 2, (N - c.lat) / (N - S) * burnCanvas.height - cellPx / 2, cellPx, cellPx);
+    }
+    bx.globalAlpha = 1;
+    texBurn.needsUpdate = true;
+  }
+
+  // ---------- weather (grid every 3 h)
+  const Wx = D.weather, P = Wx.cols * Wx.rows, NS = Wx.n, STEP = Wx.stepMin;
+  const U = new Float32Array(NS * P), V = new Float32Array(NS * P), RH = new Float32Array(NS * P), TC = new Float32Array(NS * P), PR = new Float32Array(NS * P);
+  for (let h = 0; h < NS; h++) for (let p = 0; p < P; p++) {
+    const sp = Wx.ws[h][p] / 10 / 3.6, dir = Wx.wd[h][p] * Math.PI / 180;
+    U[h * P + p] = -sp * Math.sin(dir); V[h * P + p] = -sp * Math.cos(dir);
+    RH[h * P + p] = Wx.rh[h][p]; TC[h * P + p] = Wx.tc[h][p] / 10; PR[h * P + p] = (Wx.pr ? Wx.pr[h][p] : 0) / 10;
+  }
+  const rhMean = new Float32Array(NS), prMean = new Float32Array(NS);
+  for (let h = 0; h < NS; h++) { let s = 0, r = 0; for (let p = 0; p < P; p++) { s += RH[h * P + p]; r += PR[h * P + p]; } rhMean[h] = s / P; prMean[h] = r / P; }
+  function gridIdx(lon, lat) {
+    const gx = Math.max(0, Math.min(Wx.cols - 1.001, (lon - Wx.lons[0]) / (Wx.lons[1] - Wx.lons[0])));
+    const gy = Math.max(0, Math.min(Wx.rows - 1.001, (Wx.lats[0] - lat) / (Wx.lats[0] - Wx.lats[1])));
+    const x0 = gx | 0, y0 = gy | 0; return [x0, y0, gx - x0, gy - y0];
+  }
+  function sampleArr(arr, h, lon, lat) {
+    const [x0, y0, fx, fy] = gridIdx(lon, lat), b = h * P, i = y0 * Wx.cols + x0;
+    return arr[b + i] * (1 - fx) * (1 - fy) + arr[b + i + 1] * fx * (1 - fy) + arr[b + i + Wx.cols] * (1 - fx) * fy + arr[b + i + Wx.cols + 1] * fx * fy;
+  }
+  function windAt(lon, lat, sf) {
+    const h0 = Math.max(0, Math.min(NS - 1, Math.floor(sf))), h1 = Math.min(NS - 1, h0 + 1), f = Math.max(0, Math.min(1, sf - h0));
+    return [sampleArr(U, h0, lon, lat) * (1 - f) + sampleArr(U, h1, lon, lat) * f, sampleArr(V, h0, lon, lat) * (1 - f) + sampleArr(V, h1, lon, lat) * f];
+  }
+  function wxAt(lon, lat, tMin) {
+    const sf = tMin / STEP, [u, v] = windAt(lon, lat, sf), sp = Math.hypot(u, v) * 3.6;
+    const from = (Math.atan2(-u, -v) * 180 / Math.PI + 360) % 360, hi = Math.max(0, Math.min(NS - 1, Math.floor(sf)));
+    let rain = 0; for (let k = 0; k < 8 && hi - k >= 0; k++) rain += sampleArr(PR, hi - k, lon, lat);
+    return { sp, from, to: (from + 180) % 360, rh: sampleArr(RH, hi, lon, lat), tc: sampleArr(TC, hi, lon, lat), rain };
+  }
+  const rainTxt = mm => mm < 0.2 ? 'sem chuva' : fmt(mm, mm < 10 ? 1 : 0) + ' mm de chuva';
+
+  // wind particles
+  const NP = LIGHT ? 600 : 2400, pLon = new Float32Array(NP), pLat = new Float32Array(NP), pLife = new Float32Array(NP);
+  const windPos = new Float32Array(NP * 6), windGeo = new THREE.BufferGeometry();
+  windGeo.setAttribute('position', new THREE.BufferAttribute(windPos, 3));
+  const windLines = new THREE.LineSegments(windGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false }));
+  windLines.frustumCulled = false; scene.add(windLines);
+  const respawn = i => { pLon[i] = W + Math.random() * (E - W); pLat[i] = S + Math.random() * (N - S); pLife[i] = 60 + Math.random() * 160; };
+  for (let i = 0; i < NP; i++) { respawn(i); pLife[i] *= Math.random(); }
+  function stepWind(sf) {
+    for (let i = 0; i < NP; i++) {
+      const [u, v] = windAt(pLon[i], pLat[i], sf), dx = u * 0.22, dz = v * 0.22;
+      pLon[i] += dx / KX; pLat[i] += dz / KZ; pLife[i]--;
+      if (pLife[i] <= 0 || pLon[i] < W || pLon[i] > E || pLat[i] < S || pLat[i] > N) respawn(i);
+      const x = toX(pLon[i]), z = toZ(pLat[i]), y = yAt(pLon[i], pLat[i]) + 1.2, tl = 7;
+      windPos[i * 6] = x; windPos[i * 6 + 1] = y; windPos[i * 6 + 2] = z;
+      windPos[i * 6 + 3] = x - dx * tl; windPos[i * 6 + 4] = y; windPos[i * 6 + 5] = z + dz * tl;
+    }
+    windGeo.attributes.position.needsUpdate = true;
+  }
+
+  // ---------- labels
+  const PLACES = [['Boa Vista', 2.8235, -60.6758], ['Bonfim', 3.3616, -59.8333], ['Normandia', 3.8853, -59.6204], ['Pacaraima', 4.4797, -61.1477],
+    ['Uiramutã', 4.6031, -60.1815], ['Cantá', 2.6099, -60.6058], ['Alto Alegre', 2.9886, -61.3089], ['Amajari', 3.6455, -61.3692],
+    ['Mucajaí', 2.4398, -60.9097], ['Iracema', 2.1833, -61.0415], ['Caracaraí', 1.8159, -61.1278], ['Rorainópolis', 0.9454, -60.4183],
+    ['São João da Baliza', 0.9515, -59.9113], ['Caroebe', 0.8842, -59.6959], ['São Luiz', 1.0103, -60.0418],
+    ['Monte Roraima · 2.810 m', 5.1433, -60.7625, 'peak'], ['Serra do Tepequém', 3.76, -61.72, 'peak']];
+  const bigTis = D.tis.map((t, i) => [i, t.r.reduce((s, r) => s + r.length, 0)]).sort((a, b) => b[1] - a[1]).slice(0, 4).map(x => D.tis[x[0]]);
+  bigTis.forEach(t => PLACES.push(['TI ' + t.nome, t.c[1], t.c[0], 'ti']));
+  const lblEls = PLACES.map(p => { const el = document.createElement('div'); el.className = 'lbl' + (p[3] ? ' ' + p[3] : ''); el.textContent = p[0]; $('labels').appendChild(el); return el; });
+  const pinEl = document.createElement('div'); pinEl.className = 'lbl pin'; pinEl.hidden = true; $('labels').appendChild(pinEl);
+  const tmpV = new THREE.Vector3();
+
+  // ---------- periods
+  const TLAST = Math.ceil((D.meta.lastFire + 1) / 60) * 60;
+  const lastL = loc(D.meta.lastFire);
+  const yesterdayFrom = (Date.UTC(lastL.getUTCFullYear(), lastL.getUTCMonth(), lastL.getUTCDate() - 1, -TZ) - T0) / 60000;
+  $('updated').textContent = 'Dados do INPE até ' + fmtD(D.meta.lastFire) + ' às ' + fmtH(D.meta.lastFire) + ' · horário de Roraima';
+  // recent periods end now and start at the end; seasons start at their busiest day
+  const PERIODS = [
+    { group: 'recent', name: 'Agora', long: 'Últimas 6 horas', from: Math.max(0, TLAST - 360), to: TLAST, startAtEnd: true },
+    { group: 'recent', name: 'Ontem e hoje', long: 'Ontem e hoje', from: yesterdayFrom, to: TLAST, startAtEnd: true },
+    { group: 'recent', name: '7 dias', long: 'Últimos 7 dias', from: Math.max(0, TLAST - 7 * 1440), to: TLAST, startAtEnd: true },
+    { group: 'recent', name: '30 dias', long: 'Últimos 30 dias', from: Math.max(0, TLAST - 30 * 1440), to: TLAST, startAtEnd: true },
+    { group: 'season', name: 'Seca', sub: 'dez – abr', long: 'Seca 2025/26', color: '#d08a2e', w: 5, from: 0, to: minOf(2026, 5, 1) },
+    { group: 'season', name: 'Chuvas', sub: 'mai – set', long: 'Chuvas 2026', color: '#3f86c6', w: 5, from: minOf(2026, 5, 1), to: minOf(2026, 10, 1) },
+    { group: 'season', name: 'Nova seca', sub: 'out – hoje', long: 'Nova seca 2026', color: '#d9542b', w: 4, from: minOf(2026, 10, 1), to: TLAST },
+    { group: 'season', name: 'Ano todo', sub: 'dez/25 até hoje', long: 'Ano todo', all: true, from: 0, to: TLAST }
+  ];
+  PERIODS.forEach(p => { p.short = p.name; p.name = p.long; }); // titles elsewhere (chart, lists) use the long name
+  let period = PERIODS[1];
+
+  // ---------- state & helpers
+  const st = { t: 0, playing: false, speed: 24, win: 1440, mode: 0, sel: null, pin: null, picking: false };
+  const slider = $('slider');
+  const visibleKind = i => st.mode === 0 || (st.mode === 1 && fKind[i] === 0) || (st.mode === 2 && fKind[i] === 1);
+  const firstAt = x => { let lo = 0, hi = NF; while (lo < hi) { const m = (lo + hi) >> 1; if (F.t[m] < x) lo = m + 1; else hi = m; } return lo; };
+  function windowIdx() { const out = []; for (let i = firstAt(st.t - st.win), e = firstAt(st.t + 1); i < e; i++) if (visibleKind(i)) out.push(i); return out; }
+  const winTxt = () => st.win >= 1440 ? (st.win === 1440 ? 'nas últimas 24 h' : 'nos últimos ' + st.win / 1440 + ' dias') : 'nas últimas ' + st.win / 60 + ' h';
+
+  let lastUi = 0;
+  function setTime(t, force) {
+    st.t = Math.max(period.from, Math.min(period.to, t));
+    fireMat.uniforms.uTime.value = st.t; perMat.uniforms.uTime.value = st.t;
+    paintBurn(st.t, force); drawInpe();
+    const now = performance.now();
+    if (force || now - lastUi > 120) { lastUi = now; updateUi(); }
+  }
+  function updateUi() {
+    const d = loc(st.t);
+    $('clock').innerHTML = two(d.getUTCDate()) + ' ' + MESES[d.getUTCMonth()] + ' ' + d.getUTCFullYear() + ' · ' + two(d.getUTCHours()) + 'h<small>horário de Roraima</small>';
+    slider.value = st.t;
+    const idx = windowIdx();
+    const places = new Set(idx.map(i => fCell[i]));
+    $('stPlaces').textContent = fmt(places.size);
+    $('stPlacesLbl').textContent = 'locais com fogo ' + winTxt();
+    $('stPlaces').title = fmt(idx.length) + ' detecções de satélite';
+    $('stArea').textContent = fmt((cellsUpTo(st.t) - cellsUpTo(period.from - 1)) * 0.1406, 0) + ' km²';
+    const h = Math.max(0, Math.min(NS - 1, Math.floor(st.t / STEP)));
+    let r24 = 0; for (let k = 0; k < 8 && h - k >= 0; k++) r24 += prMean[h - k];
+    $('stRain').textContent = fmt(r24, 1) + ' mm';
+    const w = wxAt(-60.67, 2.82, st.t);
+    $('hudWx').innerHTML = '<b>Boa Vista</b>vento de ' + dirName(w.from) + ' ' + fmt(w.sp) + ' km/h · ' + fmt(w.rh) + '% umidade · ' + fmt(w.tc, 0) + ' °C';
+    renderSummary(idx, places, w);
+    renderNear();
+    drawChart();
+  }
+
+  // ---------- plain-language summary
+  function renderSummary(idx, places, w) {
+    const el = $('summary');
+    const byMun = new Map(), byTi = new Map(), byLc = new Map(), seen = new Set();
+    let inTi = 0;
+    for (const i of idx) {
+      if (seen.has(fCell[i])) continue; seen.add(fCell[i]);
+      byMun.set(F.m[i], (byMun.get(F.m[i]) || 0) + 1);
+      byLc.set(F.c[i], (byLc.get(F.c[i]) || 0) + 1);
+      if (F.ti[i] >= 0) { inTi++; byTi.set(F.ti[i], (byTi.get(F.ti[i]) || 0) + 1); }
+    }
+    const n = places.size, wasOpen = el.querySelector('details[open]') !== null;
+    const head = '<p><b class="big">' + fmt(n) + '</b> locais com fogo ' + winTxt() + '</p>';
+    const clima = 'Em Boa Vista: vento de ' + dirName(w.from) + ' a ' + fmt(w.sp) + ' km/h, umidade ' + fmt(w.rh) + '%, ' + rainTxt(w.rain) + ' em 24 h.' + (w.rh < 40 ? ' Ar seco favorece o fogo.' : '');
+    if (!n) { el.innerHTML = head + '<details class="more"' + (wasOpen ? ' open' : '') + '><summary>Ver mais</summary><div><p>' + clima + '</p></div></details>'; return; }
+    const top = [...byMun].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m, c]) => D.muns[m] + ' (' + c + ')');
+    const lcTop = [...byLc].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([c, v]) => D.lc[c].toLowerCase() + ' (' + Math.round(v / n * 100) + '%)');
+    const tiTop = [...byTi].sort((a, b) => b[1] - a[1])[0];
+    el.innerHTML = head + '<p>Mais em ' + top.slice(0, 2).join(' e ') + '.</p>' +
+      '<details class="more"' + (wasOpen ? ' open' : '') + '><summary>Ver mais</summary><div>' +
+      (top[2] ? '<p>Depois: ' + top[2] + '.</p>' : '') +
+      '<p>' + Math.round(inTi / n * 100) + '% em Terras Indígenas' + (tiTop ? ', principalmente ' + D.tis[tiTop[0]].nome : '') + '.</p>' +
+      '<p>Vegetação: ' + lcTop.join(' e ') + '.</p><p>' + clima + '</p></div></details>';
+  }
+
+  // ---------- nearby tool
+  let circle = null;
+  // the marked place is "my place": kept only in this browser, so the map can warn about fire near it when it opens
+  const saveLocal = () => { try { localStorage.setItem('rr3d-local', JSON.stringify(st.pin ? { lon: st.pin.lon, lat: st.pin.lat, label: st.pin.label, R: +$('radius').value } : null)); } catch (e) {} };
+  function setPin(lon, lat, label) {
+    st.pin = { lon, lat, label: label || 'Meu local' };
+    pinEl.textContent = st.pin.label; pinEl.hidden = false;
+    $('pinClear').hidden = false; $('fineBox').hidden = false;
+    ['fineHa', 'fineType', 'fineTi'].forEach(id => delete $(id).dataset.user); // new place: fill the simulator again
+    drawCircle(); renderNear(); saveLocal(); renderMyStatus();
+  }
+  function stopPicking() { st.picking = false; $('pickBtn').setAttribute('aria-pressed', false); $('pickHint').hidden = true; view.classList.remove('picking'); }
+  function clearPin() {
+    st.pin = null; pinEl.hidden = true; removeDraped(circle); circle = null;
+    $('near').innerHTML = ''; $('pinClear').hidden = true; $('fineBox').hidden = true; stopPicking();
+    saveLocal(); renderMyStatus();
+  }
+  // ---------- rivers (OpenStreetMap): wide rivers and long named rivers act as barriers to a ground fire
+  const RV = { ok: false, G: 0.05, segs: [], grid: new Map(), psegs: [], pgrid: new Map(), names: [], lines: [], areas: [], layers: [] };
+  function initRios(J) {
+    if (!J) return;
+    const [ox, oy] = J.origin, q = J.q, dec = fl => { let x = fl[0], y = fl[1]; const pts = [[ox + x / q, oy + y / q]]; for (let k = 2; k < fl.length; k += 2) { x += fl[k]; y += fl[k + 1]; pts.push([ox + x / q, oy + y / q]); } return pts; };
+    RV.names = J.names;
+    RV.lines = J.lines.map(l => ({ major: l[0], n: l[1], pts: dec(l.slice(2)) }));
+    RV.areas = J.areas.map(a => ({ n: a[0], pts: dec(a.slice(1)) }));
+    const add = (pts, n) => { for (let k = 0; k + 1 < pts.length; k++) {
+      const s = RV.segs.length; RV.segs.push([pts[k], pts[k + 1], n]);
+      const [a0, b0] = pts[k], [a1, b1] = pts[k + 1];
+      for (let gx = Math.floor(Math.min(a0, a1) / RV.G); gx <= Math.floor(Math.max(a0, a1) / RV.G); gx++)
+        for (let gy = Math.floor(Math.min(b0, b1) / RV.G); gy <= Math.floor(Math.max(b0, b1) / RV.G); gy++) { const key = gx * 10000 + gy; let l = RV.grid.get(key); if (!l) RV.grid.set(key, l = []); l.push(s); }
+    } };
+    RV.areas.forEach(a => add(a.pts, a.n)); RV.lines.forEach(l => { if (l.major) add(l.pts, l.n); });
+    // every river segment, for clicking on a river
+    const addP = (pts, n) => { for (let k = 0; k + 1 < pts.length; k++) {
+      const s = RV.psegs.length; RV.psegs.push([pts[k], pts[k + 1], n]);
+      const [a0, b0] = pts[k], [a1, b1] = pts[k + 1];
+      for (let gx = Math.floor(Math.min(a0, a1) / RV.G); gx <= Math.floor(Math.max(a0, a1) / RV.G); gx++)
+        for (let gy = Math.floor(Math.min(b0, b1) / RV.G); gy <= Math.floor(Math.max(b0, b1) / RV.G); gy++) { const key = gx * 10000 + gy; let l = RV.pgrid.get(key); if (!l) RV.pgrid.set(key, l = []); l.push(s); }
+    } };
+    RV.lines.forEach(l => addP(l.pts, l.n)); RV.areas.forEach(a => addP(a.pts, a.n));
+    RV.ok = true; drawRios();
+    if (st.pin) renderMyStatus();
+  }
+  function drawRios() {
+    const on = $('lyRios').checked;
+    if (on && !RV.layers.length && RV.ok) {
+      const mk = (rings, op) => { const d = makeDraped(rings, 0x5fb4ff, op, 0.26, 0.6); d.obj.renderOrder = 1; RV.layers.push(d); };
+      mk(RV.lines.filter(l => !l.major).map(l => l.pts), 0.35);
+      mk(RV.lines.filter(l => l.major).map(l => l.pts).concat(RV.areas.map(a => a.pts)), 0.9);
+    }
+    RV.layers.forEach(d => d.obj.visible = on);
+    gaugeEls.forEach(el => el.dataset.off = on ? '' : '1');
+  }
+  $('lyRios').onchange = drawRios;
+  // nearest river to a clicked point, within tol km
+  function riverAt(lon, lat, tol) {
+    if (!RV.ok) return null;
+    const G = RV.G, gr = Math.ceil(tol / (G * 110)), gx0 = Math.floor(lon / G), gy0 = Math.floor(lat / G); let best = null;
+    for (let gx = gx0 - gr; gx <= gx0 + gr; gx++) for (let gy = gy0 - gr; gy <= gy0 + gr; gy++) {
+      const l = RV.pgrid.get(gx * 10000 + gy); if (!l) continue;
+      for (const s of l) { const g = RV.psegs[s], d = segKm(lon, lat, g[0], g[1]); if (d <= tol && (!best || d < best.d)) best = { d, n: g[2] }; }
+    }
+    return best;
+  }
+
+  // ---------- water risk: ANA river gauges (level against every past year on the same date)
+  const RISK = { critico: ['Risco hídrico crítico', '#d92d20'], baixo: ['Abaixo do normal', '#e37400'], normal: ['Normal para a data', '#3f86c6'], alto: ['Acima do normal', '#2e7d32'] };
+  const nrm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  let GAUGES = [], gaugeEls = [];
+  function initGauges(J) {
+    GAUGES = (J && J.stations) || [];
+    gaugeEls = GAUGES.map((g, k) => {
+      const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl gauge';
+      el.style.setProperty('--c', g.noData ? '#888' : RISK[g.risk][1]);
+      el.textContent = g.noData ? '💧 sem dado' : '💧 ' + cmTxt(g.last.cm);
+      el.title = g.river + ' em ' + g.name + (g.noData ? ': sem leitura recente' : ': ' + RISK[g.risk][0].toLowerCase()) + '. Clique para ver.';
+      el.onclick = () => { st.sel = { kind: 'gauge', k }; showDetail(); };
+      el.dataset.off = $('lyRios').checked ? '' : '1';
+      $('labels').appendChild(el); return el;
+    });
+    renderRiverList();
+  }
+  // 30-day rain near a point (Open-Meteo grid), in mm
+  function rain30(lon, lat) {
+    const Wx = D.weather; let r = 0, c = 0, bd = 1e9;
+    Wx.lats.forEach((la, i) => Wx.lons.forEach((lo, j) => { const d = Math.hypot(la - lat, lo - lon); if (d < bd) { bd = d; c = i * Wx.cols + j; } }));
+    const sN = Math.min(Wx.n - 1, Math.floor(TLAST / STEP));
+    for (let s = Math.max(0, sN - 239); s <= sN; s++) r += Wx.pr[s][c] / 10;
+    return r;
+  }
+  const RISK_TXT = {
+    critico: 'Pouca água para a época. Atenção à água para casas, comunidades e gado, à irrigação e à pesca (peixes presos em poços). Barcos podem encalhar. O rio costuma baixar ainda mais até fevereiro e março.',
+    baixo: 'Menos água que o normal para a época. Vale economizar água e planejar a água do gado para os próximos meses.',
+    normal: 'O nível está dentro do normal para a época do ano.', alto: 'Mais água que o normal para a época do ano.'
+  };
+  function gaugeCard(k) {
+    const g = GAUGES[k];
+    if (g.noData) { showCard('<h3>' + esc(g.river) + ' · ' + esc(g.name) + '</h3><p class="when">Régua da ANA</p><p>Esta estação está sem leitura recente.</p>'); return; }
+    const v = g.last.cm, dayLbl = isoBr(addDays(SECA_HY0 || '2026-08-01', g.day)), ch = (a, n) => a == null ? '' : (v - a <= 0 ? '−' : '+') + fmt(Math.abs(v - a), 0) + ' cm em ' + n + ' dias';
+    const lt = g.last.t ? g.last.t.slice(8, 10) + '/' + g.last.t.slice(5, 7) + ' às ' + g.last.t.slice(11, 16) : '';
+    const where = g.rank === 1 ? 'O mais baixo para ' + dayLbl + ' desde ' + g.firstYear : g.rank <= 3 ? 'Entre os 3 mais baixos para ' + dayLbl + ' desde ' + g.firstYear : 'Mais baixo que em ' + fmt(100 - g.pct) + '% dos anos para ' + dayLbl;
+    showCard('<h3>' + esc(g.river) + ' · ' + esc(g.name) + '</h3><p class="when">Régua da ANA ' + g.code + (lt ? ' · leitura ' + lt : '') + '</p>' +
+      '<span class="tag" style="background:' + RISK[g.risk][1] + ';color:#fff">' + RISK[g.risk][0] + '</span>' +
+      '<p class="gv"><b>' + cmTxt(v) + '</b> na régua · normal para a data: <b>' + cmTxt(g.med) + '</b></p>' +
+      '<p class="note" style="margin:0 0 4px">' + [where, ch(g.d7, 7), ch(g.d30, 30)].filter(Boolean).join(' · ') + '.</p>' +
+      '<canvas class="gchart" id="gChart" aria-label="Nível deste ano comparado com o normal"></canvas>' +
+      '<p class="chart-leg"><i style="background:var(--accent)"></i>este ano<i style="border-top:1.5px dashed var(--muted);height:0;width:14px"></i>normal<i style="background:var(--ink);opacity:.2"></i>8 em cada 10 anos</p>' +
+      '<p style="margin:6px 0 0;font-size:13px">' + RISK_TXT[g.risk] + '</p>' +
+      '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([['Recorde de seca', cmTxt(g.record.cm) + ' em ' + isoDate(g.record.date)], ['Anos com dados', g.nYears + ' (desde ' + g.firstYear + ')'],
+        ['Chuva em 30 dias aqui', fmt(rain30(g.lon, g.lat), 0) + ' mm (modelo)']]) +
+      '<p style="margin-top:6px">O número é a altura na régua, não a profundidade do rio: pode ficar negativo. O ano vai de agosto a julho; o rio costuma estar mais baixo em fevereiro e março.</p></div></details>');
+    drawGauge(g);
+  }
+  let SECA_HY0 = null;
+  function drawGauge(g) {
+    const cv = $('gChart'); if (!cv) return;
+    const r = cv.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2); if (!r.width) return;
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const vals = g.band.p90.concat(g.band.p10, g.cur).filter(v => v != null), lo = Math.min(...vals), hi = Math.max(...vals);
+    const L = 4, T = 6, w = r.width - 8, h = r.height - 18, X = i => L + i / 365 * w, Y = v => T + (1 - (v - lo) / Math.max(1, hi - lo)) * h;
+    c.fillStyle = css('--ink'); c.globalAlpha = 0.15; c.beginPath(); let s0 = false;
+    for (let i = 0; i < 366; i++) if (g.band.p90[i] != null) { s0 ? c.lineTo(X(i), Y(g.band.p90[i])) : (c.moveTo(X(i), Y(g.band.p90[i])), s0 = true); }
+    for (let i = 365; i >= 0; i--) if (g.band.p10[i] != null) c.lineTo(X(i), Y(g.band.p10[i])); c.fill(); c.globalAlpha = 1;
+    const path = (a, col, wd, dash) => { c.beginPath(); let on = false; a.forEach((v, i) => { if (v == null) { on = false; return; } on ? c.lineTo(X(i), Y(v)) : (c.moveTo(X(i), Y(v)), on = true); }); c.strokeStyle = col; c.lineWidth = wd; c.setLineDash(dash || []); c.stroke(); c.setLineDash([]); };
+    path(g.band.med, css('--muted'), 1.2, [4, 3]); path(g.cur, css('--accent'), 2.4);
+    c.fillStyle = css('--muted'); c.font = '10px ' + css('--f-data'); c.textAlign = 'center';
+    ['ago', 'out', 'dez', 'fev', 'abr', 'jun'].forEach((m, k) => c.fillText(m, X([0, 61, 122, 184, 243, 304][k] + 15), T + h + 13));
+  }
+  function riverCard(name, lon, lat) {
+    const nn = nrm(name), on = GAUGES.map((g, k) => [g, k]).filter(([g]) => name && nn.includes(nrm(g.river)));
+    const pick1 = arr => arr.sort((a, b) => distKm(lon, lat, a[0].lon, a[0].lat) - distKm(lon, lat, b[0].lon, b[0].lat))[0];
+    const same = on.length ? pick1(on) : null;
+    if (same) { st.sel = { kind: 'gauge', k: same[1], from: { name, d: distKm(lon, lat, same[0].lon, same[0].lat) } }; gaugeCard(same[1]);
+      const d = st.sel.from.d; if (d > 3) $('popBody').querySelector('.when').insertAdjacentHTML('afterend', '<p class="note" style="margin:0 0 6px">Régua mais perto neste rio, a ' + kmTxt(d) + ' de onde você clicou.</p>'); return; }
+    const near = pick1(GAUGES.map((g, k) => [g, k]).filter(([g]) => !g.noData));
+    const r30 = rain30(lon, lat);
+    showCard('<h3>' + esc(name ? name.split(';')[0] : 'Rio sem nome no mapa') + '</h3><p class="when">Sem régua da ANA neste rio</p>' +
+      '<p style="margin:0 0 6px;font-size:13px">Chuva nos últimos 30 dias aqui: <b>' + fmt(r30, 0) + ' mm</b>' + (r30 < 30 ? ' — muito pouca: rios e igarapés pequenos podem secar.' : r30 < 80 ? ' — abaixo do que costuma chover na época chuvosa.' : '.') + '</p>' +
+      (near ? '<p style="margin:0;font-size:13px">Régua mais perto: <b>' + esc(near[0].river) + ' em ' + esc(near[0].name) + '</b> (' + kmTxt(distKm(lon, lat, near[0].lon, near[0].lat)) + '): <span style="color:' + RISK[near[0].risk][1] + ';font-weight:700">' + RISK[near[0].risk][0].toLowerCase() + '</span>.</p><button class="btn" id="goGauge" style="margin-top:8px">Ver essa régua</button>' : '') +
+      '<p class="note">A chuva vem de modelo de previsão (Open-Meteo), não de medição no rio.</p>');
+    if (near) $('goGauge').onclick = () => { st.sel = { kind: 'gauge', k: near[1] }; showDetail(); flyTo(orbitPose(toX(near[0].lon), toZ(near[0].lat), 40, 0.15, 0.8)); };
+  }
+  // list in the drought tab: every gauge, most critical first
+  function renderRiverList() {
+    const ord = { critico: 0, baixo: 1, normal: 2, alto: 3 }, ul = $('riverList'); if (!ul) return;
+    const list = GAUGES.map((g, k) => [g, k]).filter(([g]) => !g.noData).sort((a, b) => ord[a[0].risk] - ord[b[0].risk] || a[0].pct - b[0].pct);
+    ul.innerHTML = '';
+    list.forEach(([g, k]) => {
+      const li = document.createElement('li'), b = document.createElement('button');
+      b.innerHTML = '<span class="nm"></span><span class="km"></span><span class="dt"></span>';
+      b.querySelector('.nm').textContent = g.river + ' · ' + g.name;
+      b.querySelector('.km').textContent = cmTxt(g.last.cm); b.querySelector('.km').style.color = RISK[g.risk][1];
+      b.querySelector('.dt').textContent = RISK[g.risk][0] + (g.rank <= 3 ? ' · ' + g.rank + 'º mais baixo para a data' : ' · normal: ' + cmTxt(g.med));
+      b.onclick = () => { if (!$('lyRios').checked) { $('lyRios').checked = true; drawRios(); } if (isPhone()) setDrawer(false); st.sel = { kind: 'gauge', k }; showDetail(); flyTo(orbitPose(toX(g.lon), toZ(g.lat), 40, 0.15, 0.8)); };
+      li.appendChild(b); ul.appendChild(li);
+    });
+    const n = list.filter(([g]) => g.risk === 'critico').length;
+    $('riverSum').textContent = n ? n + ' de ' + list.length + ' réguas com risco hídrico crítico (entre os níveis mais baixos para a data).' : 'Nenhuma régua em situação crítica agora.';
+  }
+  const segX = (p1, p2, p3, p4) => { // do segments p1-p2 and p3-p4 cross?
+    const d = (p2[0] - p1[0]) * (p4[1] - p3[1]) - (p2[1] - p1[1]) * (p4[0] - p3[0]); if (!d) return false;
+    const t = ((p3[0] - p1[0]) * (p4[1] - p3[1]) - (p3[1] - p1[1]) * (p4[0] - p3[0])) / d, u = ((p3[0] - p1[0]) * (p2[1] - p1[1]) - (p3[1] - p1[1]) * (p2[0] - p1[0])) / d;
+    return t > 0 && t < 1 && u > 0 && u < 1;
+  };
+  // name of a wide or main river between two points, or null
+  function riverBetween(a, b) {
+    if (!RV.ok) return null;
+    const G = RV.G, seen = new Set();
+    for (let gx = Math.floor(Math.min(a[0], b[0]) / G); gx <= Math.floor(Math.max(a[0], b[0]) / G); gx++)
+      for (let gy = Math.floor(Math.min(a[1], b[1]) / G); gy <= Math.floor(Math.max(a[1], b[1]) / G); gy++) {
+        const l = RV.grid.get(gx * 10000 + gy); if (!l) continue;
+        for (const s of l) { if (seen.has(s)) continue; seen.add(s); const g = RV.segs[s]; if (segX(a, b, g[0], g[1])) return g[2] >= 0 ? RV.names[g[2]].split(';')[0] : 'um rio largo'; }
+      }
+    return null;
+  }
+
+  // ---------- danger for my place, with the latest data (last 24 h), whatever moment the timeline shows:
+  // how close the fire is, how long it could take to arrive, the CAR property there and what it could lose
+  const lcCv = document.createElement('canvas'); lcCv.width = lcImg.width; lcCv.height = lcImg.height;
+  const lcCx = lcCv.getContext('2d', { willReadFrequently: true }); lcCx.drawImage(lcImg, 0, 0);
+  const lcPix = lcCx.getImageData(0, 0, lcCv.width, lcCv.height).data;
+  const lcRgb = D.lcColors.map(h => [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16)));
+  function lcAt(lon, lat) {
+    const x = Math.min(lcCv.width - 1, Math.max(0, Math.floor((lon - W) / (E - W) * lcCv.width))), y = Math.min(lcCv.height - 1, Math.max(0, Math.floor((N - lat) / (N - S) * lcCv.height)));
+    const k = (y * lcCv.width + x) * 4; let best = 7, bd = 1e9;
+    lcRgb.forEach((c, i) => { const d = Math.abs(c[0] - lcPix[k]) + Math.abs(c[1] - lcPix[k + 1]) + Math.abs(c[2] - lcPix[k + 2]); if (d < bd) { bd = d; best = i; } });
+    return best;
+  }
+  // rate of spread of the fire front, km/h [low, high]. Rules of thumb: a grass or pasture fire runs at roughly 8-20% of the
+  // wind speed; a forest understory fire creeps (from a few hundred metres to about 1.5 km a day). Humidity and rain slow it.
+  function spread(lc, w) {
+    let lo, hi;
+    if (lc === 0) { lo = 0.01; hi = 0.06; }
+    else { lo = Math.max(0.1, 0.08 * w.sp); hi = Math.max(0.3, 0.2 * w.sp); }
+    const f = w.rain >= 5 ? 0.3 : w.rh >= 70 ? 0.4 : w.rh >= 50 ? 0.7 : w.rh < 30 ? 1.3 : 1;
+    return [lo * f, hi * f];
+  }
+  const durTxt = h => !isFinite(h) || h > 24 * 7 ? 'mais de uma semana' : h < 1 ? 'menos de 1 hora' : h < 36 ? Math.round(h) + (Math.round(h) === 1 ? ' hora' : ' horas') : Math.round(h / 24) + ' dias';
+  const LEVELS = {
+    alto: { cls: 'alto', icon: '🔴', name: 'PERIGO ALTO' }, atencao: { cls: 'warn', icon: '🟠', name: 'ATENÇÃO' },
+    baixo: { cls: 'baixo', icon: '🟡', name: 'RISCO BAIXO' }, nenhum: { cls: '', icon: '🟢', name: 'SEM FOGO PERTO' }
+  };
+  // all rural properties in the CAR, loaded only when someone marks a place
+  const CT = { ok: false, loading: null, list: [] };
+  function loadCarTodos() {
+    if (!CT.loading) CT.loading = fetch('car_todos.json').then(r => r.ok ? r.json() : null).then(J => {
+      if (!J) return;
+      const [ox, oy] = J.origin, q = J.q;
+      CT.list = J.cars.map(c => {
+        let a = 1e9, b = -1e9, y0 = 1e9, y1 = -1e9;
+        const rings = c[5].map(fl => { let x = fl[0], y = fl[1]; const r = [ox + x / q, oy + y / q]; for (let k = 2; k < fl.length; k += 2) { x += fl[k]; y += fl[k + 1]; r.push(ox + x / q, oy + y / q); }
+          for (let j = 0; j < r.length; j += 2) { a = Math.min(a, r[j]); b = Math.max(b, r[j]); y0 = Math.min(y0, r[j + 1]); y1 = Math.max(y1, r[j + 1]); } return r; });
+        return { cod: c[0], tipo: c[1], area: c[2], mun: J.muns[c[3]], cond: c[4], r: rings, box: [a, y0, b, y1] };
+      });
+      CT.ok = true;
+    }).catch(() => {}).finally(() => { CT.done = true; });
+    return CT.loading;
+  }
+  function carTodosAt(lon, lat) {
+    let best = null;
+    for (const c of CT.list) { const b = c.box; if (lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) continue; if ((!best || c.area < best.area) && c.r.some(r => pointInRing(lon, lat, r))) best = c; }
+    return best;
+  }
+  // what the property is made of (vegetation map, ~500 m pixels), in hectares per class
+  function composition(c) {
+    const [a, y0, b, y1] = c.box, step = Math.min(0.005, Math.max((b - a) / 12, (y1 - y0) / 12, 0.0008)), cnt = new Map(); let n = 0;
+    for (let x = a + step / 2; x < b; x += step) for (let y = y0 + step / 2; y < y1; y += step) if (c.r.some(r => pointInRing(x, y, r))) { const k = lcAt(x, y); cnt.set(k, (cnt.get(k) || 0) + 1); n++; }
+    if (!n) { const r = c.r[0]; cnt.set(lcAt(r[0], r[1]), 1); n = 1; }
+    return [...cnt].map(([k, v]) => [k, c.area * v / n]).sort((p, q) => q[1] - p[1]);
+  }
+  // reference values of what is lost per burned hectare (rough, adjustable by the user, saved in this browser)
+  const VAL_DEF = { pasto: 2500, lavoura: 6000, nativa: 800, floresta: 4000 };
+  const VAL_TXT = { pasto: 'Pasto ou campo (reformar pasto e cercas)', lavoura: 'Lavoura (produção perdida)', nativa: 'Lavrado ou área alagável (forragem, recuperação)', floresta: 'Mata (madeira e recuperação)' };
+  let VAL = Object.assign({}, VAL_DEF);
+  try { Object.assign(VAL, JSON.parse(localStorage.getItem('rr3d-vals') || '{}')); } catch (e) {}
+  const valKey = lc => lc === 0 ? 'floresta' : lc === 3 ? 'lavoura' : lc === 2 || lc === 7 ? 'pasto' : lc === 1 || lc === 4 ? 'nativa' : null;
+
+  function computeDanger(p) {
+    const prop = CT.ok ? carTodosAt(p.lon, p.lat) : null;
+    // points of the place: the marked point and, if inside a CAR property, its outline
+    const tgt = [[p.lon, p.lat]];
+    if (prop) prop.r.forEach(r => { const st2 = Math.max(2, Math.floor(r.length / 2 / 60) * 2); for (let j = 0; j < r.length; j += st2) tgt.push([r[j], r[j + 1]]); });
+    const near = (lon, lat) => { let bd = 1e9, bp = tgt[0]; for (const t of tgt) { const d = distKm(lon, lat, t[0], t[1]); if (d < bd) { bd = d; bp = t; } } return [bd, bp]; };
+    const inside = (lon, lat) => prop ? prop.r.some(r => pointInRing(lon, lat, r)) : distKm(lon, lat, p.lon, p.lat) < 0.3;
+    // fire points: satellite detections of the last 24 h, plus the outlines of INPE events burning today
+    const pts = [];
+    for (let i = firstAt(TLAST - 1440), e = firstAt(TLAST + 1); i < e; i++) if (distKm(p.lon, p.lat, F.lon[i], F.lat[i]) < 45) pts.push({ lon: F.lon[i], lat: F.lat[i], t: F.t[i], src: 'foco' });
+    const today = dayOf(TLAST);
+    IN.ev.forEach(ev => { if (inpeSit(ev, today) !== 'burn' || distKm(p.lon, p.lat, ev.c[0], ev.c[1]) > 60) return; ev.r.forEach(r => { for (let j = 0; j < r.length; j += 4) pts.push({ lon: r[j], lat: r[j + 1], t: null, src: 'inpe', ev }); }); });
+    let best = null, nearest = null, nPlaces = new Set(), insideHit = false;
+    for (const f of pts) {
+      const [d, tp] = near(f.lon, f.lat); if (d > 40) continue;
+      if (f.src === 'foco' && d <= 10) nPlaces.add(Math.round(f.lat / 0.018) * 100000 + Math.round(f.lon / 0.018));
+      if (inside(f.lon, f.lat)) insideHit = true;
+      const w = wxAt(f.lon, f.lat, TLAST), toward = bearing(f.lon, f.lat, tp[0], tp[1]), diff = Math.abs(((w.to - toward) + 540) % 360 - 180);
+      const dirF = w.sp < 3 ? 0.6 : diff <= 45 ? 1 : diff <= 90 ? 0.35 : 0.08;
+      const samp = [0.25, 0.5, 0.75].map(s => lcAt(f.lon + (tp[0] - f.lon) * s, f.lat + (tp[1] - f.lat) * s)).filter(k => k !== 5 && k !== 6);
+      const lcPath = samp.length ? (samp.filter(k => k === 0).length >= 2 ? 0 : samp.find(k => k !== 0) ?? 0) : 2;
+      const [lo, hi] = spread(lcPath, w);
+      let tmin = d / (hi * dirF), tmax = d / (lo * dirF), riv = null;
+      if (!nearest || d < nearest.d) nearest = { d, f, tp };
+      if (best && tmin >= best.tmin) continue;
+      // a wide or main river in the way: a ground fire rarely crosses it (only embers carried by strong wind)
+      if ((riv = riverBetween([f.lon, f.lat], tp))) { tmin /= 0.03; tmax /= 0.03; if (best && tmin >= best.tmin) continue; }
+      best = { d, tmin, tmax, w, diff, lcPath, f, tp, riv, brg: bearing(p.lon, p.lat, f.lon, f.lat) };
+    }
+    if (nearest) { nearest.riv = riverBetween([nearest.f.lon, nearest.f.lat], nearest.tp); nearest.brg = bearing(p.lon, p.lat, nearest.f.lon, nearest.f.lat); }
+    if (best && best.f.src === 'inpe') { // time seen: latest detection of that event's area
+      let tl = null; for (let i = firstAt(TLAST - 1440), e = firstAt(TLAST + 1); i < e; i++) if (best.f.ev.r.some(r => pointInRing(F.lon[i], F.lat[i], r))) tl = F.t[i];
+      best.f.t = tl;
+    }
+    // distance alone counts only when no river is in the way
+    const near2 = best && !best.riv && best.d <= 2, near8 = best && !best.riv && best.d <= 8;
+    const level = !best ? 'nenhum' : insideHit || near2 || best.tmin <= 6 ? 'alto' : near8 || best.tmin <= 24 ? 'atencao' : 'baixo';
+    let loss = null;
+    if (prop) {
+      const comp = composition(prop); let total = 0;
+      const parts = comp.map(([k, ha]) => { const vk = valKey(k), v = vk ? ha * VAL[vk] : 0; total += v; return { k, ha, vk, v }; });
+      loss = { parts, total };
+    }
+    return { p, prop, best, nearest, level, places: nPlaces.size, insideHit, loss };
+  }
+  const brlShort = v => v >= 1e6 ? 'R$ ' + fmt(v / 1e6, 1) + (v < 2e6 ? ' milhão' : ' milhões') : v >= 1e3 ? 'R$ ' + fmt(v / 1e3, 0) + ' mil' : brl(v);
+  const windRel = b => b.w.sp < 3 ? 'vento fraco' : b.diff <= 45 ? 'vento soprando do fogo para cá' : b.diff <= 90 ? 'vento de lado' : 'vento soprando para longe daqui';
+  function dangerHeadline(r) {
+    const b = r.best;
+    if (!b) return 'Nenhum foco a até 40 km nas últimas 24 h.';
+    if (r.insideHit) return 'Há fogo dentro ' + (r.prop ? 'da sua propriedade' : 'do seu local') + '.';
+    return 'Fogo a ' + kmTxt(b.d) + ' ' + aoDir(b.brg) + (r.prop ? ' da sua propriedade' : ' do seu local') + (b.riv ? ', do outro lado do ' + b.riv.replace(/^Rio /, 'Rio ') : ', ' + windRel(b)) + '.';
+  }
+  // the closest fire is across a river (and is not the one that brings the danger)
+  function riverNote(r) {
+    const n = r.nearest, b = r.best;
+    if (b && b.riv) return '🌊 O ' + b.riv + ' fica entre o fogo e você. Fogo rasteiro dificilmente atravessa rio largo; só fagulhas levadas por vento forte poderiam cruzar.';
+    if (n && n.riv && b && n.f !== b.f && n.d < b.d) return '🌊 Há fogo mais perto (' + kmTxt(n.d) + ' ' + aoDir(n.brg) + '), mas do outro lado do ' + n.riv + ', que funciona como barreira.';
+    return '';
+  }
+  function arrivalTxt(r) {
+    const b = r.best; if (!b || r.insideHit) return '';
+    if (b.riv && b.tmin > 72) return 'Com o rio no caminho, o fogo não deve chegar, a menos que mude de lado.';
+    if (b.tmin > 24 * 7) return 'Com o vento de agora, não deve chegar nos próximos dias.';
+    return 'Pode chegar em <b>' + durTxt(b.tmin) + (durTxt(b.tmax) !== durTxt(b.tmin) ? ' a ' + durTxt(b.tmax) : '') + '</b>, se o vento continuar assim.';
+  }
+  function shareText(r) {
+    const p = r.p, b = r.best, L = LEVELS[r.level], lines = [];
+    lines.push('🔥 ALERTA DE FOGO · ' + L.icon + ' ' + L.name);
+    lines.push('Local: ' + (/^Coordenada/.test(p.label) ? '' : p.label + ' ') + '(' + p.lat.toFixed(5) + ', ' + p.lon.toFixed(5) + ')');
+    const wt = whereTxt(p.lon, p.lat).replace(/<[^>]+>/g, '').replace('📍 ', '').trim(); if (wt) lines.push('Perto de: ' + wt);
+    lines.push(dangerHeadline(r));
+    if (b) {
+      if (b.f.t != null) lines.push('Fogo visto por satélite em ' + fmtT(b.f.t) + ' (horário de Roraima).');
+      lines.push('Vento de ' + dirName(b.w.from) + ' a ' + fmt(b.w.sp) + ' km/h · umidade ' + fmt(b.w.rh) + '% · vegetação no caminho: ' + D.lc[b.lcPath].toLowerCase() + '.');
+      const a = arrivalTxt(r).replace(/<[^>]+>/g, ''); if (a) lines.push(a);
+      const rn = riverNote(r); if (rn) lines.push(rn);
+    }
+    if (r.prop) lines.push('Propriedade no CAR ' + r.prop.cod + ' · ' + fmt(r.prop.area, 0) + ' ha' + (r.loss && r.loss.total ? ' · prejuízo possível se queimar toda: até ' + brlShort(r.loss.total) : '') + '.');
+    lines.push('Mapa: https://www.google.com/maps?q=' + p.lat.toFixed(5) + ',' + p.lon.toFixed(5));
+    lines.push('Emergência: Bombeiros 193 · Defesa Civil 199');
+    lines.push('Estimativa com dados de satélite do INPE (até ' + fmtT(D.meta.lastFire) + '); não substitui avaliação no local.');
+    return lines.join('\n');
+  }
+  function dangerHtml(r, full) {
+    const L = LEVELS[r.level], b = r.best;
+    let h = '<div class="dg-head"><span class="dg-badge">' + L.icon + ' ' + L.name + '</span></div><p class="dg-main">' + esc(dangerHeadline(r)) + '</p>';
+    const a = arrivalTxt(r); if (a) h += '<p class="dg-time">⏱ ' + a + '</p>';
+    const rn = riverNote(r); if (rn) h += '<p class="dg-sub"><b>' + esc(rn) + '</b></p>';
+    if (b) h += '<p class="dg-sub">Vento de ' + dirName(b.w.from) + ' a ' + fmt(b.w.sp) + ' km/h · umidade ' + fmt(b.w.rh) + '% · ' + rainTxt(b.w.rain) + ' em 24 h · no caminho: ' + esc(D.lc[b.lcPath].toLowerCase()) + (b.f.t != null ? ' · fogo visto ' + fmtT(b.f.t) : b.f.src === 'inpe' ? ' · borda de incêndio ativo (INPE)' : '') + '</p>';
+    if (r.places > 1) h += '<p class="dg-sub">' + r.places + ' locais com fogo a até 10 km.</p>';
+    if (r.prop) {
+      h += '<div class="dg-prop"><b>Sua propriedade (CAR):</b> ' + esc(CAR_TIPO[r.prop.tipo] || 'Imóvel rural') + ', ' + fmt(r.prop.area, 0) + ' ha' + (r.prop.mun ? ', ' + esc(r.prop.mun) : '') + '.';
+      if (r.loss) h += '<br>' + r.loss.parts.filter(x => x.ha >= 0.5).map(x => fmt(x.ha, 0) + ' ha de ' + esc(D.lc[x.k].toLowerCase())).join(', ') + '.' + (r.loss.total ? '<br><b>Prejuízo possível se o fogo queimar toda a área: até ' + brlShort(r.loss.total) + '</b>' + (r.loss.total >= 2000 ? ' (metade: ' + brlShort(r.loss.total / 2) + ')' : '') + '.' : '');
+      h += '</div>';
+      if (full && r.loss) h += '<details class="more"><summary>Ajustar os valores do prejuízo</summary><div class="dg-vals">' +
+        Object.keys(VAL_DEF).map(k => '<label class="fl">' + VAL_TXT[k] + ', R$ por hectare<input type="number" min="0" step="100" data-val="' + k + '" value="' + VAL[k] + '"></label>').join('') +
+        '<p class="note" style="margin:0">Valores de referência aproximados, sem fonte oficial: troque pelos da sua realidade. A área por tipo vem do mapa de vegetação (pixels de 500 m) e o CAR é declarado pelo dono.</p></div></details>';
+    } else if (CT.loading && !CT.ok && !CT.done) h += '<p class="dg-sub">Procurando a propriedade no CAR…</p>';
+    else if (CT.done && !CT.ok) h += '<p class="dg-sub">Não foi possível carregar os imóveis do CAR agora.</p>';
+    else if (CT.ok) h += '<p class="dg-sub">O local marcado não fica dentro de um imóvel do CAR.</p>';
+    if (r.level === 'alto' || r.level === 'atencao') h += '<details class="more"><summary>O que fazer agora</summary><div><p>Avise vizinhos e a família. Em perigo, ligue <b>193</b> (Bombeiros) ou <b>199</b> (Defesa Civil).</p><p>Tire pessoas e animais do caminho do fogo, para o lado contrário ao vento. Se houver tempo e segurança, faça aceiro (faixa sem capim) em volta da casa e dos currais. Não tente apagar fogo grande sozinho.</p></div></details>';
+    if (b && !r.insideHit) h += '<button class="btn dg-risk" data-act="risk">➜ Ver de onde vem o risco</button>';
+    h += '<div class="row dg-share"><button class="btn dg-sharebtn" data-act="share">📤 Compartilhar alerta</button><a class="btn" target="_blank" rel="noopener" data-act="wa">WhatsApp</a><button class="btn" data-act="copy">Copiar</button></div>';
+    if (!full) h += '<div class="row"><button class="btn" data-act="go">Ver no mapa</button><button class="btn" data-act="details">Detalhes</button><button class="btn" data-act="forget">Esquecer local</button></div>';
+    h += '<p class="dg-note">Estimativa com dados de satélite e previsão do tempo; o fogo real pode ser mais rápido ou mais lento. Não substitui avaliação no local.</p>';
+    return h;
+  }
+  function bindDanger(el, r) {
+    const txt = shareText(r), msg = m => { let n = el.querySelector('.dg-msg'); if (!n) { n = document.createElement('p'); n.className = 'dg-msg'; el.querySelector('.dg-share').after(n); } n.textContent = m; };
+    const copy = async () => { try { await navigator.clipboard.writeText(txt); msg('Texto copiado. Cole no WhatsApp, SMS ou e-mail.'); } catch (e) {
+      const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e2) {} ta.remove();
+      if (ok) { msg('Texto copiado.'); return; }
+      msg('Selecione o texto abaixo e copie:'); // last resort: show the text to copy by hand
+      let box = el.querySelector('.dg-text'); if (!box) { box = document.createElement('textarea'); box.className = 'dg-text'; box.readOnly = true; box.rows = 8; el.querySelector('.dg-msg').after(box); }
+      box.value = txt; box.focus(); box.select(); } };
+    el.querySelector('[data-act=wa]').href = 'https://wa.me/?text=' + encodeURIComponent(txt);
+    el.querySelector('[data-act=share]').onclick = async () => { if (navigator.share) { try { await navigator.share({ title: 'Alerta de fogo', text: txt }); return; } catch (e) { if (e && e.name === 'AbortError') return; } } copy(); };
+    el.querySelector('[data-act=copy]').onclick = copy;
+    const go = el.querySelector('[data-act=go]'); if (go) go.onclick = () => { if (isPhone()) setDrawer(false); flyTo(orbitPose(toX(r.p.lon), toZ(r.p.lat), Math.max(20, (r.best ? Math.min(r.best.d, 30) : 10) * 2.5), 0.15, 0.8)); };
+    const det = el.querySelector('[data-act=details]'); if (det) det.onclick = () => setTab('local', true);
+    const fg = el.querySelector('[data-act=forget]'); if (fg) fg.onclick = clearPin;
+    const rk = el.querySelector('[data-act=risk]'); if (rk) rk.onclick = fitRisk;
+    el.querySelectorAll('[data-val]').forEach(inp => inp.addEventListener('change', () => { VAL[inp.dataset.val] = Math.max(0, +inp.value || 0); try { localStorage.setItem('rr3d-vals', JSON.stringify(VAL)); } catch (e) {} renderMyStatus(); }));
+  }
+  // arrow on the map from the fire that brings the danger to my place, with a clickable tag at the fire
+  let riskLine = null;
+  const riskEl = document.createElement('button'); riskEl.className = 'lbl risk'; riskEl.hidden = true; riskEl.type = 'button'; $('labels').appendChild(riskEl);
+  function drawRiskArrow(r) {
+    removeDraped(riskLine); riskLine = null; st.risk = null; riskEl.hidden = true;
+    const b = r && r.best; if (!b || r.insideHit) return;
+    const a = [b.f.lon, b.f.lat], z = b.tp, kx = 111.32 * Math.cos(a[1] * Math.PI / 180), ky = 110.57;
+    const dx = (z[0] - a[0]) * kx, dy = (z[1] - a[1]) * ky, L = Math.hypot(dx, dy); if (L < 0.05) return;
+    const ux = dx / L, uy = dy / L, hl = Math.min(3, Math.max(0.4, L * 0.14));
+    const head = s => { const c = Math.cos(0.45 * s), si = Math.sin(0.45 * s); return [z[0] - (ux * c - uy * si) * hl / kx, z[1] - (ux * si + uy * c) * hl / ky]; };
+    const off = Math.max(0.04, L * 0.005), rings = [];
+    for (const o of [-off, 0, off]) { const ox = -uy * o / kx, oy = ux * o / ky; rings.push([[a[0] + ox, a[1] + oy], [z[0] + ox, z[1] + oy]]); } // three close lines: a thicker arrow
+    rings.push([head(1), z, head(-1)]);
+    const col = r.level === 'alto' ? 0xff3b30 : r.level === 'atencao' ? 0xff9f1a : 0xffd84a;
+    riskLine = makeDraped(rings, col, 1, 0.9, 0.3); riskLine.obj.renderOrder = 8;
+    st.risk = { lon: a[0], lat: a[1], a, z, d: L };
+    riskEl.className = 'lbl risk ' + r.level;
+    riskEl.textContent = '🔥 ' + kmTxt(b.d) + (b.riv ? ' · 🌊 rio no caminho' : b.tmin <= 24 * 7 ? ' · ' + durTxt(b.tmin) : '');
+    riskEl.title = 'Foco que traz o risco para o seu local. Clique para ver o caminho.';
+    riskEl.onclick = fitRisk; riskEl.hidden = false;
+  }
+  function fitRisk() {
+    const R = st.risk; if (!R) return; if (isPhone()) setDrawer(false);
+    flyTo(orbitPose(toX((R.a[0] + R.z[0]) / 2), toZ((R.a[1] + R.z[1]) / 2), Math.max(14, R.d * 2.4), 0.15, 0.75));
+  }
+  let myPropLine = null, myPropCod = null;
+  function renderMyStatus() {
+    const el = $('myStatus'), el2 = $('danger'), p = st.pin;
+    if (!p) { el.hidden = true; el2.hidden = true; removeDraped(myPropLine); myPropLine = null; myPropCod = null; drawRiskArrow(null); return; }
+    if (!CT.ok && !CT.loading) loadCarTodos().finally(() => { if (st.pin) renderMyStatus(); });
+    const r = computeDanger(p), cls = 'mystatus ' + LEVELS[r.level].cls;
+    // outline of my property on the map
+    if ((r.prop ? r.prop.cod : null) !== myPropCod) {
+      removeDraped(myPropLine); myPropLine = null; myPropCod = r.prop ? r.prop.cod : null;
+      if (r.prop) { myPropLine = makeDraped(r.prop.r.map(flatToRing), 0x7dd3fc, 1, 0.7, 0.4); myPropLine.obj.renderOrder = 7; }
+    }
+    drawRiskArrow(r);
+    el.className = cls; el.innerHTML = dangerHtml(r, false); el.hidden = false; bindDanger(el, r);
+    const open = el2.querySelector('details[open]') !== null;
+    el2.className = cls; el2.innerHTML = dangerHtml(r, true); el2.hidden = false; bindDanger(el2, r);
+    if (open) el2.querySelectorAll('details').forEach(d => d.open = true);
+  }
+  $('pinClear').onclick = clearPin;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (st.picking) stopPicking(); else if (!$('pop').hidden) { st.sel = null; showDetail(); } } });
+
+  // burned area (VIIRS 375 m cells) inside the circle, from the start of the period to now
+  function burnedInCircle(lon, lat, R) {
+    let n = 0; const lcCount = new Map();
+    for (let k = cellsUpTo(period.from - 1), e = cellsUpTo(st.t); k < e; k++) { const c = cells[k]; if (distKm(lon, lat, c.lon, c.lat) <= R) n++; }
+    for (let i = firstAt(period.from), e = firstAt(st.t + 1); i < e; i++) if (F.v[i] && distKm(lon, lat, F.lon[i], F.lat[i]) <= R) lcCount.set(F.c[i], (lcCount.get(F.c[i]) || 0) + 1);
+    const lc = [...lcCount].sort((a, b) => b[1] - a[1])[0];
+    return { ha: n * 14.06, cells: n, lc: lc ? lc[0] : -1 };
+  }
+  const brl = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  // Decreto 6.514/2008 with Decreto 12.189/2024: per hectare or fraction; doubled when it affects an indigenous land (art. 60, II)
+  const FINE_TYPES = [[3000, 'Queimada em pasto ou roça sem autorização · R$ 3.000/ha (art. 58)'],
+    [10000, 'Incêndio em floresta ou vegetação nativa · R$ 10.000/ha (art. 58-A)'], [5000, 'Incêndio em floresta plantada · R$ 5.000/ha (art. 58-B)']];
+  const nativeLc = lc => lc === 0 || lc === 1 || lc === 4; // floresta, lavrado/savana, área alagável
+  function calcFine(haEl, typeEl, tiEl, outEl) {
+    const haCount = Math.ceil(Math.max(0, +haEl.value || 0)), rate = +typeEl.value, mult = tiEl.checked ? 2 : 1;
+    outEl.innerHTML = '<b>' + brl(haCount * rate * mult) + '</b><span>' + fmt(haCount) + ' ha × ' + brl(rate) + (mult > 1 ? ' × 2 (Terra Indígena)' : '') + '</span>';
+  }
+  function updateFine(burn) {
+    if (!st.pin) return;
+    const ha = $('fineHa'), type = $('fineType'), ti = $('fineTi');
+    if (burn) {
+      if (!ha.dataset.user) ha.value = Math.round(burn.ha);
+      if (!type.dataset.user && burn.lc >= 0) type.value = nativeLc(burn.lc) ? '10000' : '3000';
+      if (!ti.dataset.user) ti.checked = D.tis.some(t => t.r.some(r => pointInRing(st.pin.lon, st.pin.lat, r)));
+      $('fineHaNote').textContent = burn.inpe ? 'Área do evento do INPE onde está o local: ≈ ' + fmt(burn.ha, 0) + ' ha (' + isoBr(burn.inpe.d0) + ' a ' + isoBr(burn.inpe.d1) + '). Você pode mudar o valor.' : 'Estimativa por satélite: ≈ ' + fmt(burn.ha, 0) + ' ha queimados no círculo (' + period.name.toLowerCase() + ', até ' + fmtD(st.t) + '). Você pode mudar o valor.';
+    }
+    calcFine(ha, type, ti, $('fineOut'));
+  }
+  ['fineHa', 'fineType', 'fineTi'].forEach(id => $(id).addEventListener(id === 'fineHa' ? 'input' : 'change', e => { e.target.dataset.user = '1'; updateFine(); }));
+  function drawCircle() {
+    removeDraped(circle); circle = null; if (!st.pin) return;
+    const R = +$('radius').value, ring = [];
+    for (let k = 0; k <= 72; k++) { const a = k / 72 * 2 * Math.PI; ring.push([st.pin.lon + R * Math.sin(a) / (111.32 * Math.cos(st.pin.lat * Math.PI / 180)), st.pin.lat + R * Math.cos(a) / 110.57]); }
+    circle = makeDraped([ring], 0xffffff, 0.95, 0.6, 0.6);
+  }
+  function renderNear() {
+    const el = $('near'); if (!st.pin) return;
+    const R = +$('radius').value, { lon, lat } = st.pin, idx = windowIdx(), hits = [];
+    for (const i of idx) { const dk = distKm(lon, lat, F.lon[i], F.lat[i]); if (dk <= R) hits.push([i, dk]); }
+    const w = wxAt(lon, lat, st.t);
+    let html, extra = '';
+    if (!hits.length) {
+      html = '<p style="margin:0">Nenhum foco a até ' + R + ' km ' + winTxt() + '.</p>';
+    } else {
+      hits.sort((a, b) => a[1] - b[1]);
+      const places = new Set(hits.map(h => fCell[h[0]])).size, [i0, d0] = hits[0];
+      const brg = bearing(lon, lat, F.lon[i0], F.lat[i0]); // direction from the place to the fire
+      const toward = bearing(F.lon[i0], F.lat[i0], lon, lat), diff = Math.abs(((w.to - toward) + 540) % 360 - 180);
+      html = '<p style="margin:0"><b>' + places + '</b> ' + (places === 1 ? 'local' : 'locais') + ' com fogo a até ' + R + ' km. O mais perto: <b>' + fmt(d0, 1) + ' km ' + aoDir(brg) + '</b>.</p>';
+      if (w.sp >= 3 && diff < 50) html += '<div class="alert">O vento sopra do fogo para este local.</div>';
+      extra = '<p>Foco mais perto visto ' + fmtT(F.t[i0]) + ' pelo satélite ' + D.sats[F.s[i0]] + '.</p>';
+    }
+    extra += '<p>Vento aqui: de ' + dirName(w.from) + ', ' + fmt(w.sp) + ' km/h · umidade ' + fmt(w.rh) + '% · ' + rainTxt(w.rain) + ' em 24 h.</p><p>Local: ' + lat.toFixed(4) + ', ' + lon.toFixed(4) + '</p>';
+    let burn = burnedInCircle(lon, lat, R);
+    html += '<p style="margin:6px 0 0">Fogo no círculo (' + period.name.toLowerCase() + '): <b>≈ ' + fmt(burn.ha, 0) + ' ha</b>' + (burn.ha >= 100 ? ' (' + fmt(burn.ha / 100, 1) + ' km²)' : '') + '</p>';
+    // official INPE events at the place or within the circle, up to 30 days after they end
+    const day = dayOf(st.t), inside = IN.ev.length ? inpeAt(lon, lat, day, false) : -1;
+    const evNear = IN.ev.filter(e => inpeState(e, day) && e.r.some(r => { if (pointInRing(lon, lat, r)) return true; for (let j = 0; j < r.length; j += 2) if (distKm(lon, lat, r[j], r[j + 1]) <= R) return true; return false; }));
+    if (evNear.length) {
+      const big = inside >= 0 ? IN.ev[inside] : evNear.reduce((a, b) => b.ha > a.ha ? b : a);
+      html += '<p style="margin:4px 0 0">INPE: ' + (inside >= 0 ? 'o local fica dentro de ' : '') + '<b>' + esc(inpeName(big.tipo).toLowerCase()) + '</b> de ' + isoBr(big.d0) + ' a ' + isoBr(big.d1) + ', ≈ ' + fmt(big.ha, 0) + ' ha' +
+        (evNear.length > 1 ? '; mais ' + (evNear.length - 1) + (evNear.length === 2 ? ' evento' : ' eventos') + ' no círculo' : '') + '.</p>';
+      if (inside >= 0 && burn.ha < big.ha) burn = { ha: big.ha, lc: big.veg != null && big.veg >= 50 ? 0 : 2, inpe: big };
+    }
+    extra += '<p>Área queimada: soma dos quadrados de 375 m (14 ha cada) com foco VIIRS dentro do círculo, de ' + fmtD(period.from) + ' até agora. É aproximada.</p>';
+    const wasOpen = el.querySelector('details[open]') !== null;
+    el.innerHTML = whereTxt(lon, lat) + html + '<details class="more"' + (wasOpen ? ' open' : '') + '><summary>Detalhes</summary><div>' + extra + '</div></details>';
+    updateFine(burn);
+  }
+  $('pickBtn').onclick = () => { st.picking = !st.picking; if (st.picking && isPhone()) setDrawer(false); $('pickBtn').setAttribute('aria-pressed', st.picking); $('pickHint').hidden = !st.picking; view.classList.toggle('picking', st.picking); };
+  $('radius').onchange = () => { drawCircle(); renderNear(); saveLocal(); renderMyStatus(); };
+
+  // ---------- roads, villages and farms (OpenStreetMap): help people find their own place
+  const RD = { ok: false, mode: 'off', ways: [], names: [], muns: [], places: [], labels: [], layers: [null, null, null, null] };
+  const ROAD_STYLE = [[0xf2b33d, 1, 0.34], [0xefe0a8, 0.95, 0.32], [0xffffff, 0.62, 0.3], [0xc9a77a, 0.62, 0.29]]; // color, opacity, lift
+  function initRoads(J) {
+    if (!J) { $('roads').disabled = true; $('roadsNote').hidden = false; $('roadsNote').textContent = 'Não foi possível carregar as estradas.'; return; }
+    const [ox, oy] = J.origin, q = J.q;
+    RD.names = J.names; RD.muns = J.muns; RD.alt = J.alt || {};
+    RD.ways = J.ways.map(w => {
+      let x = w[3], y = w[4]; const pts = [[ox + x / q, oy + y / q]];
+      for (let k = 5; k < w.length; k += 2) { x += w[k]; y += w[k + 1]; pts.push([ox + x / q, oy + y / q]); }
+      return { c: w[0], n: w[1], m: w[2], pts };
+    });
+    RD.places = J.places.map(p => ({ name: p[0], kind: p[1], lon: ox + p[2] / q, lat: oy + p[3] / q, m: p[4] }));
+    RD.labels = J.labels.map(a => ({ n: a[0], m: a[1], c: a[2], lon: ox + a[3] / q, lat: oy + a[4] / q }));
+    // road segments on a 0.05 degree grid, for "nearest road"
+    const G = 0.05, idx = new Map();
+    RD.ways.forEach((w, wi) => {
+      for (let k = 0; k + 1 < w.pts.length; k++) {
+        const [a0, b0] = w.pts[k], [a1, b1] = w.pts[k + 1];
+        for (let gx = Math.floor(Math.min(a0, a1) / G); gx <= Math.floor(Math.max(a0, a1) / G); gx++)
+          for (let gy = Math.floor(Math.min(b0, b1) / G); gy <= Math.floor(Math.max(b0, b1) / G); gy++) {
+            const key = gx * 10000 + gy; let l = idx.get(key); if (!l) idx.set(key, l = []); l.push(wi, k);
+          }
+      }
+    });
+    RD.G = G; RD.grid = idx; RD.ok = true;
+    addRoadSearch(); drawRoads(); lblDirty = true;
+    if (st.sel) showDetail(); if (st.pin) { renderNear(); renderMyStatus(); }
+  }
+  function drawRoads() {
+    const show = RD.mode === 'off' ? [] : RD.mode === 'main' ? [0, 1] : [0, 1, 2, 3];
+    for (let c = 0; c < 4; c++) {
+      const on = show.includes(c);
+      if (on && !RD.layers[c] && RD.ok) {
+        const [col, op, lift] = ROAD_STYLE[c];
+        RD.layers[c] = makeDraped(RD.ways.filter(w => w.c === c).map(w => w.pts), col, op, lift, c < 2 ? 1 : 0.6);
+        RD.layers[c].obj.renderOrder = 4 - c; // main roads on top
+      }
+      if (RD.layers[c]) RD.layers[c].obj.visible = on;
+    }
+  }
+  function setRoads(mode) { RD.mode = mode; $('roads').value = mode; $('roadsNote').hidden = mode === 'off'; drawRoads(); lblDirty = true; }
+  $('roads').onchange = e => setRoads(e.target.value);
+
+  function segKm(lon, lat, a, b) { // distance from a point to a segment, in km (local flat projection)
+    const kx = 111.32 * Math.cos(lat * Math.PI / 180), ky = 110.57;
+    const ax = (a[0] - lon) * kx, ay = (a[1] - lat) * ky, dx = (b[0] - a[0]) * kx, dy = (b[1] - a[1]) * ky, L2 = dx * dx + dy * dy;
+    const t = L2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / L2)) : 0;
+    return Math.hypot(ax + t * dx, ay + t * dy);
+  }
+  function nearestRoad(lon, lat, R, named) {
+    if (!RD.ok) return null;
+    const G = RD.G, gr = Math.ceil(R / (G * 110)), gx0 = Math.floor(lon / G), gy0 = Math.floor(lat / G);
+    let best = null;
+    for (let gx = gx0 - gr; gx <= gx0 + gr; gx++) for (let gy = gy0 - gr; gy <= gy0 + gr; gy++) {
+      const l = RD.grid.get(gx * 10000 + gy); if (!l) continue;
+      for (let j = 0; j < l.length; j += 2) {
+        const w = RD.ways[l[j]]; if (named && w.n < 0) continue;
+        const d = segKm(lon, lat, w.pts[l[j + 1]], w.pts[l[j + 1] + 1]);
+        if (d <= R && (!best || d < best.d)) best = { d, w };
+      }
+    }
+    return best;
+  }
+  function nearestPlace(lon, lat, R) {
+    let best = null;
+    for (const p of RD.places) {
+      const d = distKm(lon, lat, p.lon, p.lat);
+      if (d <= (p.kind === 5 ? Math.min(R, 3) : R) && (!best || d < best.d)) best = { d, p };
+    }
+    return best;
+  }
+  const kmTxt = d => d < 1 ? Math.max(50, Math.round(d * 20) * 50) + ' m' : fmt(d, 1) + ' km';
+  const aoDir = deg => { const n = dirName(deg); return (n === 'norte' || n === 'sul' ? 'ao ' : 'a ') + n; };
+  const masc = s => /^(ramal|travess[aã]o|caminho|acesso|anel|contorno|trecho|beco)\b/i.test(s);
+  // "where is it": nearest named road and nearest village, in plain words
+  function whereTxt(lon, lat) {
+    if (!RD.ok) return '';
+    const parts = [], nr = nearestRoad(lon, lat, 8, true);
+    if (nr) { const nm = RD.names[nr.w.n], m = masc(nm); parts.push(nr.d < 0.15 ? (m ? 'no ' : 'na ') + nm : 'a ' + kmTxt(nr.d) + (m ? ' do ' : ' da ') + nm); }
+    else { const any = nearestRoad(lon, lat, 3, false); if (any) parts.push('a ' + kmTxt(any.d) + ' de uma estrada sem nome no mapa'); }
+    const pl = nearestPlace(lon, lat, 40);
+    if (pl) parts.push(pl.d < 0.5 ? 'em ' + pl.p.name : kmTxt(pl.d) + ' ' + aoDir(bearing(pl.p.lon, pl.p.lat, lon, lat)) + ' de ' + pl.p.name);
+    if (!parts.length) return '';
+    const t = parts.join(' · ');
+    return '<p class="where">📍 ' + esc(t[0].toUpperCase() + t.slice(1)) + '</p>';
+  }
+
+  // names of villages, farms and roads, shown as the camera gets closer, without overlapping
+  const lblPool = [], LBL_MAX = 60, KIND_MAXD = [0, 0, 300, 120, 90, 60];
+  let lblSet = [], lblAt = 0, lblDirty = true;
+  function pickLabels(r) {
+    lblSet = [];
+    const dist = camera.position.distanceTo(controls.target), tx = controls.target.x, tz = controls.target.z, reach = dist * 1.5, cands = [];
+    const near = (lon, lat) => Math.abs(toX(lon) - tx) < reach && Math.abs(toZ(lat) - tz) < reach;
+    if (RD.ok && !$('labels').hidden) {
+      for (const p of RD.places) if (p.kind >= 2 && dist < KIND_MAXD[p.kind] && near(p.lon, p.lat)) cands.push({ txt: p.name, cls: p.kind === 5 ? 'farm' : 'vil', lon: p.lon, lat: p.lat, pri: p.kind });
+      if (RD.mode !== 'off') for (const a of RD.labels) {
+        if (a.c >= 2 ? RD.mode !== 'all' || dist > 110 : dist > 420) continue;
+        if (!near(a.lon, a.lat)) continue;
+        const t = RD.names[a.n];
+        cands.push({ txt: t, cls: 'road' + (/^BR-/.test(t) ? ' br' : /^RR-/.test(t) ? ' rr' : ''), lon: a.lon, lat: a.lat, pri: a.c < 2 ? 1.5 : 3.5, road: true });
+      }
+    }
+    const boxes = [], hit = b => boxes.some(o => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
+    const boxOf = (x, y, txt, centered) => { const w = txt.length * 6.3 + 10; return centered ? [x - w / 2, y - 9, x + w / 2, y + 9] : [x - w / 2, y - 19, x + w / 2, y + 2]; };
+    PLACES.forEach((p, k) => { const el = lblEls[k]; if (!el.hidden && el.style.left) boxes.push(boxOf(parseFloat(el.style.left), parseFloat(el.style.top), p[0], false)); });
+    if (st.pin && !pinEl.hidden) boxes.push(boxOf(parseFloat(pinEl.style.left), parseFloat(pinEl.style.top) - 14, st.pin.label, false));
+    for (const c of cands) {
+      tmpV.set(toX(c.lon), yAt(c.lon, c.lat) + 0.6, toZ(c.lat)).project(camera);
+      if (tmpV.z > 1 || Math.abs(tmpV.x) > 1 || Math.abs(tmpV.y) > 1) { c.ok = false; continue; }
+      c.ok = true; c.x = (tmpV.x + 1) / 2 * r.width; c.y = (1 - tmpV.y) / 2 * r.height; c.dc = Math.hypot(tmpV.x, tmpV.y);
+    }
+    const ok = cands.filter(c => c.ok).sort((a, b) => a.pri - b.pri || a.dc - b.dc);
+    for (const c of ok) {
+      if (lblSet.length >= LBL_MAX) break;
+      const b = boxOf(c.x, c.y, c.txt, c.road); if (hit(b)) continue;
+      boxes.push(b); lblSet.push(c);
+    }
+    while (lblPool.length < lblSet.length) { const el = document.createElement('div'); $('labels').appendChild(el); lblPool.push(el); }
+    lblPool.forEach((el, k) => {
+      const c = lblSet[k]; if (!c) { el.hidden = true; return; }
+      el.className = 'lbl ' + c.cls; if (el.textContent !== c.txt) el.textContent = c.txt; c.el = el;
+    });
+  }
+
+  // GPS coordinates typed or pasted by the user: decimal ("2.8235, -60.6758") or degrees ("2°49'25"N 60°40'33"O")
+  function parseCoords(s) {
+    let la = null, lo = null, m;
+    const dms = [...s.matchAll(/(\d{1,3})\s*[°º]\s*(?:(\d{1,2}(?:[.,]\d+)?)\s*['’′]\s*)?(?:(\d{1,2}(?:[.,]\d+)?)\s*(?:["”″]|''|’’)\s*)?([NSLOEW])/gi)];
+    if (dms.length === 2) {
+      for (const d of dms) {
+        const v = +d[1] + (+(d[2] || '0').replace(',', '.')) / 60 + (+(d[3] || '0').replace(',', '.')) / 3600, h = d[4].toUpperCase();
+        if (h === 'N' || h === 'S') la = h === 'S' ? -v : v; else lo = h === 'O' || h === 'W' ? -v : v;
+      }
+    } else if ((m = s.match(/(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/)) || (m = s.match(/^\s*(-?\d{1,3}(?:[.,]\d+)?)\s*[;\s]\s*(-?\d{1,3}(?:[.,]\d+)?)\s*$/))) {
+      la = +m[1].replace(',', '.'); lo = +m[2].replace(',', '.');
+      if (Math.abs(la) > 20 && Math.abs(lo) <= 20) [la, lo] = [lo, la]; // longitude typed first
+      if (lo > 0) lo = -lo; // Roraima is west of Greenwich
+    }
+    if (la === null || lo === null || isNaN(la) || isNaN(lo)) return null;
+    return { lat: la, lon: lo, inside: lo >= W && lo <= E && la >= S && la <= N };
+  }
+  function goToPoint(lon, lat, label) {
+    if (isPhone()) setDrawer(false);
+    if (RD.mode === 'off') setRoads('all');
+    removeDraped(highlight); highlight = null;
+    setPin(lon, lat, label);
+    flyTo(orbitPose(toX(lon), toZ(lat), 30, 0.15, 0.8));
+  }
+  const pp = document.permissionsPolicy || document.featurePolicy;
+  $('gpsBtn').hidden = !('geolocation' in navigator && window.isSecureContext && (!pp || pp.allowsFeature('geolocation')));
+  $('gpsBtn').onclick = () => {
+    const msg = $('gpsMsg'); msg.hidden = false; msg.textContent = 'Procurando sua localização…';
+    navigator.geolocation.getCurrentPosition(p => {
+      const la = p.coords.latitude, lo = p.coords.longitude;
+      if (lo < W || lo > E || la < S || la > N) { msg.textContent = 'Sua localização está fora da área do mapa (Roraima).'; return; }
+      msg.hidden = true; goToPoint(lo, la, 'Minha localização');
+    }, err => { msg.textContent = 'Não foi possível usar o GPS' + (err.code === 1 ? ' (permissão negada)' : '') + '. Cole as coordenadas no campo Buscar.'; },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  };
+
+  // ---------- search
+  const searchItems = [];
+  D.munis.forEach(m => searchItems.push({ label: m.nome, kind: 'mun', item: m }));
+  D.tis.forEach(t => searchItems.push({ label: 'TI ' + t.nome, kind: 'ti', item: t }));
+  const fillList = () => $('placesList').innerHTML = searchItems.map(s => '<option value="' + esc(s.label) + '">').join('');
+  fillList();
+  function addRoadSearch() {
+    const seen = new Set(searchItems.map(s => s.label)), add = (label, kind, item) => { if (!seen.has(label)) { seen.add(label); searchItems.push({ label, kind, item }); } };
+    const munTxt = m => m >= 0 ? ' · ' + RD.muns[m] : '';
+    RD.places.forEach(p => { if (p.kind >= 2) add(p.name + munTxt(p.m), 'place', p); });
+    RD.ways.forEach(w => { if (w.n >= 0) add(RD.names[w.n] + (w.c >= 2 ? munTxt(w.m) : ''), 'road', { n: w.n, m: w.c >= 2 ? w.m : null }); });
+    Object.entries(RD.alt).forEach(([ref, alts]) => { const n = RD.names.indexOf(ref); if (n >= 0) alts.forEach(a => add(a + ' · ' + ref, 'road', { n, m: null })); });
+    fillList();
+  }
+  let highlight = null;
+  $('searchForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const raw = $('searchIn').value.trim(), q = raw.toLowerCase(); if (!q) return;
+    const fail = txt => { $('searchIn').setCustomValidity(txt); $('searchIn').reportValidity(); setTimeout(() => $('searchIn').setCustomValidity(''), 1800); };
+    const co = /\d/.test(q) && !/^rr-\d/.test(q) ? parseCoords(raw) : null;
+    if (co) { if (!co.inside) return fail('Essa coordenada fica fora de Roraima'); goToPoint(co.lon, co.lat, 'Coordenada ' + co.lat.toFixed(4) + ', ' + co.lon.toFixed(4)); return; }
+    if (/^rr-\d/.test(q)) { // CAR code
+      const k = CAR.findIndex(c => c.cod.toLowerCase().includes(q));
+      if (k >= 0) { showCarLayer(true); st.sel = { kind: 'car', k }; showDetail(); flyTo(orbitPose(toX(CAR[k].c[0]), toZ(CAR[k].c[1]), Math.max(15, Math.sqrt(CAR[k].area / 100) * 6), 0.15, 0.8)); return; }
+    }
+    const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(), nq = norm(q);
+    const rank = s => { const l = norm(s.label); return l === nq ? 0 : l.startsWith(nq) && !/[0-9a-z]/.test(l.charAt(nq.length)) ? 1 : l.startsWith(nq) ? 2 : l.includes(nq) ? 3 : 9; };
+    let hit = null, hr = 9; for (const s of searchItems) { const k = rank(s); if (k < hr) { hr = k; hit = s; if (!k) break; } }
+    if (!hit) return fail('Não encontrei esse nome');
+    $('searchIn').value = hit.label;
+    removeDraped(highlight); highlight = null;
+    if (hit.kind === 'place') { goToPoint(hit.item.lon, hit.item.lat, hit.item.name); return; }
+    if (hit.kind === 'road') {
+      const ws = RD.ways.filter(w => w.n === hit.item.n && (hit.item.m === null || w.m === hit.item.m));
+      if (RD.mode === 'off' || (RD.mode === 'main' && ws.some(w => w.c >= 2))) setRoads('all');
+      highlight = makeDraped(ws.map(w => w.pts), 0x7dd3fc, 1, 0.45, 0.6); highlight.obj.renderOrder = 6;
+      let a = 1e9, b = -1e9, c = 1e9, d = -1e9; ws.forEach(w => w.pts.forEach(([x, y]) => { a = Math.min(a, x); b = Math.max(b, x); c = Math.min(c, y); d = Math.max(d, y); }));
+      flyTo(orbitPose(toX((a + b) / 2), toZ((c + d) / 2), Math.max(25, Math.max((b - a) * KX, (d - c) * KZ) * 1.5), 0.15, 0.8));
+      return;
+    }
+    highlight = makeDraped(hit.item.r.map(flatToRing), hit.kind === 'ti' ? 0xf0d0ff : 0xffe08a, 1, 0.8, 0.8);
+    let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9;
+    hit.item.r.forEach(r => { for (let j = 0; j < r.length; j += 2) { minx = Math.min(minx, r[j]); maxx = Math.max(maxx, r[j]); miny = Math.min(miny, r[j + 1]); maxy = Math.max(maxy, r[j + 1]); } });
+    const size = Math.max((maxx - minx) * KX, (maxy - miny) * KZ);
+    flyTo(orbitPose(toX((minx + maxx) / 2), toZ((miny + maxy) / 2), Math.max(40, size * 1.6), 0.15, 0.8));
+  });
+
+  // ---------- chart: places with fire per bin, rain bars from top, humidity line
+  const chart = $('chart'), cx = chart.getContext('2d');
+  let bins = new Float32Array(1), rbins = new Float32Array(1), BIN = 1440;
+  function rebin() {
+    const span = period.to - period.from;
+    BIN = span > 200 * 1440 ? 2880 : span > 60 * 1440 ? 1440 : span > 4 * 1440 ? 720 : 60;
+    const nb = Math.ceil(span / BIN); bins = new Float32Array(nb); rbins = new Float32Array(nb);
+    const sets = Array.from({ length: nb }, () => new Set());
+    for (let i = firstAt(period.from), e = firstAt(period.to); i < e; i++) if (visibleKind(i)) sets[Math.min(nb - 1, Math.floor((F.t[i] - period.from) / BIN))].add(fCell[i]);
+    sets.forEach((s, b) => bins[b] = s.size);
+    for (let s = Math.floor(period.from / STEP); s < Math.min(NS, Math.ceil(period.to / STEP)); s++) { const b = Math.floor((s * STEP - period.from) / BIN); if (b >= 0 && b < nb) rbins[b] += prMean[s]; }
+  }
+  function drawChart() {
+    const r = chart.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (!r.width) return;
+    if (chart.width !== Math.round(r.width * dpr) || chart.height !== Math.round(r.height * dpr)) { chart.width = Math.round(r.width * dpr); chart.height = Math.round(r.height * dpr); }
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, r.width, r.height);
+    const L = 40, R = 32, T = 6, B = 18, w = r.width - L - R, h = r.height - T - B, span = period.to - period.from;
+    const max = Math.max(1, ...bins), ink = css('--ink'), muted = css('--muted'), line = css('--line'), acc = css('--accent'), rain = css('--rain');
+    const nice = Math.pow(10, Math.floor(Math.log10(max))), top = Math.ceil(max / nice) * nice;
+    cx.font = '10px ' + css('--f-data'); cx.fillStyle = muted; cx.strokeStyle = line; cx.lineWidth = 1; cx.textAlign = 'right';
+    [0, top / 2, top].forEach(v => { const y = T + h - v / top * h; cx.beginPath(); cx.moveTo(L, y + .5); cx.lineTo(L + w, y + .5); cx.stroke(); cx.fillText(fmt(v), L - 4, y + 3); });
+    cx.textAlign = 'left'; ['0%', '50%', '100%'].forEach((s, k) => cx.fillText(s, L + w + 4, T + h - k * h / 2 + 3));
+    const bw = w / bins.length, cur = Math.floor((st.t - period.from) / BIN);
+    for (let b = 0; b < bins.length; b++) { const bh = bins[b] / top * h; if (!bh) continue; cx.fillStyle = b <= cur ? acc : line; cx.fillRect(L + b * bw, T + h - bh, Math.max(1, bw - (bw > 3 ? 1 : 0)), bh); }
+    const rmax = Math.max(5, ...rbins); cx.fillStyle = rain; cx.globalAlpha = 0.55;
+    for (let b = 0; b < rbins.length; b++) { const rh = rbins[b] / rmax * h * 0.45; if (rh > 0.5) cx.fillRect(L + b * bw, T, Math.max(1, bw - (bw > 3 ? 1 : 0)), rh); }
+    cx.globalAlpha = 1;
+    cx.strokeStyle = muted; cx.lineWidth = 1.1; cx.setLineDash([3, 3]); cx.beginPath();
+    const s0 = Math.floor(period.from / STEP), s1 = Math.min(NS - 1, Math.floor(period.to / STEP)), stride = Math.max(1, Math.round((s1 - s0) / w));
+    for (let s = s0; s <= s1; s += stride) {
+      let a2 = 0, c = 0; for (let q = s; q < Math.min(s + stride, NS); q++) { a2 += rhMean[q]; c++; }
+      const x = L + (s * STEP - period.from) / span * w, y = T + h - a2 / c / 100 * h; s === s0 ? cx.moveTo(x, y) : cx.lineTo(x, y);
+    }
+    cx.stroke(); cx.setLineDash([]);
+    cx.fillStyle = muted; cx.textAlign = 'center';
+    if (span <= 4 * 1440) {
+      for (let tk = period.from; tk <= period.to; tk += 360) { const dd = loc(tk); cx.fillText((dd.getUTCHours() === 0 ? fmtD(tk) + ' ' : '') + two(dd.getUTCHours()) + 'h', L + (tk - period.from) / span * w, T + h + 13); }
+    } else {
+      const d0 = loc(period.from);
+      for (let y = d0.getUTCFullYear(), m = d0.getUTCMonth(); ; m++) {
+        if (m > 11) { m = 0; y++; }
+        const tm = (Date.UTC(y, m, 1, -TZ) - T0) / 60000; if (tm > period.to) break;
+        if (tm >= period.from) cx.fillText(MESES[m] + (m === 0 ? '/' + String(y).slice(2) : ''), L + (tm - period.from) / span * w, T + h + 13);
+        if (span <= 60 * 1440) for (const dd of [10, 20]) { const td = (Date.UTC(y, m, dd, -TZ) - T0) / 60000; if (td > period.from && td < period.to) cx.fillText(dd + '/' + two(m + 1), L + (td - period.from) / span * w, T + h + 13); }
+      }
+    }
+    // current moment: a line with a round handle at the top, to drag along the chart
+    const x = L + (st.t - period.from) / span * w; cx.strokeStyle = ink; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(x, T + 4); cx.lineTo(x, T + h); cx.stroke();
+    cx.fillStyle = acc; cx.beginPath(); cx.arc(x, T + 5, 5.5, 0, 2 * Math.PI); cx.fill(); cx.strokeStyle = css('--panel'); cx.lineWidth = 1.5; cx.stroke();
+    const leg = 'locais com fogo ' + (BIN === 60 ? 'por hora' : BIN === 720 ? 'a cada 12 h' : BIN === 1440 ? 'por dia' : 'a cada 2 dias');
+    if ($('chartLeg').dataset.k !== leg) { $('chartLeg').dataset.k = leg; $('chartLeg').innerHTML = '<i style="background:' + acc + '"></i>' + leg + '<i style="background:' + rain + ';opacity:.6"></i>chuva<i style="border-top:1.5px dashed ' + muted + ';height:0;width:14px"></i>umidade do ar · arraste no gráfico para mudar o momento'; }
+    chart._geom = { L, w };
+  }
+  function chartSeek(ev) { const g = chart._geom; if (!g) return; const r = chart.getBoundingClientRect(); setTime(period.from + (ev.clientX - r.left - g.L) / g.w * (period.to - period.from), true); }
+  let dragging = false;
+  chart.addEventListener('pointerdown', e => { dragging = true; chart.setPointerCapture(e.pointerId); pause(); chartSeek(e); });
+  chart.addEventListener('pointermove', e => { if (dragging) chartSeek(e); });
+  chart.addEventListener('pointerup', () => dragging = false);
+  slider.addEventListener('input', () => { pause(); setTime(+slider.value, true); });
+  chart.addEventListener('keydown', e => { // arrows step one bar, Shift for ten
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault(); pause(); setTime(st.t + (e.key === 'ArrowRight' ? 1 : -1) * BIN * (e.shiftKey ? 10 : 1), true);
+  });
+
+  // ---------- events list
+  // biggest fires of the period: my own grouping before the INPE events start, the official INPE events after
+  function renderEvents() {
+    const cut = IN.cut ?? 1e12, isoMin = s => minOf(+s.slice(0, 4), +s.slice(5, 7), +s.slice(8, 10));
+    const items = D.events.map((e, k) => ({ mine: true, k, km2: e.area, from: e.start, to: e.end, e })).filter(x => x.from < cut && x.to >= period.from && x.from < period.to);
+    IN.ev.forEach((e, k) => { const a = isoMin(e.d0), b = isoMin(e.d1) + 1440; if (b >= period.from && a < period.to && e.ha >= 50) items.push({ mine: false, k, km2: e.ha / 100, from: a, to: b, e }); });
+    const list = items.sort((a, b) => b.km2 - a.km2).slice(0, 8);
+    const ul = $('events'); ul.innerHTML = '';
+    $('evTitle').textContent = 'Maiores incêndios · ' + period.name;
+    if (!list.length) { ul.innerHTML = '<li class="empty">Nenhum incêndio grande neste período.</li>'; return; }
+    list.forEach(x => {
+      const li = document.createElement('li'), b = document.createElement('button'), e = x.e;
+      b.innerHTML = '<span class="nm"></span><span class="km"></span><span class="dt"></span>';
+      b.querySelector('.nm').textContent = x.mine ? D.muns[e.m] : e.mun;
+      b.querySelector('.km').textContent = '≈ ' + fmt(x.km2, 1) + ' km²';
+      b.querySelector('.dt').textContent = x.mine ? fmtD(e.start) + ' a ' + fmtD(e.end) + ' · ' + fmt(e.n) + ' detecções VIIRS' : isoBr(e.d0) + ' a ' + isoBr(e.d1) + ' · ' + inpeName(e.tipo).toLowerCase() + ' (INPE)';
+      b.onclick = () => {
+        pause();
+        if (x.mine) { setTime(Math.min(period.to, e.end + 120), true); st.sel = { kind: 'event', k: x.k }; showDetail(); flyTo(orbitPose(toX(e.lon), toZ(e.lat), Math.max(25, Math.sqrt(e.area) * 9), 0.35, 0.85)); }
+        else { setTime(Math.max(period.from, Math.min(period.to, x.to - 6 * 60)), true); st.sel = { kind: 'inpe', k: x.k }; showDetail(); flyTo(orbitPose(toX(e.c[0]), toZ(e.c[1]), Math.max(25, Math.sqrt(x.km2) * 9), 0.35, 0.85)); }
+      };
+      li.appendChild(b); ul.appendChild(li);
+    });
+  }
+
+  // ---------- period selection
+  function busiestTime(p) {
+    const days = new Map();
+    for (let i = firstAt(p.from), e = firstAt(p.to); i < e; i++) { const d = Math.floor((F.t[i] + TZ * 60) / 1440); days.set(d, (days.get(d) || 0) + 1); }
+    let best = Math.floor(p.to / 1440) - 1, bv = -1; days.forEach((v, d) => { if (v > bv) { bv = v; best = d; } });
+    return Math.min(p.to, best * 1440 + (18 - TZ) * 60); // 18h local
+  }
+  PERIODS.forEach(p => {
+    const b = document.createElement('button'); b.type = 'button';
+    if (p.group === 'recent') { b.textContent = p.short; b.title = p.long; $('pRecent').appendChild(b); }
+    else { b.textContent = p.short; b.title = p.long + ' (' + p.sub + ')'; if (p.color) b.style.setProperty('--c', p.color); $('pSeason').appendChild(b); }
+    b.onclick = () => setPeriod(p); p.btn = b;
+  });
+  const rangeTxt = p => fmtD(p.from) + ' ' + fmtH(p.from) + ' até ' + fmtD(Math.min(p.to, D.meta.lastFire)) + ' ' + fmtH(Math.min(p.to, D.meta.lastFire));
+  function setPeriod(p) {
+    period = p; pause();
+    PERIODS.forEach(q => q.btn.setAttribute('aria-pressed', q === p));
+    $('pSub').textContent = p.long + ': ' + rangeTxt(p);
+    slider.min = p.from; slider.max = p.to;
+    perMat.uniforms.uPStart.value = p.from;
+    burnKey = ''; rebin(); renderEvents();
+    st.sel = null; showDetail();
+    setTime(p.startAtEnd ? p.to : busiestTime(p), true);
+  }
+
+  // ---------- controls
+  function play() { if (st.t >= period.to - 1) setTime(period.from, true); st.playing = true; $('play').textContent = '❚❚'; $('play').setAttribute('aria-label', 'Pausar'); }
+  function pause() { st.playing = false; $('play').textContent = '▶'; $('play').setAttribute('aria-label', 'Reproduzir'); burnKey = -1; paintBurn(st.t, true); }
+  $('play').onclick = () => st.playing ? pause() : play();
+  // speed: one button that cycles through three speeds
+  const SPEEDS = [[8, '8 h/s'], [24, '1 dia/s'], [72, '3 dias/s']];
+  $('speed').onclick = () => { const k = (SPEEDS.findIndex(s => s[0] === st.speed) + 1) % SPEEDS.length; st.speed = SPEEDS[k][0]; $('speed').textContent = SPEEDS[k][1]; };
+  // timeline can shrink to a thin bar (play, date, slider)
+  function setTimeline(open) {
+    $('timeline').classList.toggle('min', !open);
+    $('tlToggle').textContent = open ? '▾' : '▴'; $('tlToggle').title = open ? 'Esconder o gráfico' : 'Mostrar o gráfico e os períodos'; $('tlToggle').setAttribute('aria-expanded', open);
+    try { localStorage.setItem('rr3d-tl', open ? '1' : '0'); } catch (e) {}
+    if (open) requestAnimationFrame(drawChart);
+  }
+  $('tlToggle').onclick = () => setTimeline($('timeline').classList.contains('min'));
+  try { const v = localStorage.getItem('rr3d-tl'); if (v === '0' || (v === null && matchMedia('(max-width: 880px)').matches)) setTimeline(false); } catch (e) {}
+  $('win').onchange = e => { st.win = +e.target.value; fireMat.uniforms.uWin.value = st.win; updateUi(); };
+  $('mode').onchange = e => { st.mode = +e.target.value; fireMat.uniforms.uMode.value = st.mode; rebin(); updateUi(); };
+  $('base').onchange = e => {
+    const v = e.target.value; terrainMat.uniforms.uMapOn.value = v === 'none' ? 0 : 1; terrainMat.uniforms.uMap.value = v === 'lc' ? texLc : texImg;
+    $('legendLc').hidden = v !== 'lc';
+  };
+  $('legendLc').innerHTML = D.lc.map((n, k) => '<span><i class="sq" style="background:' + D.lcColors[k] + '"></i>' + n + '</span>').join('');
+  $('lyScar').onchange = e => terrainMat.uniforms.uBurnOn.value = e.target.checked ? 1 : 0;
+  $('lyFire').onchange = e => firePts.visible = e.target.checked;
+  $('lyPer').onchange = e => perLines.visible = e.target.checked;
+  $('lyTI').onchange = e => { tiLines.obj.visible = e.target.checked; lblEls.forEach((el, k) => { if (PLACES[k][3] === 'ti') el.dataset.off = e.target.checked ? '' : '1'; }); };
+  $('lyMun').onchange = e => munLines.obj.visible = e.target.checked;
+  function showCarLayer(on) {
+    if (on && !carLayer) carLayer = makeDraped(CAR.flatMap(c => c.r.map(flatToRing)), 0x5eead4, 0.75, 0.32, 3);
+    if (carLayer) carLayer.obj.visible = on; $('lyCar').checked = on;
+  }
+  $('lyCar').onchange = e => showCarLayer(e.target.checked);
+  $('lyDeter').onchange = e => {
+    if (e.target.checked && !deterLayer) deterLayer = makeDraped(DET.flatMap(d => d.r.map(flatToRing)), 0xff5c7a, 0.9, 0.34, 3);
+    if (deterLayer) deterLayer.obj.visible = e.target.checked;
+  };
+  // ---------- official INPE fire events: contour, type (fire / human activity) and land use
+  const IN = { ev: [], day: null, layers: [] };
+  const INPE_COL = { 'Incêndio': 0xff5a3c, 'Atividades Antrópicas': 0x7bd88f, 'Possível início de incêndio': 0xf0a030, 'Nova Queima Isolada': 0xffd84a };
+  const INPE_TXT = { 'Incêndio': 'fogo que se espalhou sem controle pela vegetação',
+    'Atividades Antrópicas': 'queima ligada ao uso da terra (limpeza, manejo de pasto ou roça), que só é legal com autorização',
+    'Possível início de incêndio': 'queima que pode virar incêndio', 'Nova Queima Isolada': 'queima nova e pequena, ainda em observação' };
+  const dayOf = t => loc(t).toISOString().slice(0, 10);
+  const addDays = (s, n) => new Date(Date.parse(s + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+  const isoBr = s => s.slice(8, 10) + '/' + s.slice(5, 7);
+  const inpeName = t => t === 'Atividades Antrópicas' ? 'Queima por atividade humana' : t;
+  // situation of a fire on a given day: burning, stopped 1-7 days ago (INPE keeps watching, it may come back), or out (8-60 days)
+  const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
+  function inpeSit(e, day) {
+    if (day < e.d0) return '';
+    if (day <= e.d1b) return 'burn';
+    const n = daysBetween(e.d1, day);
+    return n <= 7 ? 'obs' : n <= 60 ? 'done' : '';
+  }
+  const inpeState = (e, day) => { const s = inpeSit(e, day); return s === 'burn' ? 2 : s ? 1 : 0; };
+  const SIT = {
+    burn: { name: 'Queimando', sub: 'fogo neste dia', color: 0xff4a2a, css: '#ff4a2a', op: 1 },
+    obs: { name: 'Em observação', sub: 'sem fogo há 1–7 dias', color: 0xffb347, css: '#ffb347', op: 0.95, dash: 0.35 },
+    done: { name: 'Apagados', sub: 'sem fogo há 8–60 dias', color: 0xc8c8c8, css: '#c8c8c8', op: 0.55 }
+  };
+  const sitOn = { burn: true, obs: true, done: false };
+  try { const v = JSON.parse(localStorage.getItem('rr3d-sit') || 'null'); if (v) Object.assign(sitOn, v); } catch (err) {}
+  function initInpe(J) {
+    if (!J || !J.events) return;
+    IN.ev = J.events.filter(e => e.d0 && e.d1 && e.r && e.r.length).map(e => {
+      let a = 1e9, b = -1e9, c = 1e9, d = -1e9; e.r.forEach(r => { for (let j = 0; j < r.length; j += 2) { a = Math.min(a, r[j]); b = Math.max(b, r[j]); c = Math.min(c, r[j + 1]); d = Math.max(d, r[j + 1]); } });
+      // INPE closes events up to the day before; one still active is burning today too
+      const live = e.atual && e.status !== 'Observação';
+      return Object.assign(e, { box: [a, c, b, d], d1b: live ? addDays(e.d1, 1) : e.d1, end: addDays(e.d1, 30) });
+    });
+    IN.updated = J.updated; IN.day = null;
+    if (IN.ev.length) { // from the first INPE event on, only the official contours are drawn
+      const d0 = IN.ev.reduce((m, e) => e.d0 < m ? e.d0 : m, '9999');
+      IN.cut = minOf(+d0.slice(0, 4), +d0.slice(5, 7), +d0.slice(8, 10)); perMat.uniforms.uCut.value = IN.cut;
+    }
+    drawInpe(); renderEvents(); if (st.pin) renderMyStatus();
+  }
+  const INPE_PRI = { 'Incêndio': 0, 'Possível início de incêndio': 1, 'Atividades Antrópicas': 2, 'Nova Queima Isolada': 3 };
+  // one clean outline per fire: only events burning that day, and an event lying inside a more important one is not drawn
+  function drawInpe() {
+    const day = dayOf(st.t); if (day === IN.day) return; IN.day = day;
+    IN.layers.forEach(removeDraped); IN.layers = [];
+    const SORD = { burn: 0, obs: 1, done: 2 }, count = { burn: 0, obs: 0, done: 0 };
+    const on = [];
+    for (const e of IN.ev) { const s = inpeSit(e, day); if (!s) continue; count[s]++; if (sitOn[s]) on.push([e, s]); }
+    on.sort((a, b) => SORD[a[1]] - SORD[b[1]] || (INPE_PRI[a[0].tipo] ?? 9) - (INPE_PRI[b[0].tipo] ?? 9) || b[0].ha - a[0].ha);
+    const kept = [], groups = new Map();
+    for (const [e, s] of on) {
+      const inside = kept.some(o => e.c[0] >= o.box[0] && e.c[0] <= o.box[2] && e.c[1] >= o.box[1] && e.c[1] <= o.box[3] && o.r.some(r => pointInRing(e.c[0], e.c[1], r)));
+      if (inside) continue;
+      kept.push(e); if (!groups.has(s)) groups.set(s, []); groups.get(s).push(...e.r.map(flatToRing));
+    }
+    ['done', 'obs', 'burn'].forEach(s => { // burning drawn last, on top
+      if (!groups.has(s)) return;
+      const c = SIT[s], d = makeDraped(groups.get(s), c.color, c.op, 0.42, 0.5, c.dash);
+      d.obj.visible = $('lyInpe').checked; d.obj.renderOrder = 5 + SORD.done - SORD[s]; IN.layers.push(d);
+    });
+    IN.count = count; renderSit();
+  }
+  // filter chips: what each situation means, with how many fires are in it on the selected day
+  function renderSit() {
+    const wrap = $('sit'); if (!wrap) return;
+    if (!wrap.childElementCount) Object.keys(SIT).forEach(s => {
+      const b = document.createElement('button'); b.type = 'button'; b.dataset.s = s;
+      b.innerHTML = '<i></i><b></b><span class="n"></span><span class="sub"></span>';
+      b.querySelector('i').style.setProperty('--c', SIT[s].css); if (SIT[s].dash) b.querySelector('i').classList.add('dash');
+      b.querySelector('b').textContent = SIT[s].name; b.querySelector('.sub').textContent = SIT[s].sub; b.title = SIT[s].name + ': ' + SIT[s].sub + ' (clique para mostrar ou esconder)';
+      b.onclick = () => { sitOn[s] = !sitOn[s]; try { localStorage.setItem('rr3d-sit', JSON.stringify(sitOn)); } catch (err) {} IN.day = null; drawInpe(); };
+      wrap.appendChild(b);
+    });
+    wrap.querySelectorAll('button').forEach(b => { const s = b.dataset.s; b.setAttribute('aria-pressed', sitOn[s]); b.querySelector('.n').textContent = IN.count ? fmt(IN.count[s]) : '–'; });
+    $('sitDay').textContent = IN.ev.length ? 'Eventos de fogo do INPE em ' + isoBr(IN.day) + '. Clique para mostrar ou esconder.' : 'Carregando eventos do INPE…';
+  }
+  $('lyInpe').onchange = e => IN.layers.forEach(d => d.obj.visible = e.target.checked);
+  function inpeAt(lon, lat, day, burningOnly) {
+    let best = -1;
+    for (let k = 0; k < IN.ev.length; k++) {
+      const e = IN.ev[k], sit = inpeSit(e, day); if (!sit || (burningOnly ? sit !== 'burn' : !sitOn[sit])) continue;
+      const b = e.box; if (lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) continue;
+      if (e.r.some(r => pointInRing(lon, lat, r)) && (best < 0 || e.ha < IN.ev[best].ha)) best = k;
+    }
+    return best;
+  }
+  function inpeCard(k) {
+    const e = IN.ev[k], day = dayOf(st.t), sit = inpeSit(e, day), burning = sit === 'burn', pct = v => fmt(v || 0, 0) + '%';
+    const nd = Math.max(1, daysBetween(e.d1, day)), ago = nd === 1 ? '1 dia' : nd + ' dias';
+    const sitTag = burning ? 'queimando neste dia' : sit === 'obs' ? 'sem fogo há ' + ago + ' · em observação' : sit === 'done' ? 'apagado · sem fogo há ' + ago : 'ainda não começou';
+    const tiHit = D.tis.findIndex(t => t.r.some(r => pointInRing(e.c[0], e.c[1], r)));
+    const rate = e.veg != null && e.veg >= 50 ? 10000 : 3000;
+    showCard('<h3>' + esc(inpeName(e.tipo)) + ' · ' + esc(e.mun) + '</h3><p class="when">' + isoBr(e.d0) + ' a ' + isoBr(e.d1) + ' · ' + e.dias + (e.dias === 1 ? ' dia' : ' dias') + ' · evento oficial do INPE</p>' + whereTxt(e.c[0], e.c[1]) +
+      '<span class="tag' + (burning ? ' hot' : '') + '">' + sitTag + '</span><span class="tag">≈ ' + fmt(e.ha, 0) + ' ha</span>' +
+      (e.desm != null ? '<p class="note" style="margin:2px 0 4px">O que queimou: ' + pct(e.desm) + ' área desmatada, ' + pct(e.veg) + ' vegetação nativa, ' + pct(e.trans) + ' transição (INPE).</p>' : '') +
+      legalHtml({ lc: -1, ti: tiHit, dt: -1, car: carAt(e.c[0], e.c[1]), inpe: e }) +
+      '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([['Classificação', e.tipo], ['Situação no INPE', e.atual ? e.status : 'encerrado'], ['Código do evento', String(e.id)], ['Área estimada', fmt(e.ha, 1) + ' ha'], ['Município', e.mun]]) +
+      '<p style="margin-top:6px">Contorno e classificação do Programa Queimadas, que junta os focos de vários satélites em eventos de fogo. <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">Ver no INPE</a></p></div></details>' +
+      fineBlock(e.ha, rate, tiHit >= 0));
+    bindFineBlock();
+  }
+  $('lyWind').onchange = e => windLines.visible = e.target.checked;
+  $('lyLbl').onchange = e => $('labels').hidden = !e.target.checked;
+  $('lyLight').onchange = e => { try { localStorage.setItem('rr3d-light', e.target.checked ? '1' : '0'); } catch (err) {} $('lightNote').textContent = 'Recarregue a página para aplicar o modo leve.'; };
+  $('exag').oninput = e => { exag = +e.target.value; $('exagV').textContent = String(exag).replace('.', ',') + '×'; applyExag(); placeAll(); };
+  $('compass').onclick = () => { const dist = camera.position.distanceTo(controls.target); flyTo(orbitPose(controls.target.x, controls.target.z, dist, 0, Math.max(0.3, Math.min(1.3, Math.acos((camera.position.y - controls.target.y) / dist))))); };
+  $('home').onclick = () => flyTo(HOME);
+  // panel tabs; on phones the panel is a drawer and choosing a tab opens it
+  const isPhone = () => matchMedia('(max-width: 880px)').matches;
+  function setDrawer(open) { $('panel').classList.toggle('open', open); }
+  $('grab').onclick = () => setDrawer(!$('panel').classList.contains('open'));
+  const TABS = ['resumo', 'local', 'seca', 'mapa', 'dados'];
+  function setTab(name, open) {
+    TABS.forEach(t => { const on = t === name; $('tab-' + t).setAttribute('aria-selected', on); $('pane-' + t).hidden = !on; });
+    try { localStorage.setItem('rr3d-tab', name); } catch (e) {}
+    if (open && isPhone()) setDrawer(true);
+    $('panel').querySelector('.panel-in').scrollTop = 0;
+    if (name === 'seca') requestAnimationFrame(drawSeca);
+  }
+  TABS.forEach(t => $('tab-' + t).onclick = () => {
+    if (isPhone() && $('tab-' + t).getAttribute('aria-selected') === 'true' && $('panel').classList.contains('open')) setDrawer(false);
+    else setTab(t, true);
+  });
+  try { const v = localStorage.getItem('rr3d-tab'); if (TABS.includes(v)) setTab(v, false); } catch (e) {}
+  function setPanel(open) {
+    document.querySelector('.app').classList.toggle('collapsed', !open);
+    const tab = $('sideTab'); tab.textContent = open ? '›' : '‹';
+    tab.title = open ? 'Ocultar painel' : 'Mostrar painel'; tab.setAttribute('aria-expanded', open);
+    try { localStorage.setItem('rr3d-panel', open ? '1' : '0'); } catch (e) {}
+  }
+  $('sideTab').onclick = () => setPanel(document.querySelector('.app').classList.contains('collapsed'));
+  try { if (localStorage.getItem('rr3d-panel') === '0') setPanel(false); } catch (e) {}
+  $('topView').onclick = () => flyTo(orbitPose(controls.target.x, controls.target.z, camera.position.distanceTo(controls.target), 0, 0.02));
+  let fly = null;
+  function flyTo(pose) { fly = { t0: performance.now(), p0: camera.position.clone(), q0: controls.target.clone(), p1: pose.pos, q1: pose.tgt }; }
+
+  // ---------- picking (fires, perimeters, nearby point)
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  function groundAt(clientX, clientY) {
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set((clientX - r.left) / r.width * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObject(terrain)[0]; if (!hit) return null;
+    return { lon: cLon + hit.point.x / KX, lat: cLat - hit.point.z / KZ };
+  }
+  function pointInRing(lon, lat, r) {
+    let inside = false;
+    for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
+      const xi = r[i], yi = r[i + 1], xj = r[j], yj = r[j + 1];
+      if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+  function eventAt(lon, lat) {
+    if (st.t >= perMat.uniforms.uCut.value) return -1; // INPE contours in use
+    for (let k = 0; k < D.events.length; k++) {
+      const ev = D.events[k]; if (st.t - ev.end > SCAR_MIN || ev.snaps[0].t > st.t) continue;
+      let sn = null; for (const s of ev.snaps) { if (s.t <= st.t) sn = s; else break; }
+      if (sn && sn.rings.some(r => pointInRing(lon, lat, r))) return k;
+    }
+    return -1;
+  }
+  function pick(clientX, clientY) {
+    if (st.picking) {
+      const g = groundAt(clientX, clientY); if (!g) return;
+      stopPicking(); setPin(g.lon, g.lat); return;
+    }
+    const r = renderer.domElement.getBoundingClientRect(), mx = clientX - r.left, my = clientY - r.top;
+    let best = -1, bd = 16 * 16;
+    if (firePts.visible) for (const i of windowIdx()) {
+      tmpV.set(fPos[i * 3], fPos[i * 3 + 1], fPos[i * 3 + 2]).project(camera); if (tmpV.z > 1) continue;
+      const dx = (tmpV.x + 1) / 2 * r.width - mx, dy = (1 - tmpV.y) / 2 * r.height - my, d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = i; }
+    }
+    if (best >= 0) { st.sel = { kind: 'fire', i: best }; showDetail(); return; }
+    const g = groundAt(clientX, clientY);
+    // a click right on a river opens its water card
+    if (g && $('lyRios').checked) {
+      const tol = Math.max(0.2, Math.min(4, camera.position.distanceTo(controls.target) * 0.008)), rv = riverAt(g.lon, g.lat, tol);
+      if (rv) { st.sel = { kind: 'river', name: rv.n >= 0 ? RV.names[rv.n] : '', lon: g.lon, lat: g.lat }; showDetail(); return; }
+    }
+    const ki = g && $('lyInpe').checked && IN.ev.length ? inpeAt(g.lon, g.lat, dayOf(st.t), false) : -1;
+    if (ki >= 0) { st.sel = { kind: 'inpe', k: ki }; showDetail(); return; }
+    const k = g && perLines.visible ? eventAt(g.lon, g.lat) : -1;
+    if (k >= 0) { st.sel = { kind: 'event', k }; showDetail(); return; }
+    const c = g && carLayer && carLayer.obj.visible ? carAt(g.lon, g.lat) : -1;
+    st.sel = c >= 0 ? { kind: 'car', k: c } : null; showDetail();
+  }
+  let downAt = null;
+  renderer.domElement.addEventListener('pointerdown', e => downAt = [e.clientX, e.clientY]);
+  renderer.domElement.addEventListener('pointerup', e => { if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 5) pick(e.clientX, e.clientY); downAt = null; });
+
+  // ---------- "could it be illegal?": what the satellite data can and cannot say
+  function legalHtml(o) {
+    const items = [], dtRec = o.dt >= 0 ? DET[o.dt] : null;
+    let level = 0; // 0 none, 1 attention, 2 strong
+    if (dtRec || o.dtAny) { level = 2; items.push('<b>Desmatamento recente:</b> ' + (dtRec ? 'alerta DETER (' + dtRec.cls.replace(/_/g, ' ').toLowerCase() + ') em ' + dtRec.d.split('-').reverse().join('/') : 'há alerta DETER de desmatamento na área') + '. Queimar área desmatada sem licença é ilegal.'); }
+    if (o.inpe) {
+      const e = o.inpe;
+      items.unshift('<b>Classificação do INPE: ' + esc(e.tipo.toLowerCase()) + '</b>, ' + (INPE_TXT[e.tipo] || '') + '.');
+      if (e.desm != null && e.desm >= 20) { level = 2; items.push('<b>Desmatamento:</b> ' + fmt(e.desm, 0) + '% da área queimada era área desmatada, segundo o INPE. Queimar área desmatada sem licença é ilegal.'); }
+      if (e.veg != null && e.veg >= 30) { level = Math.max(level, 1); items.push('<b>Vegetação nativa:</b> ' + fmt(e.veg, 0) + '% da área queimada; queimar vegetação nativa exige autorização (art. 58-A).'); }
+    }
+    if (o.lc === 0) { level = Math.max(level, 1); items.push('<b>Floresta:</b> queimar vegetação nativa exige autorização; incêndio em floresta pode ser enquadrado no art. 58-A.'); }
+    else if (o.lc === 1 || o.lc === 4) items.push('<b>Lavrado ou área alagável:</b> é vegetação nativa; qualquer queima precisa de autorização.');
+    else if (o.lc >= 0) items.push('<b>' + esc(D.lc[o.lc]) + ':</b> queima de manejo é permitida só com autorização do órgão ambiental.');
+    if (o.ti >= 0) items.push('<b>Terra Indígena ' + esc(D.tis[o.ti].nome) + ':</b> o uso tradicional do fogo pelos povos indígenas é permitido por lei; fogo de terceiros na TI dobra a multa.');
+    if (o.car >= 0 && CAR[o.car]) items.push('<b>Imóvel no CAR</b> (' + esc(CAR_TIPO[CAR[o.car].tipo] || CAR[o.car].tipo) + ', ' + fmt(CAR[o.car].area, 0) + ' ha): o responsável precisa de autorização de queima e deve manter ações de prevenção (art. 58-C).');
+    const verdict = level === 2 ? '<span class="verdict strong">indício forte</span>' : level === 1 ? '<span class="verdict warn">atenção</span>' : '<span class="verdict">sem indício por satélite</span>';
+    return '<details class="more legal"><summary>Pode ser ilegal? ' + verdict + '</summary><div><ul>' + items.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
+      '<p class="note" style="margin:4px 0 0">O satélite não mostra se havia autorização nem quem acendeu o fogo. Para confirmar é preciso consultar a autorização de queima (FEMARH ou Ibama), o período de proibição do estado e fazer vistoria. Isto não é acusação.</p></div></details>';
+  }
+  function carAt(lon, lat) {
+    let best = -1, ba = 1e18;
+    for (let k = 0; k < CAR.length; k++) {
+      const b = carBox[k]; if (lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) continue;
+      if (CAR[k].area < ba && CAR[k].r.some(r => pointInRing(lon, lat, r))) { best = k; ba = CAR[k].area; }
+    }
+    return best;
+  }
+  function fineBlock(ha, rate, ti) {
+    return '<details class="more fine"><summary>Simular multa</summary><div>' +
+      '<label class="fl" for="evHa">Área queimada (hectares)<input id="evHa" type="number" min="0" step="1" inputmode="decimal" value="' + Math.round(ha) + '"></label>' +
+      '<label class="fl" for="evType">Tipo de infração<select id="evType">' + FINE_TYPES.map(([v, txt]) => '<option value="' + v + '"' + (v === rate ? ' selected' : '') + '>' + txt + '</option>').join('') + '</select></label>' +
+      '<label class="ckline"><input type="checkbox" id="evTi"' + (ti ? ' checked' : '') + '> Atingiu Terra Indígena (multa em dobro)</label>' +
+      '<div class="fineOut" id="evOut"></div>' +
+      '<p class="note" style="margin:0">Simulação educativa pelo Decreto 6.514/2008 (redação de 2024), não é parecer jurídico. A multa real depende de fiscalização, autorização de queima e de quem provocou o fogo.</p></div></details>';
+  }
+  function bindFineBlock() {
+    const upd = () => calcFine($('evHa'), $('evType'), $('evTi'), $('evOut'));
+    ['evHa', 'evType', 'evTi'].forEach(id => $(id).addEventListener(id === 'evHa' ? 'input' : 'change', upd));
+    upd();
+  }
+  function carCard(k) {
+    // a property is judged over the whole of 2026 (fires happen mostly in the dry season); the selected period is shown too
+    const c = CAR[k], cellsYear = new Set(), cellsPer = new Set(), lcCount = new Map(); let dtAny = false, tiHit = -1;
+    for (let i = firstAt(minOf(2026, 1, 1)), e = firstAt(TLAST + 1); i < e; i++) {
+      if (F.car[i] !== k || !F.v[i]) continue;
+      const key = Math.round(F.lat[i] / 0.003375) * 100000 + Math.round(F.lon[i] / 0.003375);
+      cellsYear.add(key); if (F.t[i] >= period.from && F.t[i] <= st.t) cellsPer.add(key);
+      lcCount.set(F.c[i], (lcCount.get(F.c[i]) || 0) + 1);
+      if (F.dt[i] >= 0) dtAny = true; if (F.ti[i] >= 0) tiHit = F.ti[i];
+    }
+    const ha = cellsYear.size * 14.06, haPer = cellsPer.size * 14.06, lc = [...lcCount].sort((a, b) => b[1] - a[1])[0];
+    const lcIdx = lc ? lc[0] : -1, rate = lcIdx >= 0 && nativeLc(lcIdx) ? 10000 : 3000;
+    removeDraped(carSel); carSel = makeDraped(c.r.map(flatToRing), 0xffffff, 1, 0.9, 1);
+    showCard('<h3>' + esc(CAR_TIPO[c.tipo] || 'Imóvel rural') + '</h3><p class="when">CAR ' + esc(c.cod) + '</p>' + whereTxt(c.c[0], c.c[1]) +
+      '<span class="tag">' + fmt(c.area, 0) + ' ha declarados</span><span class="tag' + (ha > 0 ? ' hot' : '') + '">≈ ' + fmt(ha, 0) + ' ha com fogo em 2026</span>' +
+      (lcIdx >= 0 ? '<span class="tag">' + esc(D.lc[lcIdx]) + '</span>' : '') +
+      '<p class="note" style="margin:2px 0 4px">De 01/01 até ' + fmtD(TLAST) + ' (focos VIIRS de 375 m). No período escolhido (' + period.name.toLowerCase() + '): ≈ ' + fmt(haPer, 0) + ' ha.</p>' +
+      legalHtml({ lc: lcIdx, ti: tiHit, dt: -1, dtAny, car: k }) +
+      '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([['Município', c.mun || '–'], ['Situação no CAR', (c.cond || '–')], ['Área declarada', fmt(c.area, 1) + ' ha']]) +
+      '<p style="margin-top:6px">Dados públicos do SICAR. O CAR é declarado pelo próprio dono e pode ter sobreposições; não comprova posse nem autoria do fogo.</p></div></details>' +
+      fineBlock(ha, rate, tiHit >= 0));
+    bindFineBlock();
+  }
+
+  // ---------- estimate for 2026: possible fines for fire without authorization
+  function renderLoss() {
+    const y0 = minOf(2026, 1, 1), seen = new Map();
+    for (let i = firstAt(y0), e = firstAt(TLAST + 1); i < e; i++) {
+      if (!F.v[i]) continue;
+      const key = Math.round(F.lat[i] / 0.003375) * 100000 + Math.round(F.lon[i] / 0.003375);
+      if (!seen.has(key)) seen.set(key, { lc: F.c[i], ti: F.ti[i] >= 0, dt: F.dt[i] >= 0, car: F.car[i] });
+    }
+    let ha = 0, top = 0, ind = 0, haInd = 0, haNat = 0, haTi = 0, haCar = 0; const props = new Set(), byLc = new Map();
+    seen.forEach(c => {
+      const a = 14.06, rate = nativeLc(c.lc) ? 10000 : 3000, v = a * rate * (c.ti ? 2 : 1);
+      ha += a; top += v; byLc.set(c.lc, (byLc.get(c.lc) || 0) + a);
+      if (nativeLc(c.lc)) haNat += a; if (c.ti) haTi += a; if (c.car >= 0) { haCar += a; props.add(c.car); }
+      if (c.dt || c.lc === 0) { ind += v; haInd += a; }
+    });
+    const short = v => v >= 1e9 ? fmt(v / 1e9, 1) + (v < 2e9 ? ' bilhão' : ' bilhões') : fmt(v / 1e6, 0) + (v < 2e6 ? ' milhão' : ' milhões');
+    $('loss').innerHTML = '<div class="loss"><p><b class="big">R$ ' + short(ind) + '</b>em multas possíveis onde há indício de fogo ilegal em 2026 (floresta ou desmatamento recente), até ' + fmtD(TLAST) + '.</p>' +
+      '<p>Teto, se todo o fogo do ano fosse sem autorização: <b>R$ ' + short(top) + '</b>.</p>' +
+      '<details class="more"><summary>Detalhes e como foi calculado</summary><div>' +
+      '<div class="rows"><span>Área com fogo em 2026</span><span>' + fmt(ha, 0) + ' ha</span>' +
+      [...byLc].sort((a, b) => b[1] - a[1]).map(([k, v]) => '<span>· ' + esc(D.lc[k]) + '</span><span>' + fmt(v, 0) + ' ha</span>').join('') +
+      '<span>Com indício (floresta ou DETER)</span><span>' + fmt(haInd, 0) + ' ha</span><span>Dentro de Terras Indígenas</span><span>' + fmt(haTi, 0) + ' ha</span>' +
+      '<span>Dentro de imóveis do CAR</span><span>' + fmt(haCar, 0) + ' ha · ' + fmt(props.size) + ' imóveis</span></div>' +
+      '<p style="margin-top:8px">Área: quadrados de 375 m (14 ha) com foco VIIRS de 01/01/2026 até hoje. Valor: R$ 10.000/ha em vegetação nativa (art. 58-A) e R$ 3.000/ha nas demais (art. 58), em dobro em Terra Indígena (Decreto 6.514/2008, redação de 2024).</p>' +
+      '<p>É uma estimativa de <b>multas possíveis</b>, não do prejuízo econômico total: não inclui perda de pasto, cercas, gado, madeira, saúde ou carbono, nem a multa do art. 58-C. Parte do fogo é legal (queima autorizada, uso tradicional indígena) e parte é acidental; o satélite não distingue. Os números servem para dar ordem de grandeza.</p>' +
+      '</div></details></div>';
+  }
+
+  // ---------- drought: Rio Branco level against every year since 1967, rain and days without rain
+  let SECA = null;
+  const cmTxt = v => (v < 0 ? '−' : '') + (Math.abs(v) >= 100 ? fmt(Math.abs(v) / 100, 2) + ' m' : fmt(Math.abs(v), 0) + ' cm');
+  const isoDate = s => s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4);
+  function initSeca(J) {
+    if (!J || !J.cur) { $('secaNow').innerHTML = '<p class="note">Não foi possível carregar o nível do rio.</p>'; return; }
+    SECA = J;
+    const v = J.last && J.last.cm != null ? J.last.cm : J.dayValue, med = J.band.med[J.today], dayLbl = isoBr(addDays(J.hy0, J.today));
+    const flag = J.rank === 1 ? '<span class="seca-flag">O mais baixo para ' + dayLbl + ' desde ' + J.firstYear + '</span>'
+      : J.rank <= 5 ? '<span class="seca-flag warn">Entre os ' + J.rank + ' mais baixos para ' + dayLbl + ' desde ' + J.firstYear + '</span>'
+      : v < med ? '<span class="seca-flag ok">Abaixo do normal para a data</span>' : '<span class="seca-flag ok">Normal ou acima para a data</span>';
+    const ch = (a, n) => a == null ? '' : '<span>' + (v - a <= 0 ? '−' : '+') + fmt(Math.abs(v - a), 0) + ' cm em ' + n + ' dias</span>';
+    const lastT = J.last && J.last.t ? J.last.t.slice(8, 10) + '/' + J.last.t.slice(5, 7) + ' às ' + J.last.t.slice(11, 16) : '';
+    $('secaNow').innerHTML = '<div class="big">' + cmTxt(v) + '</div>' + flag +
+      '<p>Normal para a data: <b>' + cmTxt(med) + '</b>. ' + [ch(J.d7, 7), ch(J.d30, 30)].filter(Boolean).join(' · ') + '.</p>' +
+      '<p>O rio costuma continuar baixando até <b>fevereiro e março</b>. Recorde: <b>' + cmTxt(J.record.cm) + '</b> em ' + isoDate(J.record.date) + ', depois do El Niño de 2015.</p>' +
+      (lastT ? '<p class="note" style="margin-top:4px">Última leitura da ANA: ' + lastT + '.</p>' : '');
+    $('secaMini').innerHTML = '💧 Rio Branco em Boa Vista: <b>' + cmTxt(v) + '</b>' + (J.rank === 1 ? ', o mais baixo para a data desde ' + J.firstYear : J.rank <= 5 ? ', entre os mais baixos para a data' : '') + '. <u>Ver seca</u>';
+    $('secaMini').hidden = false; $('secaMini').onclick = () => setTab('seca', true);
+    $('secaUpd').textContent = 'Atualizado em ' + isoDate(J.updated.slice(0, 10)) + '.';
+    renderSecaRain(); drawSeca();
+  }
+  function renderSecaRain() {
+    const sN = Math.min(NS - 1, Math.floor(TLAST / STEP)); let r30 = 0, r7 = 0;
+    for (let s = Math.max(0, sN - 240 + 1); s <= sN; s++) { r30 += prMean[s]; if (s > sN - 56) r7 += prMean[s]; }
+    const ds = []; for (let i = firstAt(TLAST - 1440), e = firstAt(TLAST + 1); i < e; i++) if (F.d[i] >= 0) ds.push(F.d[i]);
+    ds.sort((a, b) => a - b); const md = ds.length ? ds[Math.floor(ds.length / 2)] : null;
+    const w = wxAt(-60.67, 2.82, TLAST);
+    $('secaRain').innerHTML = '<div class="kv"><span>Chuva nos últimos 7 dias (média de RR)</span><span>' + fmt(r7, 1) + ' mm</span>' +
+      '<span>Chuva nos últimos 30 dias (média de RR)</span><span>' + fmt(r30, 0) + ' mm</span>' +
+      '<span>Umidade do ar em Boa Vista agora</span><span>' + fmt(w.rh) + '%</span>' +
+      (md != null ? '<span>Dias sem chuva onde houve fogo (mediana, 24 h)</span><span>' + md + ' dias</span>' : '') + '</div>';
+  }
+  function drawSeca() {
+    const J = SECA, cv = $('secaChart'); if (!J || $('pane-seca').hidden) return;
+    const r = cv.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2); if (!r.width) return;
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, r.width, r.height);
+    const L = 34, R = 6, T = 8, B = 18, w = r.width - L - R, h = r.height - T - B, ymin = -80, ymax = 500;
+    const X = i => L + i / 365 * w, Y = v => T + (1 - (Math.max(ymin, Math.min(ymax, v)) - ymin) / (ymax - ymin)) * h;
+    const ink = css('--ink'), muted = css('--muted'), line = css('--line'), acc = css('--accent'), rain = css('--rain');
+    c.font = '10px ' + css('--f-data'); c.textAlign = 'right'; c.fillStyle = muted; c.strokeStyle = line; c.lineWidth = 1;
+    [0, 100, 200, 300, 400, 500].forEach(v => { c.beginPath(); c.moveTo(L, Y(v) + .5); c.lineTo(L + w, Y(v) + .5); c.stroke(); c.fillText(v === 0 ? '0' : fmt(v / 100, 0) + ' m', L - 4, Y(v) + 3); });
+    const area = (lo, hi, col) => { c.beginPath(); let st0 = false; for (let i = 0; i < 366; i++) { if (J.band[hi][i] == null) continue; st0 ? c.lineTo(X(i), Y(J.band[hi][i])) : (c.moveTo(X(i), Y(J.band[hi][i])), st0 = true); }
+      for (let i = 365; i >= 0; i--) if (J.band[lo][i] != null) c.lineTo(X(i), Y(J.band[lo][i])); c.closePath(); c.fillStyle = col; c.fill(); };
+    c.globalAlpha = 0.12; area('min', 'max', ink); c.globalAlpha = 0.16; area('p10', 'p90', ink); c.globalAlpha = 1;
+    const path = (arr, n, col, wd, dash) => { c.beginPath(); let on = false; for (let i = 0; i < Math.min(n, arr.length); i++) { const v = arr[i]; if (v == null) { on = false; continue; } on ? c.lineTo(X(i), Y(v)) : (c.moveTo(X(i), Y(v)), on = true); } c.strokeStyle = col; c.lineWidth = wd; c.setLineDash(dash || []); c.stroke(); c.setLineDash([]); };
+    path(J.band.med, 366, muted, 1.2, [4, 3]);
+    const cmpKey = Object.keys(J.compare)[0]; if (cmpKey) path(J.compare[cmpKey], 366, rain, 1.4);
+    // record low
+    c.strokeStyle = '#b42318'; c.setLineDash([2, 3]); c.beginPath(); c.moveTo(L, Y(J.record.cm) + .5); c.lineTo(L + w, Y(J.record.cm) + .5); c.stroke(); c.setLineDash([]);
+    c.fillStyle = '#b42318'; c.textAlign = 'left'; c.fillText('recorde ' + cmTxt(J.record.cm), L + 4, Y(J.record.cm) - 3);
+    path(J.cur, J.cur.length, acc, 2.6);
+    const ti = J.today; if (J.cur[ti] != null) { c.fillStyle = acc; c.beginPath(); c.arc(X(ti), Y(J.cur[ti]), 4, 0, 2 * Math.PI); c.fill(); }
+    c.fillStyle = muted; c.textAlign = 'center';
+    ['ago', 'set', 'out', 'nov', 'dez', 'jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul'].forEach((m, k) => { const i = [0, 31, 61, 92, 122, 153, 184, 212, 243, 273, 304, 334][k]; c.fillText(m, X(i + 15), T + h + 13); });
+    const y0 = J.hy0.slice(0, 4);
+    $('secaLeg').innerHTML = '<i style="background:' + acc + '"></i>' + y0 + '/' + String(+y0 + 1).slice(2) + ' (este ano)' + (cmpKey ? '<i style="background:' + rain + '"></i>' + cmpKey : '') +
+      '<i style="border-top:1.5px dashed ' + muted + ';height:0;width:14px"></i>normal<i style="background:' + ink + ';opacity:.25"></i>faixa ' + J.firstYear + '–' + (+y0 - 1) + ' (níveis acima de 5 m cortados)';
+  }
+  window.addEventListener('resize', drawSeca);
+
+  // info card over the map: essentials first, the rest behind an arrow
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  const rowsHtml = rows => '<dl>' + rows.map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl>';
+  function showCard(html) { $('popBody').innerHTML = html; $('pop').hidden = false; $('hint').hidden = true; if (isPhone()) setDrawer(false); }
+  $('popX').onclick = () => { st.sel = null; showDetail(); };
+  function showDetail() {
+    const s = st.sel;
+    $('selRing').hidden = !(s && s.kind === 'fire');
+    if (!s || s.kind !== 'car') { removeDraped(carSel); carSel = null; }
+    if (!s) { $('pop').hidden = true; return; }
+    if (s.kind === 'car') { carCard(s.k); return; }
+    if (s.kind === 'inpe') { inpeCard(s.k); return; }
+    if (s.kind === 'gauge') { gaugeCard(s.k); return; }
+    if (s.kind === 'river') { riverCard(s.name, s.lon, s.lat); return; }
+    if (s.kind === 'fire') {
+      const i = s.i, w = wxAt(F.lon[i], F.lat[i], F.t[i]), ti = F.ti[i] >= 0 ? D.tis[F.ti[i]] : null;
+      const force = F.f[i] < 0 ? null : (F.f[i] < 10 ? 'fogo fraco' : F.f[i] < 50 ? 'fogo médio' : F.f[i] < 200 ? 'fogo forte' : 'fogo muito forte');
+      const tags = (force ? '<span class="tag' + (F.f[i] >= 50 ? ' hot' : '') + '">' + force + '</span>' : '') + '<span class="tag">' + esc(D.lc[F.c[i]]) + '</span>' + (ti ? '<span class="tag">TI ' + esc(ti.nome) + '</span>' : '') +
+        (F.car && F.car[i] >= 0 ? '<span class="tag">Imóvel no CAR</span>' : '');
+      const ie = IN.ev.length ? inpeAt(F.lon[i], F.lat[i], dayOf(F.t[i]), true) : -1, iev = ie >= 0 ? IN.ev[ie] : null;
+      const push = w.sp < 3 ? 'Vento fraco: o fogo se espalha devagar.' : 'Vento de ' + dirName(w.from) + ' (' + fmt(w.sp) + ' km/h) empurra o fogo para o ' + dirName(w.to) + '.' + (w.rh < 40 ? ' Ar seco.' : '');
+      showCard('<h3>' + esc(D.muns[F.m[i]]) + '</h3><p class="when">' + fmtT(F.t[i]) + '</p>' + whereTxt(F.lon[i], F.lat[i]) + tags + (iev ? '<span class="tag">INPE: ' + esc(iev.tipo.toLowerCase()) + '</span>' : '') + '<div class="wind">' + push + '</div>' +
+        legalHtml({ lc: F.c[i], ti: F.ti[i], dt: F.dt ? F.dt[i] : -1, car: F.car ? F.car[i] : -1, inpe: iev }) +
+        '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([
+          ['Satélite', D.sats[F.s[i]] + (geoSat.has(F.s[i]) ? ' (pixel ~2 km, repete a cada 10 min)' : F.v[i] ? ' (pixel 375 m)' : '')],
+          ['Intensidade', F.f[i] >= 0 ? fmt(F.f[i], 1) + ' MW' : 'não informada'],
+          ['Território', ti ? 'TI ' + ti.nome + (ti.etnia ? ' (' + ti.etnia + ')' : '') : 'fora de Terra Indígena'],
+          ['Umidade', fmt(w.rh) + '% · ' + fmt(w.tc, 0) + ' °C'], ['Chuva', rainTxt(w.rain) + ' nas 24 h antes'],
+          ['Dias sem chuva', F.d[i] >= 0 ? F.d[i] + ' (INPE)' : 'não informado'], ['Altitude', fmt(elevAt(F.lon[i], F.lat[i])) + ' m'],
+          ['Coordenadas', F.lat[i].toFixed(4) + ', ' + F.lon[i].toFixed(4)]]) + '</div></details>');
+    } else {
+      const ev = D.events[s.k], active = st.t - ev.end < 2880 && st.t >= ev.snaps[0].t;
+      const sit = st.t < ev.start ? 'ainda não começou' : active ? 'ativo' : 'apagado';
+      const hasLc = ev.lc !== undefined && ev.lc >= 0, ti = ev.ti >= 0 ? D.tis[ev.ti] : null;
+      const rate = hasLc && nativeLc(ev.lc) ? 10000 : 3000;
+      showCard('<h3>Incêndio · ' + esc(D.muns[ev.m]) + '</h3><p class="when">' + fmtD(ev.start) + ' a ' + fmtD(ev.end) + '</p>' + whereTxt(ev.lon, ev.lat) +
+        '<span class="tag' + (active ? ' hot' : '') + '">' + sit + '</span><span class="tag">≈ ' + fmt(ev.area * 100, 0) + ' ha</span>' +
+        (hasLc ? '<span class="tag">' + esc(D.lc[ev.lc]) + '</span>' : '') + (ti ? '<span class="tag">TI ' + esc(ti.nome) + '</span>' : '') +
+        legalHtml({ lc: hasLc ? ev.lc : -1, ti: ev.ti >= 0 ? ev.ti : -1, dt: -1, dtAny: !!ev.dt, car: ev.car >= 0 ? ev.car : -1 }) +
+        '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([
+          ['Área estimada', '≈ ' + fmt(ev.area, 1) + ' km² (' + fmt(ev.area * 100, 0) + ' ha)'], ['Detecções VIIRS', fmt(ev.n)],
+          ['Maior intensidade', ev.frpMax >= 0 ? fmt(ev.frpMax, 1) + ' MW' : 'não informada'],
+          ['Território', ti ? 'TI ' + ti.nome + (ti.etnia ? ' (' + ti.etnia + ')' : '') : 'fora de Terra Indígena']]) +
+        '<p style="margin-top:6px">Área aproximada a partir dos focos de 375 m; não substitui mapeamento oficial.</p></div></details>' +
+        fineBlock(ev.area * 100, rate, !!ti));
+      bindFineBlock();
+    }
+  }
+
+  // ---------- resize & theme
+  function resize() {
+    const r = view.getBoundingClientRect();
+    renderer.setSize(r.width, r.height, false); camera.aspect = r.width / r.height; camera.updateProjectionMatrix();
+    fireMat.uniforms.uScale.value = 1500 * renderer.getPixelRatio() * (r.height / 700);
+    drawChart();
+  }
+  new ResizeObserver(resize).observe(view);
+  window.addEventListener('resize', drawChart);
+  const retheme = () => { terrainMat.uniforms.uPlain.value.set(css('--plain')); drawChart(); };
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  // ---------- loop
+  let prev = performance.now();
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function place(el, lon, lat, lift, r) {
+    tmpV.set(toX(lon), yAt(lon, lat) + lift, toZ(lat)).project(camera);
+    const ok = tmpV.z < 1 && Math.abs(tmpV.x) < 1.05 && Math.abs(tmpV.y) < 1.05;
+    el.hidden = !ok || el.dataset.off === '1'; if (ok) { el.style.left = (tmpV.x + 1) / 2 * r.width + 'px'; el.style.top = (1 - tmpV.y) / 2 * r.height + 'px'; }
+  }
+  function frame(now) {
+    const dt = Math.min(0.1, (now - prev) / 1000); prev = now;
+    if (st.playing) { const nt = st.t + dt * st.speed * 60; if (nt >= period.to) { setTime(period.to, true); pause(); } else setTime(nt); }
+    if (fly) {
+      const k = Math.min(1, (now - fly.t0) / 1400), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      camera.position.lerpVectors(fly.p0, fly.p1, e); controls.target.lerpVectors(fly.q0, fly.q1, e);
+      if (k >= 1) fly = null;
+    }
+    controls.update();
+    if (windLines.visible && !reduce) stepWind(st.t / STEP);
+    renderer.render(scene, camera);
+    const r = renderer.domElement.getBoundingClientRect();
+    if (!$('labels').hidden) PLACES.forEach((p, k) => place(lblEls[k], p[2], p[1], 0.8, r));
+    if (st.pin) place(pinEl, st.pin.lon, st.pin.lat, 0.8, r);
+    if (st.risk) place(riskEl, st.risk.lon, st.risk.lat, 1.0, r);
+    if (!$('labels').hidden) GAUGES.forEach((g, k) => place(gaugeEls[k], g.lon, g.lat, 0.6, r));
+    if (lblDirty || now - lblAt > 250) { lblAt = now; lblDirty = false; pickLabels(r); }
+    for (const c of lblSet) place(c.el, c.lon, c.lat, 0.6, r);
+    if (st.sel && st.sel.kind === 'fire') {
+      const i = st.sel.i; tmpV.set(fPos[i * 3], fPos[i * 3 + 1], fPos[i * 3 + 2]).project(camera); const ring = $('selRing');
+      ring.hidden = tmpV.z > 1; ring.style.left = (tmpV.x + 1) / 2 * r.width + 'px'; ring.style.top = (1 - tmpV.y) / 2 * r.height + 'px';
+    }
+    const az = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
+    $('needle').style.transform = 'rotate(' + az + 'rad)';
+    requestAnimationFrame(frame);
+  }
+  resize();
+  setPeriod(PERIODS[1]); // ontem e hoje
+  try { // my place saved in this browser
+    const v = JSON.parse(localStorage.getItem('rr3d-local') || 'null');
+    if (v && isFinite(v.lon) && isFinite(v.lat) && v.lon >= W && v.lon <= E && v.lat >= S && v.lat <= N) {
+      if (v.R && [...$('radius').options].some(o => +o.value === +v.R)) $('radius').value = String(v.R);
+      setPin(+v.lon, +v.lat, String(v.label || 'Meu local').slice(0, 80));
+    }
+  } catch (e) {}
+  renderLoss();
+  if (reduce) stepWind(st.t / STEP);
+  $('loading').hidden = true;
+  roadsP.then(initRoads);
+  inpeP.then(initInpe);
+  secaP.then(J => { SECA_HY0 = J && J.hy0; initSeca(J); initGauges(J); });
+  riosP.then(initRios);
+  requestAnimationFrame(frame);
+})();
+</script>
+</html>

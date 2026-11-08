@@ -1,0 +1,19 @@
+# ambiente Python local
+.venv/
+__pycache__/
+*.pyc
+
+# cópia de trabalho do mapa publicado no Claude (o site público fica em docs/)
+mapa-3d/
+
+# protótipo do mapa do Brasil e seus dados brutos (não fazem parte do site)
+mapa/
+dados/
+
+# arquivos grandes do INPE com o Brasil inteiro (o script guarda só Roraima)
+dados-3d/focos_*.csv
+dados-3d/terrarium9/
+dados-3d/s2_rr_*.jpg
+
+# registro local da atualização no PC
+atualizacao.log
