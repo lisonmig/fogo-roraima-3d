@@ -98,6 +98,10 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .dg-sub { margin: 4px 0 0; font-size: 12.5px; opacity: .9; }
 .dg-prop { margin-top: 8px; padding-top: 8px; border-top: 1px solid currentColor; border-top-color: color-mix(in srgb, currentColor 25%, transparent); font-size: 13px; }
 .dg-note { margin: 8px 0 0; font-size: 11.5px; opacity: .8; }
+.dg-warn { margin: 8px 0 2px; padding: 7px 9px; border-radius: 6px; background: rgba(220,38,38,.12); border-left: 3px solid #dc2626; font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+.dg-exact { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 0; font-size: 13px; cursor: pointer; }
+.dg-exact input { margin-top: 2px; width: 16px; height: 16px; flex: none; }
+.dg-hint { margin: 2px 0 0 24px; font-size: 11.5px; opacity: .8; }
 .dg-msg { margin: 6px 0 0; font-size: 12.5px; font-weight: 600; }
 .dg-text { width: 100%; margin-top: 6px; font: 12px var(--f-data); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px; resize: vertical; }
 .dg-share .btn { text-decoration: none; display: inline-flex; align-items: center; }
@@ -1272,10 +1276,13 @@ details.legal li { margin-bottom: 4px; }
     if (b.tmin > 24 * 7) return 'Com o vento de agora, não deve chegar nos próximos dias.';
     return 'Pode chegar em <b>' + durTxt(b.tmin) + (durTxt(b.tmax) !== durTxt(b.tmin) ? ' a ' + durTxt(b.tmax) : '') + '</b>, se o vento continuar assim.';
   }
-  function shareText(r) {
+  const WARN = 'Se você vê fumaça ou fogo, não espere o tempo estimado: saia do caminho do fogo e ligue 193.';
+  let shareExact = true; try { shareExact = localStorage.getItem('rr3d-exact') !== '0'; } catch (e) {}
+  function shareText(r, exact) {
     const p = r.p, b = r.best, L = LEVELS[r.level], lines = [];
     lines.push('🔥 ALERTA DE FOGO · ' + L.icon + ' ' + L.name);
-    lines.push('Local: ' + (/^Coordenada/.test(p.label) ? '' : p.label + ' ') + '(' + p.lat.toFixed(5) + ', ' + p.lon.toFixed(5) + ')');
+    if (exact) lines.push('Local: ' + (/^Coordenada/.test(p.label) ? '' : p.label + ' ') + '(' + p.lat.toFixed(5) + ', ' + p.lon.toFixed(5) + ')');
+    else if (!/^Coordenada/.test(p.label)) lines.push('Local: ' + p.label);
     const wt = whereTxt(p.lon, p.lat).replace(/<[^>]+>/g, '').replace('📍 ', '').trim(); if (wt) lines.push('Perto de: ' + wt);
     lines.push(dangerHeadline(r));
     if (b) {
@@ -1284,8 +1291,9 @@ details.legal li { margin-bottom: 4px; }
       const a = arrivalTxt(r).replace(/<[^>]+>/g, ''); if (a) lines.push(a);
       const rn = riverNote(r); if (rn) lines.push(rn);
     }
-    if (r.prop) lines.push('Propriedade no CAR ' + r.prop.cod + ' · ' + fmt(r.prop.area, 0) + ' ha' + (r.loss && r.loss.total ? ' · prejuízo possível se queimar toda: até ' + brlShort(r.loss.total) : '') + '.');
-    lines.push('Mapa: https://www.google.com/maps?q=' + p.lat.toFixed(5) + ',' + p.lon.toFixed(5));
+    if (r.level !== 'nenhum') lines.push('⚠️ ' + WARN);
+    if (r.prop) lines.push((exact ? 'Propriedade no CAR ' + r.prop.cod : 'Propriedade') + ' · ' + fmt(r.prop.area, 0) + ' ha' + (r.loss && r.loss.total ? ' · prejuízo possível se queimar toda: até ' + brlShort(r.loss.total) : '') + '.');
+    lines.push(exact ? 'Mapa: https://www.google.com/maps?q=' + p.lat.toFixed(5) + ',' + p.lon.toFixed(5) : 'Mapa de fogo: https://fogororaima.com.br');
     lines.push('Emergência: Bombeiros 193 · Defesa Civil 199');
     lines.push('Estimativa com dados de satélite do INPE (até ' + fmtT(D.meta.lastFire) + '); não substitui avaliação no local.');
     return lines.join('\n');
@@ -1294,6 +1302,7 @@ details.legal li { margin-bottom: 4px; }
     const L = LEVELS[r.level], b = r.best;
     let h = '<div class="dg-head"><span class="dg-badge">' + L.icon + ' ' + L.name + '</span></div><p class="dg-main">' + esc(dangerHeadline(r)) + '</p>';
     const a = arrivalTxt(r); if (a) h += '<p class="dg-time">⏱ ' + a + '</p>';
+    if (r.level !== 'nenhum') h += '<p class="dg-warn">🚨 ' + WARN + '</p>';
     const rn = riverNote(r); if (rn) h += '<p class="dg-sub"><b>' + esc(rn) + '</b></p>';
     if (b) h += '<p class="dg-sub">Vento de ' + dirName(b.w.from) + ' a ' + fmt(b.w.sp) + ' km/h · umidade ' + fmt(b.w.rh) + '% · ' + rainTxt(b.w.rain) + ' em 24 h · no caminho: ' + esc(D.lc[b.lcPath].toLowerCase()) + (b.f.t != null ? ' · fogo visto ' + fmtT(b.f.t) : b.f.src === 'inpe' ? ' · borda de incêndio ativo (INPE)' : '') + '</p>';
     if (r.places > 1) h += '<p class="dg-sub">' + r.places + ' locais com fogo a até 10 km.</p>';
@@ -1309,20 +1318,23 @@ details.legal li { margin-bottom: 4px; }
     else if (CT.ok) h += '<p class="dg-sub">O local marcado não fica dentro de um imóvel do CAR.</p>';
     if (r.level === 'alto' || r.level === 'atencao') h += '<details class="more"><summary>O que fazer agora</summary><div><p>Avise vizinhos e a família. Em perigo, ligue <b>193</b> (Bombeiros) ou <b>199</b> (Defesa Civil).</p><p>Tire pessoas e animais do caminho do fogo, para o lado contrário ao vento. Se houver tempo e segurança, faça aceiro (faixa sem capim) em volta da casa e dos currais. Não tente apagar fogo grande sozinho.</p></div></details>';
     if (b && !r.insideHit) h += '<button class="btn dg-risk" data-act="risk">➜ Ver de onde vem o risco</button>';
+    h += '<label class="dg-exact"><input type="checkbox" data-act="exact"' + (shareExact ? ' checked' : '') + '><span>Incluir a localização exata (ponto no mapa e código do CAR)</span></label>' + '<p class="dg-hint">Quem receber verá onde fica o seu local. Em grupos grandes ou com desconhecidos, desmarque.</p>';
     h += '<div class="row dg-share"><button class="btn dg-sharebtn" data-act="share">📤 Compartilhar alerta</button><a class="btn" target="_blank" rel="noopener" data-act="wa">WhatsApp</a><button class="btn" data-act="copy">Copiar</button></div>';
     if (!full) h += '<div class="row"><button class="btn" data-act="go">Ver no mapa</button><button class="btn" data-act="details">Detalhes</button><button class="btn" data-act="forget">Esquecer local</button></div>';
     h += '<p class="dg-note">Estimativa com dados de satélite e previsão do tempo; o fogo real pode ser mais rápido ou mais lento. Não substitui avaliação no local.</p>';
     return h;
   }
   function bindDanger(el, r) {
-    const txt = shareText(r), msg = m => { let n = el.querySelector('.dg-msg'); if (!n) { n = document.createElement('p'); n.className = 'dg-msg'; el.querySelector('.dg-share').after(n); } n.textContent = m; };
+    let txt = shareText(r, shareExact); const msg = m => { let n = el.querySelector('.dg-msg'); if (!n) { n = document.createElement('p'); n.className = 'dg-msg'; el.querySelector('.dg-share').after(n); } n.textContent = m; };
     const copy = async () => { try { await navigator.clipboard.writeText(txt); msg('Texto copiado. Cole no WhatsApp, SMS ou e-mail.'); } catch (e) {
       const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e2) {} ta.remove();
       if (ok) { msg('Texto copiado.'); return; }
       msg('Selecione o texto abaixo e copie:'); // last resort: show the text to copy by hand
       let box = el.querySelector('.dg-text'); if (!box) { box = document.createElement('textarea'); box.className = 'dg-text'; box.readOnly = true; box.rows = 8; el.querySelector('.dg-msg').after(box); }
       box.value = txt; box.focus(); box.select(); } };
-    el.querySelector('[data-act=wa]').href = 'https://wa.me/?text=' + encodeURIComponent(txt);
+    const setWa = () => { el.querySelector('[data-act=wa]').href = 'https://wa.me/?text=' + encodeURIComponent(txt); }; setWa();
+    const ex = el.querySelector('[data-act=exact]');
+    if (ex) ex.onchange = () => { shareExact = ex.checked; try { localStorage.setItem('rr3d-exact', shareExact ? '1' : '0'); } catch (e) {} txt = shareText(r, shareExact); setWa(); const box = el.querySelector('.dg-text'); if (box) box.value = txt; };
     el.querySelector('[data-act=share]').onclick = async () => { if (navigator.share) { try { await navigator.share({ title: 'Alerta de fogo', text: txt }); return; } catch (e) { if (e && e.name === 'AbortError') return; } } copy(); };
     el.querySelector('[data-act=copy]').onclick = copy;
     const go = el.querySelector('[data-act=go]'); if (go) go.onclick = () => { if (isPhone()) setDrawer(false); flyTo(orbitPose(toX(r.p.lon), toZ(r.p.lat), Math.max(20, (r.best ? Math.min(r.best.d, 30) : 10) * 2.5), 0.15, 0.8)); };
