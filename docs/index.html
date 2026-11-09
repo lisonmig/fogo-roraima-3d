@@ -102,6 +102,9 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .dg-exact { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 0; font-size: 13px; cursor: pointer; }
 .dg-exact input { margin-top: 2px; width: 16px; height: 16px; flex: none; }
 .dg-hint { margin: 2px 0 0 24px; font-size: 11.5px; opacity: .8; }
+.perfnote { position: fixed; z-index: 60; top: 84px; left: 50%; transform: translateX(-50%); width: min(520px, calc(100vw - 32px)); background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-left: 4px solid #d97706; border-radius: 8px; padding: 10px 12px; font-size: 13.5px; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
+.perfnote p { margin: 0 0 8px; }
+.perfnote .row { display: flex; gap: 8px; flex-wrap: wrap; }
 .dg-msg { margin: 6px 0 0; font-size: 12.5px; font-weight: 600; }
 .dg-text { width: 100%; margin-top: 6px; font: 12px var(--f-data); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px; resize: vertical; }
 .dg-share .btn { text-decoration: none; display: inline-flex; align-items: center; }
@@ -596,6 +599,19 @@ details.legal li { margin-bottom: 4px; }
   const TZ = -4; // Roraima (UTC-4)
   let LIGHT = false;
   try { const v = localStorage.getItem('rr3d-light'); LIGHT = v === null ? (matchMedia('(max-width: 880px)').matches || (navigator.deviceMemory || 8) <= 4) : v === '1'; } catch (e) { LIGHT = matchMedia('(max-width: 880px)').matches; }
+  // navegador desenhando sem a placa de vídeo (por software): fica muito lento, então entra no modo leve e avisa
+  let SOFT = false;
+  try {
+    const c1 = document.createElement('canvas'), strict = c1.getContext('webgl', { failIfMajorPerformanceCaveat: true });
+    const c2 = document.createElement('canvas'), g = c2.getContext('webgl');
+    let gpuName = '';
+    if (g) { const ext = g.getExtension('WEBGL_debug_renderer_info'); gpuName = ext ? String(g.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : ''; }
+    SOFT = !!g && (!strict || /swiftshader|basic render|llvmpipe|softpipe|software/i.test(gpuName));
+    [strict, g].forEach(x => { const l = x && x.getExtension('WEBGL_lose_context'); if (l) l.loseContext(); });
+  } catch (e) {}
+  let softFull = false; try { softFull = localStorage.getItem('rr3d-soft-full') === '1'; } catch (e) {}
+  const SOFT_LIGHT = SOFT && !softFull;
+  if (SOFT_LIGHT) LIGHT = true;
   $('lyLight').checked = LIGHT;
 
   // ---------- load
@@ -641,7 +657,7 @@ details.legal li { margin-bottom: 4px; }
   // ---------- three.js scene
   const view = $('view');
   const renderer = new THREE.WebGLRenderer({ antialias: !LIGHT, alpha: true });
-  renderer.setPixelRatio(LIGHT ? 1 : Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(SOFT_LIGHT ? 0.7 : LIGHT ? 1 : Math.min(window.devicePixelRatio || 1, 2));
   renderer.domElement.className = 'gl';
   view.insertBefore(renderer.domElement, view.firstChild);
   const scene = new THREE.Scene();
@@ -1925,7 +1941,7 @@ details.legal li { margin-bottom: 4px; }
   }
   $('lyWind').onchange = e => windLines.visible = e.target.checked;
   $('lyLbl').onchange = e => $('labels').hidden = !e.target.checked;
-  $('lyLight').onchange = e => { try { localStorage.setItem('rr3d-light', e.target.checked ? '1' : '0'); } catch (err) {} $('lightNote').textContent = 'Recarregue a página para aplicar o modo leve.'; };
+  $('lyLight').onchange = e => { try { localStorage.setItem('rr3d-light', e.target.checked ? '1' : '0'); if (SOFT) localStorage.setItem('rr3d-soft-full', e.target.checked ? '0' : '1'); } catch (err) {} $('lightNote').textContent = 'Recarregue a página para aplicar o modo leve.'; };
   $('exag').oninput = e => { exag = +e.target.value; $('exagV').textContent = String(exag).replace('.', ',') + '×'; applyExag(); placeAll(); };
   $('compass').onclick = () => { const dist = camera.position.distanceTo(controls.target); flyTo(orbitPose(controls.target.x, controls.target.z, dist, 0, Math.max(0.3, Math.min(1.3, Math.acos((camera.position.y - controls.target.y) / dist))))); };
   $('home').onclick = () => flyTo(HOME);
@@ -2234,6 +2250,41 @@ details.legal li { margin-bottom: 4px; }
   // ---------- loop
   let prev = performance.now();
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // velocidade: a cada 2 s mede os quadros por segundo; se ficar lento, baixa a resolução; se sobrar, volta a subir
+  const BASE_PR = renderer.getPixelRatio(), MIN_PR = Math.min(BASE_PR, 0.5);
+  const pf = { start: performance.now() + 4000, t0: 0, n: 0, good: 0, slow: 0 };
+  let perfEl = null;
+  function showPerf(kind) {
+    if (perfEl) return;
+    try { if (kind === 'soft' && localStorage.getItem('rr3d-soft-ok') === '1') return; if (kind === 'slow' && sessionStorage.getItem('rr3d-slow-no') === '1') return; } catch (e) {}
+    perfEl = document.createElement('div'); perfEl.className = 'perfnote'; perfEl.setAttribute('role', 'status');
+    perfEl.innerHTML = kind === 'soft'
+      ? '<p>⚠️ <b>Seu navegador está desenhando o mapa sem a placa de vídeo</b>, por isso ele pode ficar lento. Ligamos o modo leve. Para melhorar, reinicie o navegador ou ligue "Usar aceleração gráfica" nas configurações dele (Sistema).</p><div class="row"><button class="btn" data-p="ok">Entendi</button><button class="btn" data-p="full">Usar qualidade cheia</button></div>'
+      : '<p>🐢 <b>O mapa está lento neste aparelho.</b> O modo leve desenha menos detalhes e fica mais rápido.</p><div class="row"><button class="btn" data-p="light">Ligar modo leve</button><button class="btn" data-p="no">Agora não</button></div>';
+    perfEl.onclick = ev => {
+      const a = ev.target.dataset && ev.target.dataset.p; if (!a) return;
+      try {
+        if (a === 'ok') localStorage.setItem('rr3d-soft-ok', '1');
+        if (a === 'full') { localStorage.setItem('rr3d-soft-full', '1'); localStorage.setItem('rr3d-light', '0'); }
+        if (a === 'light') localStorage.setItem('rr3d-light', '1');
+        if (a === 'no') sessionStorage.setItem('rr3d-slow-no', '1');
+      } catch (e) {}
+      if (a === 'full' || a === 'light') { location.reload(); return; }
+      perfEl.remove();
+    };
+    document.body.appendChild(perfEl);
+  }
+  function perfTick(now) {
+    if (now < pf.start || document.hidden) { pf.t0 = now; pf.n = 0; return; }
+    pf.n++; const el = now - pf.t0; if (el < 2000) return;
+    const fps = pf.n * 1000 / el; pf.t0 = now; pf.n = 0;
+    let pr = renderer.getPixelRatio();
+    if (fps < 24 && pr > MIN_PR + 0.01) { pf.good = 0; renderer.setPixelRatio(Math.max(MIN_PR, pr * 0.8)); resize(); }
+    else if (fps > 55 && pr < BASE_PR - 0.01) { if (++pf.good >= 3) { pf.good = 0; renderer.setPixelRatio(Math.min(BASE_PR, pr * 1.15)); resize(); } }
+    else pf.good = 0;
+    if (fps < 18 && pr <= MIN_PR + 0.01 && !LIGHT) { if (++pf.slow >= 2) showPerf('slow'); } else pf.slow = 0;
+    window.__perf = { fps: Math.round(fps), pixelRatio: +renderer.getPixelRatio().toFixed(2), soft: SOFT, light: LIGHT };
+  }
   function place(el, lon, lat, lift, r) {
     tmpV.set(toX(lon), yAt(lon, lat) + lift, toZ(lat)).project(camera);
     const ok = tmpV.z < 1 && Math.abs(tmpV.x) < 1.05 && Math.abs(tmpV.y) < 1.05;
@@ -2250,6 +2301,7 @@ details.legal li { margin-bottom: 4px; }
     controls.update();
     if (windLines.visible && !reduce) stepWind(st.t / STEP);
     renderer.render(scene, camera);
+    perfTick(now);
     const r = renderer.domElement.getBoundingClientRect();
     if (!$('labels').hidden) PLACES.forEach((p, k) => place(lblEls[k], p[2], p[1], 0.8, r));
     if (st.pin) place(pinEl, st.pin.lon, st.pin.lat, 0.8, r);
@@ -2277,6 +2329,7 @@ details.legal li { margin-bottom: 4px; }
   renderLoss();
   if (reduce) stepWind(st.t / STEP);
   $('loading').hidden = true;
+  if (SOFT_LIGHT) showPerf('soft');
   roadsP.then(initRoads);
   inpeP.then(initInpe);
   secaP.then(J => { SECA_HY0 = J && J.hy0; initSeca(J); initGauges(J); });
