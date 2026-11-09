@@ -19,6 +19,9 @@ HEAD = ('<!doctype html>\n<html lang="pt-BR">\n'
 page = open(os.path.join(SRC, 'fogo-roraima-3d.html'), encoding='utf-8').read()
 if page.lstrip().lower().startswith('<!doctype'):
     page = page.split('\n', 1)[1]
+# the 3D library is served from the site itself (docs/vendor), not from an outside CDN
+page = page.replace('https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js', 'vendor/three.min.js')
+page = page.replace('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js', 'vendor/OrbitControls.js')
 open(os.path.join(DST, 'index.html'), 'w', encoding='utf-8').write(HEAD + page.rstrip() + '\n</html>\n')
 
 for n in ['roraima3d.json', 'estradas.json', 'eventos_inpe.json', 'seca.json', 'rios.json', 'car_todos.json', 'relevo.png', 'imagem.jpg', 'cobertura.png']:
