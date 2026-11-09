@@ -167,8 +167,27 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .speed { flex: none; border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 999px; font: 600 12px var(--f-data); padding: 5px 10px; cursor: pointer; white-space: nowrap; }
 .tl-toggle { flex: none; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; background: var(--chip); color: var(--ink); cursor: pointer; font-size: 14px; line-height: 1; }
 #slider { width: 100%; accent-color: var(--accent); margin: 0; display: none; }
-.chart-wrap { position: relative; height: 92px; }
-#chart { position: absolute; inset: 0; width: 100%; height: 100%; cursor: ew-resize; touch-action: none; }
+.chart-wrap { position: relative; height: 104px; }
+#chart { position: absolute; inset: 0; width: 100%; height: 100%; cursor: ew-resize; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+/* chart: one subject at a time, a sentence above it, values on hover or touch */
+.tl-sub { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tl-sum { margin: 0; flex: 1; min-width: 0; font-size: 13px; line-height: 1.3; color: var(--ink); }
+.tip { position: absolute; top: 0; transform: translate(-50%, calc(-100% - 4px)); background: var(--ink); color: var(--panel); font: 12px/1.3 var(--f-body); padding: 4px 9px; border-radius: 6px; pointer-events: none; white-space: nowrap; z-index: 3; box-shadow: 0 2px 8px rgba(0,0,0,.25); text-align: center; }
+.tip b { font-weight: 700; }
+.season-sel { flex: none; max-width: 112px; font: 600 12.5px var(--f-body); color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 5px 4px 5px 8px; cursor: pointer; }
+.season-sel.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.season-sel option { color: var(--ink); background: var(--panel); }
+/* phone-only pieces (bottom bar, drawer peek line, map filter button, filter in the Mapa tab) */
+.mbar, .peek, #sitBtn, .sitpane, .speed.m { display: none; }
+.sitpane { flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.sitpane button { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--chip); color: var(--ink); padding: 6px 12px 6px 10px; cursor: pointer; font: 600 13px var(--f-body); }
+.sitpane button[aria-pressed="false"] { opacity: .55; }
+.sitpane button[aria-pressed="false"] b { text-decoration: line-through; }
+.sitpane i { display: block; height: 0; border-top: 3px solid var(--c); width: 18px; }
+.sitpane i.dash { border-top-style: dashed; }
+.sitpane .n { font: 600 12.5px var(--f-data); }
+.sitpane .sub { display: none; }
+.lbl.gauge .gt { white-space: pre; }
 .chart-leg { margin: 0; font: 11px var(--f-data); color: var(--muted); }
 .chart-leg i { display: inline-block; width: 10px; height: 8px; margin: 0 4px 0 10px; vertical-align: 0; }
 .chart-leg i:first-child { margin-left: 0; }
@@ -326,6 +345,59 @@ details.legal li { margin-bottom: 4px; }
   .sit { right: 8px; bottom: 8px; } .sit button { padding: 4px 9px 4px 8px; font-size: 11px; }
   .pop { bottom: 8px; max-height: calc(100% - 130px); }
 }
+/* phones: one thin bar at the bottom (play, date, tab icons); the timeline and the panel open above it */
+@media (max-width: 767px) {
+  .app, .app.collapsed { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+  .mbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; height: calc(56px + env(safe-area-inset-bottom, 0px)); align-items: center; gap: 6px;
+    padding: 0 max(8px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(8px, env(safe-area-inset-left, 0px)); background: var(--panel); border-top: 1px solid var(--line); }
+  .mplay { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--accent); color: #fff; font-size: 14px; flex: none; cursor: pointer; }
+  .mclock { flex: none; min-width: 64px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 10px; padding: 4px 8px; display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; cursor: pointer; }
+  .mclock b { font: 700 15px var(--f-display); white-space: nowrap; }
+  .mclock small { font: 11px var(--f-data); color: var(--muted); white-space: nowrap; }
+  .mclock small::after { content: " ▴"; }
+  .mclock[aria-expanded="true"] small::after { content: " ▾"; }
+  .mtabs { display: flex; flex: 1; min-width: 0; }
+  .mtabs button { flex: 1; min-width: 0; border: 0; background: none; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 0 3px; cursor: pointer; border-radius: 8px; font: 600 10px var(--f-body); }
+  .mtabs button span { font-size: 18px; line-height: 1.15; }
+  .app[data-d="half"] .mtabs button[aria-pressed="true"], .app[data-d="full"] .mtabs button[aria-pressed="true"] { color: var(--accent); background: var(--chip); }
+  /* timeline: a sheet above the bar, closed by default */
+  .timeline { position: fixed; left: 0; right: 0; bottom: calc(56px + env(safe-area-inset-bottom, 0px)); z-index: 12; border-radius: 14px 14px 0 0; box-shadow: 0 -6px 24px rgba(0,0,0,.3); padding-block: 10px; gap: 6px; }
+  .timeline.min { display: none; }
+  .timeline .play, .timeline .clock, .tl-row > .speed, #slider, .timeline.min #slider { display: none; }
+  .tl-row { flex-wrap: nowrap; gap: 6px; }
+  .periods { order: 0; flex: 1 1 auto; margin-left: 0; gap: 4px; }
+  .seg button { padding: 6px 7px; }
+  .speed.m { display: block; margin-left: auto; }
+  .tl-sub { flex-wrap: wrap; gap: 6px 8px; }
+  .tl-sum { order: 5; flex: 1 0 100%; font-size: 12.5px; }
+  .chart-wrap { height: 120px; margin-top: 2px; }
+  /* drawer: peek (one sentence), half, full; drag its handle */
+  .panel, .app.collapsed .panel { bottom: calc(56px + env(safe-area-inset-bottom, 0px)); height: 40px; transform: none; transition: height .25s ease; }
+  .panel.open { transform: none; }
+  .app .panel.dragging { transition: none; }
+  .app .panel[data-d="closed"] { height: 0; border-top-width: 0; box-shadow: none; }
+  .app .panel[data-d="half"] { height: 52vh; height: 52dvh; }
+  .app .panel[data-d="full"] { height: calc(100vh - 68px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); height: calc(100dvh - 68px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+  .app .panel[data-d="peek"] .panel-in, .app .panel[data-d="closed"] .panel-in { display: none; }
+  .app .panel.dragging[data-d] .panel-in { display: flex; }
+  .app .panel[data-d="peek"]:not(.dragging) .peek { display: flex; }
+  .grab { touch-action: none; }
+  .panel[data-d="half"] .grab, .panel[data-d="full"] .grab { height: 22px; padding-top: 9px; }
+  .peek { flex: none; height: 26px; width: 100%; align-items: center; gap: 8px; border: 0; background: var(--panel); color: var(--ink); font: 13.5px var(--f-body); padding: 0 14px 4px; cursor: pointer; text-align: left; touch-action: none; }
+  .peek span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .peek i { font-style: normal; color: var(--muted); }
+  .tabs { display: none; }
+  .app[data-d="peek"] .pop { bottom: 48px; max-height: calc(100% - 120px); }
+  /* fire situation: only a small button on the map; the filter is in the Mapa tab */
+  .sit { display: none; }
+  #sitBtn { display: block; }
+  .sitpane { display: flex; }
+  .sitnote { display: none; }
+  /* river gauges: colored dots; the number shows when touched or zoomed in */
+  .lbl.gauge { padding: 1px 3px 2px; font-size: 11px; }
+  .lbl.gauge .gt { display: none; }
+  .labels.near .lbl.gauge .gt, .lbl.gauge.tap .gt { display: inline; }
+}
 </style>
 
 <div class="app" id="app">
@@ -344,6 +416,7 @@ details.legal li { margin-bottom: 4px; }
       <button class="compass" id="compass" title="Virar para o norte"><span id="needle">N</span></button>
       <button class="vbtn" id="home">Estado todo</button>
       <button class="vbtn" id="topView">Vista de cima</button>
+      <button class="vbtn" id="sitBtn" title="Mostrar ou esconder incêndios queimando, em observação ou apagados">🔥 Filtro</button>
     </div>
     <div class="sit" id="sit" role="group" aria-label="Situação dos incêndios do INPE: clique para mostrar ou esconder"></div>
     <div class="pickhint" id="pickHint" hidden>Clique no mapa para marcar o local</div>
@@ -363,19 +436,27 @@ details.legal li { margin-bottom: 4px; }
       <button class="speed" id="speed" title="Velocidade da animação">1 dia/s</button>
       <div class="periods" id="periods" role="group" aria-label="Período">
         <div class="seg" id="pRecent"></div>
-        <div class="season" id="pSeason"></div>
+        <select class="season-sel" id="pSeason" aria-label="Estação do ano"><option value="">Estação</option></select>
       </div>
       <button class="tl-toggle" id="tlToggle" aria-expanded="true" title="Esconder o gráfico">▾</button>
     </div>
     <input type="range" id="slider" min="0" max="100" step="30" value="100" aria-label="Momento no tempo">
     <div class="tl-body" id="tlBody">
-      <div class="chart-wrap"><canvas id="chart" tabindex="0" aria-label="Locais com fogo, chuva e umidade ao longo do período. Arraste ou use as setas para mudar o momento."></canvas></div>
+      <div class="tl-sub">
+        <div class="seg metric" id="metric" role="group" aria-label="O que mostrar no gráfico">
+          <button type="button" data-m="fogo">Fogo</button><button type="button" data-m="chuva">Chuva</button><button type="button" data-m="umid">Umidade</button><button type="button" data-m="rio">Rio</button>
+        </div>
+        <p class="tl-sum" id="tlSum" aria-live="polite"></p>
+        <button class="speed m" id="speed2" title="Velocidade da animação">1 dia/s</button>
+      </div>
+      <div class="chart-wrap"><canvas id="chart" tabindex="0" aria-label="Gráfico do período. Arraste ou use as setas para mudar o momento."></canvas><div class="tip" id="chartTip" hidden></div></div>
       <p class="chart-leg" id="chartLeg"></p>
     </div>
   </section>
 
   <aside class="panel" id="panel">
     <button class="grab" id="grab" aria-label="Abrir ou fechar o painel"><span></span></button>
+    <button class="peek" id="peek" aria-label="Abrir o painel"><span id="peekTxt">Carregando…</span><i>▴</i></button>
     <div class="panel-in">
       <header>
         <h1>Fogo em <span>Roraima</span> 3D</h1>
@@ -500,15 +581,16 @@ details.legal li { margin-bottom: 4px; }
             <select id="roads"><option value="off">Não mostrar</option><option value="main">Só rodovias (BR e RR)</option><option value="all">Todas, com vicinais e ramais</option></select></label>
           <p class="note" id="roadsNote" hidden>Nas cidades aparecem só as avenidas principais; no interior, todas as estradas, vicinais e ramais. Aproxime o mapa para ver os nomes.</p>
         </section>
-        <section class="sec">
+        <section class="sec" id="sitSec">
           <h2>Situação dos incêndios (INPE)</h2>
           <p class="psub" id="sitDay" style="margin:0 0 6px"></p>
+          <div class="sitpane" id="sitPane" role="group" aria-label="Mostrar ou esconder no mapa"></div>
           <div class="defs">
             <p><i style="--c:#ff4a2a"></i><b>Queimando:</b> o satélite viu fogo no evento neste dia.</p>
             <p><i class="dash" style="--c:#ffb347"></i><b>Em observação:</b> o fogo parou há 1 a 7 dias. O INPE continua vigiando porque pode voltar; o satélite não vê fogo pequeno, sob nuvem ou brasa.</p>
             <p><i style="--c:#c8c8c8"></i><b>Apagados:</b> sem fogo há mais de 7 dias. A área queimada continua marcada até 60 dias. Só uma vistoria confirma que o fogo acabou.</p>
           </div>
-          <p class="note">Os botões no canto do mapa mostram ou escondem cada situação.</p>
+          <p class="note sitnote">Os botões no canto do mapa mostram ou escondem cada situação.</p>
         </section>
         <details class="block">
           <summary>Legenda</summary>
@@ -584,6 +666,18 @@ details.legal li { margin-bottom: 4px; }
       </div>
     </div>
   </aside>
+
+  <nav class="mbar" id="mbar" aria-label="Linha do tempo e seções">
+    <button class="mplay" id="mPlay" aria-label="Reproduzir">▶</button>
+    <button class="mclock" id="mClock" aria-controls="timeline" aria-expanded="false" title="Abrir a linha do tempo e o gráfico">–</button>
+    <div class="mtabs">
+      <button type="button" data-tab="resumo" aria-pressed="true"><span>🔥</span>Resumo</button>
+      <button type="button" data-tab="local" aria-pressed="false"><span>📍</span>Meu local</button>
+      <button type="button" data-tab="seca" aria-pressed="false"><span>💧</span>Seca</button>
+      <button type="button" data-tab="mapa" aria-pressed="false"><span>🗺️</span>Mapa</button>
+      <button type="button" data-tab="dados" aria-pressed="false"><span>ℹ️</span>Dados</button>
+    </div>
+  </nav>
 </div>
 
 <script src="vendor/three.min.js"></script>
@@ -916,7 +1010,7 @@ details.legal li { margin-bottom: 4px; }
   // recent periods end now and start at the end; seasons start at their busiest day
   const PERIODS = [
     { group: 'recent', name: 'Agora', long: 'Últimas 6 horas', from: Math.max(0, TLAST - 360), to: TLAST, startAtEnd: true },
-    { group: 'recent', name: 'Ontem e hoje', long: 'Ontem e hoje', from: yesterdayFrom, to: TLAST, startAtEnd: true },
+    { group: 'recent', name: '2 dias', long: 'Ontem e hoje', from: yesterdayFrom, to: TLAST, startAtEnd: true },
     { group: 'recent', name: '7 dias', long: 'Últimos 7 dias', from: Math.max(0, TLAST - 7 * 1440), to: TLAST, startAtEnd: true },
     { group: 'recent', name: '30 dias', long: 'Últimos 30 dias', from: Math.max(0, TLAST - 30 * 1440), to: TLAST, startAtEnd: true },
     { group: 'season', name: 'Seca', sub: 'dez – abr', long: 'Seca 2025/26', color: '#d08a2e', w: 5, from: 0, to: minOf(2026, 5, 1) },
@@ -946,12 +1040,14 @@ details.legal li { margin-bottom: 4px; }
   function updateUi() {
     const d = loc(st.t);
     $('clock').innerHTML = two(d.getUTCDate()) + ' ' + MESES[d.getUTCMonth()] + ' ' + d.getUTCFullYear() + ' · ' + two(d.getUTCHours()) + 'h<small>horário de Roraima</small>';
+    $('mClock').innerHTML = '<b>' + two(d.getUTCDate()) + ' ' + MESES[d.getUTCMonth()] + '</b><small>' + two(d.getUTCHours()) + 'h</small>';
     slider.value = st.t;
     const idx = windowIdx();
     const places = new Set(idx.map(i => fCell[i]));
     $('stPlaces').textContent = fmt(places.size);
     $('stPlacesLbl').textContent = 'locais com fogo ' + winTxt();
     $('stPlaces').title = fmt(idx.length) + ' detecções de satélite';
+    st.nPlaces = places.size; renderPeek();
     $('stArea').textContent = fmt((cellsUpTo(st.t) - cellsUpTo(period.from - 1)) * 0.1406, 0) + ' km²';
     const h = Math.max(0, Math.min(NS - 1, Math.floor(st.t / STEP)));
     let r24 = 0; for (let k = 0; k < 8 && h - k >= 0; k++) r24 += prMean[h - k];
@@ -961,6 +1057,12 @@ details.legal li { margin-bottom: 4px; }
     renderSummary(idx, places, w);
     renderNear();
     drawChart();
+  }
+
+  // phone drawer, closed: one sentence (fire now and the Rio Branco level)
+  function renderPeek() {
+    const J = SECA, v = J ? (J.last && J.last.cm != null ? J.last.cm : J.dayValue) : null, n = st.nPlaces || 0;
+    $('peekTxt').innerHTML = '🔥 <b>' + fmt(n) + '</b> ' + (n === 1 ? 'local' : 'locais') + ' com fogo' + (v != null ? ' · 💧 Rio Branco <b>' + cmTxt(v) + '</b>' : '');
   }
 
   // ---------- plain-language summary
@@ -1056,19 +1158,34 @@ details.legal li { margin-bottom: 4px; }
   // ---------- water risk: ANA river gauges (level against every past year on the same date)
   const RISK = { critico: ['Risco hídrico crítico', '#d92d20'], baixo: ['Abaixo do normal', '#e37400'], normal: ['Normal para a data', '#3f86c6'], alto: ['Acima do normal', '#2e7d32'] };
   const nrm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  let GAUGES = [], gaugeEls = [];
+  let GAUGES = [], gaugeEls = [], gOrder = [], gTap = -1, labelsNear = false;
   function initGauges(J) {
     GAUGES = (J && J.stations) || [];
     gaugeEls = GAUGES.map((g, k) => {
       const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl gauge';
       el.style.setProperty('--c', g.noData ? '#888' : RISK[g.risk][1]);
-      el.textContent = g.noData ? '💧 sem dado' : '💧 ' + cmTxt(g.last.cm);
+      el.innerHTML = '<span class="gd">💧</span><span class="gt"></span>';
+      el.querySelector('.gt').textContent = g.noData ? ' sem dado' : ' ' + cmTxt(g.last.cm);
       el.title = g.river + ' em ' + g.name + (g.noData ? ': sem leitura recente' : ': ' + RISK[g.risk][0].toLowerCase()) + '. Clique para ver.';
+      el.setAttribute('aria-label', el.title);
       el.onclick = () => { st.sel = { kind: 'gauge', k }; showDetail(); };
       el.dataset.off = $('lyRios').checked ? '' : '1';
       $('labels').appendChild(el); return el;
     });
+    const ordR = { critico: 0, baixo: 1, normal: 2, alto: 3 };
+    gOrder = GAUGES.map((g, k) => k).sort((a, b) => (GAUGES[a].noData ? 9 : ordR[GAUGES[a].risk]) - (GAUGES[b].noData ? 9 : ordR[GAUGES[b].risk]) || (GAUGES[a].pct || 0) - (GAUGES[b].pct || 0));
     renderRiverList();
+  }
+  // river gauge labels that would sit on top of a more critical one are hidden
+  function hideGaugeOverlaps() {
+    const mob = isMob(), boxes = [], ord = gTap >= 0 ? [gTap].concat(gOrder.filter(k => k !== gTap)) : gOrder;
+    for (const k of ord) {
+      const el = gaugeEls[k]; if (!el || el.hidden) continue;
+      const x = parseFloat(el.style.left), y = parseFloat(el.style.top);
+      const w = !mob || labelsNear || k === gTap ? el.textContent.length * 6.6 + 14 : 24, b = [x - w / 2, y - 26, x + w / 2, y - 6];
+      if (boxes.some(o => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1])) { el.hidden = true; continue; }
+      boxes.push(b);
+    }
   }
   // 30-day rain near a point (Open-Meteo grid), in mm
   function rain30(lon, lat) {
@@ -1085,6 +1202,7 @@ details.legal li { margin-bottom: 4px; }
   };
   function gaugeCard(k) {
     const g = GAUGES[k];
+    gTap = k; gaugeEls.forEach((el, j) => el.classList.toggle('tap', j === k));
     if (g.noData) { showCard('<h3>' + esc(g.river) + ' · ' + esc(g.name) + '</h3><p class="when">Régua da ANA</p><p>Esta estação está sem leitura recente.</p>'); return; }
     const v = g.last.cm, dayLbl = isoBr(addDays(SECA_HY0 || '2026-08-01', g.day)), ch = (a, n) => a == null ? '' : (v - a <= 0 ? '−' : '+') + fmt(Math.abs(v - a), 0) + ' cm em ' + n + ' dias';
     const lt = g.last.t ? g.last.t.slice(8, 10) + '/' + g.last.t.slice(5, 7) + ' às ' + g.last.t.slice(11, 16) : '';
@@ -1697,53 +1815,138 @@ details.legal li { margin-bottom: 4px; }
     sets.forEach((s, b) => bins[b] = s.size);
     for (let s = Math.floor(period.from / STEP); s < Math.min(NS, Math.ceil(period.to / STEP)); s++) { const b = Math.floor((s * STEP - period.from) / BIN); if (b >= 0 && b < nb) rbins[b] += prMean[s]; }
   }
+  const METRICS = { fogo: 'locais com fogo', chuva: 'chuva', umid: 'umidade do ar', rio: 'nível do Rio Branco em Boa Vista' };
+  let metric = 'fogo'; try { const v = localStorage.getItem('rr3d-metric'); if (METRICS[v]) metric = v; } catch (e) {}
+  const mColor = m => m === 'fogo' ? css('--accent') : m === 'chuva' ? css('--rain') : m === 'umid' ? '#12a087' : '#1b8fb8';
+  const dateMin = s => minOf(+s.slice(0, 4), +s.slice(5, 7), +s.slice(8, 10));
+  const niceTop = v => { const n = Math.pow(10, Math.floor(Math.log10(v))); return Math.ceil(v / n) * n; };
+  const curBin = () => Math.max(0, Math.min(bins.length - 1, Math.floor((st.t - period.from) / BIN)));
+  const atEnd = () => st.t >= period.to - Math.min(BIN, 180);
+  // "hoje", "ontem" or the date, counted from the last data
+  const dayWord = t => { const a = loc(t), b = loc(TLAST - 1); const n = Math.round((Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate()) - Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate())) / 864e5); return n === 0 ? 'hoje' : n === 1 ? 'ontem' : fmtD(t); };
+  const atTxt = t => 'às ' + fmtH(t) + ' de ' + dayWord(t);
+  const binWhen = b => { const t0 = period.from + b * BIN; if (BIN === 60) return atTxt(t0); if (BIN === 720) return 'por volta das ' + fmtH(t0 + 360) + ' de ' + dayWord(t0 + 360); const dw = dayWord(t0 + BIN / 2); return dw === 'hoje' || dw === 'ontem' ? dw : 'em ' + dw; };
+  const binLbl = b => { const t0 = period.from + b * BIN; return BIN === 60 ? fmtD(t0) + ' às ' + fmtH(t0) : BIN === 720 ? fmtD(t0) + ' ' + fmtH(t0) + ' a ' + fmtD(t0 + 720) + ' ' + fmtH(t0 + 720) : BIN === 1440 ? fmtD(t0) + ' ' + fmtH(t0) + ' a ' + fmtD(t0 + 1440) + ' ' + fmtH(t0 + 1440) : fmtD(t0) + ' a ' + fmtD(t0 + BIN); };
+  // daily Rio Branco level (ANA) at noon of each day, plus the last reading
+  function rioPts() {
+    const J = SECA; if (!J || !J.cur) return [];
+    const base = dateMin(J.hy0), pts = [];
+    J.cur.forEach((v, i) => { if (v != null) pts.push({ t: base + i * 1440 + 720, v }); });
+    if (J.last && J.last.cm != null && J.last.t) { const t = dateMin(J.last.t) + (+J.last.t.slice(11, 13)) * 60 + (+J.last.t.slice(14, 16)); return pts.filter(p => p.t < t - 360).concat([{ t, v: J.last.cm, last: true }]); }
+    return pts;
+  }
+  const humStep = t => Math.max(0, Math.min(NS - 1, Math.floor(t / STEP)));
+  function chartSum() {
+    const per = BIN === 60 ? 'por hora' : BIN === 720 ? 'a cada 12 h' : BIN === 1440 ? 'por dia' : 'a cada 2 dias', cur = curBin(), now = atEnd() ? 'agora' : 'no momento escolhido';
+    if (metric === 'fogo') {
+      let pk = 0; for (let b = 1; b < bins.length; b++) if (bins[b] > bins[pk]) pk = b;
+      const P = bins[pk], C = bins[cur]; if (!P) return 'Nenhum local com fogo neste período.';
+      const head = 'Pico: ' + fmt(P) + (P === 1 ? ' local' : ' locais') + ' com fogo ' + per + ', ' + binWhen(pk);
+      if (C === P) return head + ' · ' + (cur === pk ? (atEnd() ? 'é agora' : 'é o momento escolhido') : now + ' também');
+      return head + ' · ' + now + ' ' + fmt(C) + ' (' + Math.round((1 - C / P) * 100) + '% menos)';
+    }
+    if (metric === 'chuva') {
+      let pk = 0, tot = 0; for (let b = 0; b < rbins.length; b++) { tot += rbins[b]; if (rbins[b] > rbins[pk]) pk = b; }
+      if (tot < 0.5) return 'Quase não choveu neste período (média de Roraima).';
+      return 'Choveu ' + fmt(tot, tot < 10 ? 1 : 0) + ' mm no período (média de Roraima) · mais chuva ' + binWhen(pk) + ': ' + fmt(rbins[pk], 1) + ' mm';
+    }
+    if (metric === 'umid') {
+      const s0 = humStep(period.from), s1 = humStep(period.to - 1); let mn = s0; for (let s = s0; s <= s1; s++) if (rhMean[s] < rhMean[mn]) mn = s;
+      const c = rhMean[humStep(st.t)];
+      return 'Umidade do ar: mínima de ' + fmt(rhMean[mn]) + '% ' + atTxt(mn * STEP) + ' · ' + now + ' ' + fmt(c) + '%' + (rhMean[mn] < 35 ? ' · ar seco favorece o fogo' : '');
+    }
+    if (!SECA) return 'Carregando o nível do rio…';
+    const vis = rioPts().filter(p => p.t >= period.from && p.t <= period.to + 720);
+    if (!vis.length) return 'Sem leitura do rio neste período: a série deste ano começa em ' + isoDate(SECA.hy0) + '.';
+    const a = vis[0], z = vis[vis.length - 1], dv = z.v - a.v;
+    return 'Rio Branco em Boa Vista: ' + cmTxt(z.v) + (z.last ? ' na última leitura' : ' em ' + fmtD(z.t)) + (vis.length > 1 && Math.abs(dv) >= 1 ? ' · ' + (dv < 0 ? 'desceu ' : 'subiu ') + cmTxt(Math.abs(dv)) + ' no período' : '') + (SECA.rank === 1 ? ' · o mais baixo para a data desde ' + SECA.firstYear : '');
+  }
+  function tipAt(t) {
+    const b = Math.max(0, Math.min(bins.length - 1, Math.floor((t - period.from) / BIN)));
+    if (metric === 'fogo') return '<b>' + fmt(bins[b]) + '</b> ' + (bins[b] === 1 ? 'local' : 'locais') + ' com fogo<br>' + binLbl(b);
+    if (metric === 'chuva') return '<b>' + fmt(rbins[b], 1) + ' mm</b> de chuva (média de RR)<br>' + binLbl(b);
+    if (metric === 'umid') { const s = humStep(t); return '<b>' + fmt(rhMean[s]) + '%</b> de umidade do ar<br>' + fmtD(s * STEP) + ' às ' + fmtH(s * STEP); }
+    let best = null; for (const p of rioPts()) if (!best || Math.abs(p.t - t) < Math.abs(best.t - t)) best = p;
+    return best && Math.abs(best.t - t) < 1.5 * 1440 ? '<b>' + cmTxt(best.v) + '</b> na régua do Rio Branco<br>' + fmtD(best.t) + (best.last ? ' (última leitura)' : '') : 'Sem leitura do rio nesta data';
+  }
   function drawChart() {
     const r = chart.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (!r.width) return;
     if (chart.width !== Math.round(r.width * dpr) || chart.height !== Math.round(r.height * dpr)) { chart.width = Math.round(r.width * dpr); chart.height = Math.round(r.height * dpr); }
     cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, r.width, r.height);
-    const L = 40, R = 32, T = 6, B = 18, w = r.width - L - R, h = r.height - T - B, span = period.to - period.from;
-    const max = Math.max(1, ...bins), ink = css('--ink'), muted = css('--muted'), line = css('--line'), acc = css('--accent'), rain = css('--rain');
-    const nice = Math.pow(10, Math.floor(Math.log10(max))), top = Math.ceil(max / nice) * nice;
-    cx.font = '10px ' + css('--f-data'); cx.fillStyle = muted; cx.strokeStyle = line; cx.lineWidth = 1; cx.textAlign = 'right';
-    [0, top / 2, top].forEach(v => { const y = T + h - v / top * h; cx.beginPath(); cx.moveTo(L, y + .5); cx.lineTo(L + w, y + .5); cx.stroke(); cx.fillText(fmt(v), L - 4, y + 3); });
-    cx.textAlign = 'left'; ['0%', '50%', '100%'].forEach((s, k) => cx.fillText(s, L + w + 4, T + h - k * h / 2 + 3));
-    const bw = w / bins.length, cur = Math.floor((st.t - period.from) / BIN);
-    for (let b = 0; b < bins.length; b++) { const bh = bins[b] / top * h; if (!bh) continue; cx.fillStyle = b <= cur ? acc : line; cx.fillRect(L + b * bw, T + h - bh, Math.max(1, bw - (bw > 3 ? 1 : 0)), bh); }
-    const rmax = Math.max(5, ...rbins); cx.fillStyle = rain; cx.globalAlpha = 0.55;
-    for (let b = 0; b < rbins.length; b++) { const rh = rbins[b] / rmax * h * 0.45; if (rh > 0.5) cx.fillRect(L + b * bw, T, Math.max(1, bw - (bw > 3 ? 1 : 0)), rh); }
-    cx.globalAlpha = 1;
-    cx.strokeStyle = muted; cx.lineWidth = 1.1; cx.setLineDash([3, 3]); cx.beginPath();
-    const s0 = Math.floor(period.from / STEP), s1 = Math.min(NS - 1, Math.floor(period.to / STEP)), stride = Math.max(1, Math.round((s1 - s0) / w));
-    for (let s = s0; s <= s1; s += stride) {
-      let a2 = 0, c = 0; for (let q = s; q < Math.min(s + stride, NS); q++) { a2 += rhMean[q]; c++; }
-      const x = L + (s * STEP - period.from) / span * w, y = T + h - a2 / c / 100 * h; s === s0 ? cx.moveTo(x, y) : cx.lineTo(x, y);
+    const L = 40, R = 10, T = 8, B = 18, w = r.width - L - R, h = r.height - T - B, span = period.to - period.from;
+    const ink = css('--ink'), muted = css('--muted'), line = css('--line'), col = mColor(metric), X = t => L + (t - period.from) / span * w;
+    let lo = 0, hi = 1, unit = '', msg = '', pts = null;
+    if (metric === 'fogo') hi = niceTop(Math.max(1, ...bins));
+    else if (metric === 'chuva') { hi = niceTop(Math.max(1, ...rbins)); unit = ' mm'; }
+    else if (metric === 'umid') { hi = 100; unit = '%'; }
+    else {
+      const all = rioPts(); unit = ' cm';
+      pts = all.filter((p, i) => p.t >= period.from - 1440 && p.t <= period.to + 1440);
+      const inside = pts.filter(p => p.t >= period.from && p.t <= period.to + 720);
+      if (!inside.length) msg = SECA ? 'Sem leitura do rio neste período (a série começa em ' + isoDate(SECA.hy0) + ')' : 'Carregando o nível do rio…';
+      else { const vs = pts.map(p => p.v); lo = Math.floor(Math.min(...vs) / 10) * 10; hi = Math.ceil(Math.max(...vs) / 10) * 10; if (hi - lo < 20) { lo -= 10; hi += 10; } }
     }
-    cx.stroke(); cx.setLineDash([]);
+    const Y = v => T + h - (v - lo) / (hi - lo) * h;
+    cx.font = '10px ' + css('--f-data'); cx.fillStyle = muted; cx.strokeStyle = line; cx.lineWidth = 1; cx.textAlign = 'right';
+    if (!msg) [lo, (lo + hi) / 2, hi].forEach((v, k) => { const y = Y(v); cx.beginPath(); cx.moveTo(L, y + .5); cx.lineTo(L + w, y + .5); cx.stroke(); cx.fillText(fmt(v, metric === 'chuva' && hi < 4 && v % 1 ? 1 : 0) + (k === 2 ? unit : ''), L - 4, y + 3); });
+    const bw = w / bins.length, cur = curBin();
+    if (metric === 'fogo' || metric === 'chuva') {
+      const a = metric === 'fogo' ? bins : rbins;
+      for (let b = 0; b < a.length; b++) { const bh = a[b] / hi * h; if (bh < 0.5) continue; cx.fillStyle = col; cx.globalAlpha = b <= cur ? 1 : 0.3; cx.fillRect(L + b * bw, T + h - bh, Math.max(1, bw - (bw > 3 ? 1 : 0)), bh); }
+      cx.globalAlpha = 1;
+    } else if (metric === 'umid') {
+      cx.strokeStyle = col; cx.lineWidth = 1.8; cx.beginPath();
+      const s0 = humStep(period.from), s1 = humStep(period.to), stride = Math.max(1, Math.round((s1 - s0) / w));
+      for (let s = s0; s <= s1; s += stride) { let a2 = 0, c = 0; for (let q = s; q < Math.min(s + stride, NS); q++) { a2 += rhMean[q]; c++; } const x = Math.max(L, X(s * STEP)), y = Y(a2 / c); s === s0 ? cx.moveTo(x, y) : cx.lineTo(x, y); }
+      cx.stroke();
+    } else if (!msg) {
+      cx.save(); cx.beginPath(); cx.rect(L, 0, w, r.height); cx.clip();
+      cx.strokeStyle = col; cx.lineWidth = 2; cx.beginPath(); pts.forEach((p, i) => i ? cx.lineTo(X(p.t), Y(p.v)) : cx.moveTo(X(p.t), Y(p.v))); cx.stroke();
+      if (pts.length < 45) { cx.fillStyle = col; pts.forEach(p => { cx.beginPath(); cx.arc(X(p.t), Y(p.v), 2.6, 0, 2 * Math.PI); cx.fill(); }); }
+      cx.restore();
+    }
+    if (msg) { cx.fillStyle = muted; cx.textAlign = 'center'; cx.font = '12px ' + css('--f-body'); cx.fillText(msg, L + w / 2, T + h / 2 + 4); cx.font = '10px ' + css('--f-data'); }
     cx.fillStyle = muted; cx.textAlign = 'center';
     if (span <= 4 * 1440) {
-      for (let tk = period.from; tk <= period.to; tk += 360) { const dd = loc(tk); cx.fillText((dd.getUTCHours() === 0 ? fmtD(tk) + ' ' : '') + two(dd.getUTCHours()) + 'h', L + (tk - period.from) / span * w, T + h + 13); }
+      for (let tk = period.from; tk <= period.to; tk += 360) { const dd = loc(tk); cx.fillText((dd.getUTCHours() === 0 ? fmtD(tk) + ' ' : '') + two(dd.getUTCHours()) + 'h', X(tk), T + h + 13); }
     } else {
       const d0 = loc(period.from);
       for (let y = d0.getUTCFullYear(), m = d0.getUTCMonth(); ; m++) {
         if (m > 11) { m = 0; y++; }
         const tm = (Date.UTC(y, m, 1, -TZ) - T0) / 60000; if (tm > period.to) break;
-        if (tm >= period.from) cx.fillText(MESES[m] + (m === 0 ? '/' + String(y).slice(2) : ''), L + (tm - period.from) / span * w, T + h + 13);
-        if (span <= 60 * 1440) for (const dd of [10, 20]) { const td = (Date.UTC(y, m, dd, -TZ) - T0) / 60000; if (td > period.from && td < period.to) cx.fillText(dd + '/' + two(m + 1), L + (td - period.from) / span * w, T + h + 13); }
+        if (tm >= period.from) cx.fillText(MESES[m] + (m === 0 ? '/' + String(y).slice(2) : ''), X(tm), T + h + 13);
+        if (span <= 60 * 1440) for (const dd of [10, 20]) { const td = (Date.UTC(y, m, dd, -TZ) - T0) / 60000; if (td > period.from && td < period.to) cx.fillText(dd + '/' + two(m + 1), X(td), T + h + 13); }
       }
     }
     // current moment: a line with a round handle at the top, to drag along the chart
-    const x = L + (st.t - period.from) / span * w; cx.strokeStyle = ink; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(x, T + 4); cx.lineTo(x, T + h); cx.stroke();
-    cx.fillStyle = acc; cx.beginPath(); cx.arc(x, T + 5, 5.5, 0, 2 * Math.PI); cx.fill(); cx.strokeStyle = css('--panel'); cx.lineWidth = 1.5; cx.stroke();
-    const leg = 'locais com fogo ' + (BIN === 60 ? 'por hora' : BIN === 720 ? 'a cada 12 h' : BIN === 1440 ? 'por dia' : 'a cada 2 dias');
-    if ($('chartLeg').dataset.k !== leg) { $('chartLeg').dataset.k = leg; $('chartLeg').innerHTML = '<i style="background:' + acc + '"></i>' + leg + '<i style="background:' + rain + ';opacity:.6"></i>chuva<i style="border-top:1.5px dashed ' + muted + ';height:0;width:14px"></i>umidade do ar · arraste no gráfico para mudar o momento'; }
+    const x = X(st.t); cx.strokeStyle = ink; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(x, T + 4); cx.lineTo(x, T + h); cx.stroke();
+    cx.fillStyle = col; cx.beginPath(); cx.arc(x, T + 5, 5.5, 0, 2 * Math.PI); cx.fill(); cx.strokeStyle = css('--panel'); cx.lineWidth = 1.5; cx.stroke();
+    const sum = chartSum(); if ($('tlSum').textContent !== sum) $('tlSum').textContent = sum;
     chart._geom = { L, w };
   }
+  function setMetric(m) {
+    metric = m; try { localStorage.setItem('rr3d-metric', m); } catch (e) {}
+    document.querySelectorAll('#metric button').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === m));
+    chart.setAttribute('aria-label', 'Gráfico: ' + METRICS[m] + ' no período. Arraste ou use as setas para mudar o momento.');
+    $('chartTip').hidden = true; drawChart();
+  }
+  document.querySelectorAll('#metric button').forEach(b => b.onclick = () => setMetric(b.dataset.m));
+  $('chartLeg').textContent = matchMedia('(hover: none)').matches ? 'Toque e segure no gráfico para ver os valores · arraste para mudar o momento' : 'Passe o mouse no gráfico para ver os valores · arraste para mudar o momento';
   function chartSeek(ev) { const g = chart._geom; if (!g) return; const r = chart.getBoundingClientRect(); setTime(period.from + (ev.clientX - r.left - g.L) / g.w * (period.to - period.from), true); }
-  let dragging = false;
-  chart.addEventListener('pointerdown', e => { dragging = true; chart.setPointerCapture(e.pointerId); pause(); chartSeek(e); });
-  chart.addEventListener('pointermove', e => { if (dragging) chartSeek(e); });
-  chart.addEventListener('pointerup', () => dragging = false);
+  let dragging = false, tipTimer = 0;
+  function showTip(ev) {
+    const g = chart._geom; if (!g) return; const rr = chart.getBoundingClientRect(), tip = $('chartTip');
+    const x = Math.max(g.L, Math.min(g.L + g.w, ev.clientX - rr.left)), t = period.from + (x - g.L) / g.w * (period.to - period.from);
+    tip.innerHTML = tipAt(t); tip.hidden = false; tip.style.left = Math.max(80, Math.min(rr.width - 80, x)) + 'px'; clearTimeout(tipTimer);
+  }
+  const tipOff = e => { dragging = false; if (e.pointerType !== 'mouse') { clearTimeout(tipTimer); tipTimer = setTimeout(() => $('chartTip').hidden = true, 1500); } };
+  chart.addEventListener('pointerdown', e => { dragging = true; try { chart.setPointerCapture(e.pointerId); } catch (err) {} pause(); chartSeek(e); showTip(e); });
+  chart.addEventListener('pointermove', e => { if (dragging) chartSeek(e); if (dragging || e.pointerType === 'mouse') showTip(e); });
+  chart.addEventListener('pointerup', tipOff);
+  chart.addEventListener('pointercancel', tipOff);
+  chart.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !dragging) $('chartTip').hidden = true; });
+  chart.addEventListener('contextmenu', e => e.preventDefault());
   slider.addEventListener('input', () => { pause(); setTime(+slider.value, true); });
   chart.addEventListener('keydown', e => { // arrows step one bar, Shift for ten
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -1784,14 +1987,16 @@ details.legal li { margin-bottom: 4px; }
   }
   PERIODS.forEach(p => {
     const b = document.createElement('button'); b.type = 'button';
-    if (p.group === 'recent') { b.textContent = p.short; b.title = p.long; $('pRecent').appendChild(b); }
-    else { b.textContent = p.short; b.title = p.long + ' (' + p.sub + ')'; if (p.color) b.style.setProperty('--c', p.color); $('pSeason').appendChild(b); }
-    b.onclick = () => setPeriod(p); p.btn = b;
+    if (p.group === 'recent') { b.textContent = p.short; b.title = p.long; $('pRecent').appendChild(b); b.onclick = () => setPeriod(p); p.btn = b; }
+    else { const o = document.createElement('option'); o.value = String(PERIODS.indexOf(p)); o.textContent = p.short; o.title = p.long + ' (' + p.sub + ')'; $('pSeason').appendChild(o); }
   });
+  $('pSeason').onchange = e => { if (e.target.value !== '') setPeriod(PERIODS[+e.target.value]); };
   const rangeTxt = p => fmtD(p.from) + ' ' + fmtH(p.from) + ' até ' + fmtD(Math.min(p.to, D.meta.lastFire)) + ' ' + fmtH(Math.min(p.to, D.meta.lastFire));
   function setPeriod(p) {
     period = p; pause();
-    PERIODS.forEach(q => q.btn.setAttribute('aria-pressed', q === p));
+    PERIODS.forEach(q => q.btn && q.btn.setAttribute('aria-pressed', q === p));
+    $('pSeason').value = p.group === 'season' ? String(PERIODS.indexOf(p)) : ''; $('pSeason').classList.toggle('on', p.group === 'season');
+    $('pSeason').options[0].textContent = 'Estação'; if (p.group === 'season') $('pSeason').title = p.long + ' (' + p.sub + ')';
     $('pSub').textContent = p.long + ': ' + rangeTxt(p);
     slider.min = p.from; slider.max = p.to;
     perMat.uniforms.uPStart.value = p.from;
@@ -1801,21 +2006,36 @@ details.legal li { margin-bottom: 4px; }
   }
 
   // ---------- controls
-  function play() { if (st.t >= period.to - 1) setTime(period.from, true); st.playing = true; $('play').textContent = '❚❚'; $('play').setAttribute('aria-label', 'Pausar'); }
-  function pause() { st.playing = false; $('play').textContent = '▶'; $('play').setAttribute('aria-label', 'Reproduzir'); burnKey = -1; paintBurn(st.t, true); }
-  $('play').onclick = () => st.playing ? pause() : play();
+  const playBtns = (txt, lbl) => ['play', 'mPlay'].forEach(id => { $(id).textContent = txt; $(id).setAttribute('aria-label', lbl); });
+  function play() { if (st.t >= period.to - 1) setTime(period.from, true); st.playing = true; playBtns('❚❚', 'Pausar'); }
+  function pause() { st.playing = false; playBtns('▶', 'Reproduzir'); burnKey = -1; paintBurn(st.t, true); }
+  $('play').onclick = $('mPlay').onclick = () => st.playing ? pause() : play();
   // speed: one button that cycles through three speeds
   const SPEEDS = [[8, '8 h/s'], [24, '1 dia/s'], [72, '3 dias/s']];
-  $('speed').onclick = () => { const k = (SPEEDS.findIndex(s => s[0] === st.speed) + 1) % SPEEDS.length; st.speed = SPEEDS[k][0]; $('speed').textContent = SPEEDS[k][1]; };
+  $('speed').onclick = $('speed2').onclick = () => { const k = (SPEEDS.findIndex(s => s[0] === st.speed) + 1) % SPEEDS.length; st.speed = SPEEDS[k][0]; $('speed').textContent = $('speed2').textContent = SPEEDS[k][1]; };
   // timeline can shrink to a thin bar (play, date, slider)
-  function setTimeline(open) {
+  // phones (< 768 px): the drawer has four states: closed, peek (one sentence), half and full screen
+  const isMob = () => matchMedia('(max-width: 767px)').matches;
+  let dState = 'peek', dMin = 'peek', dragMoved = false;
+  try { if (localStorage.getItem('rr3d-peek') === '0') dMin = 'closed'; } catch (e) {}
+  function setDState(s) {
+    if ((s === 'half' || s === 'full') && isMob() && !$('timeline').classList.contains('min')) setTimeline(false, true);
+    dState = s; $('panel').dataset.d = s; $('app').dataset.d = s;
+    $('panel').classList.toggle('open', s === 'half' || s === 'full');
+  }
+  function setTimeline(open, quiet) {
     $('timeline').classList.toggle('min', !open);
     $('tlToggle').textContent = open ? '▾' : '▴'; $('tlToggle').title = open ? 'Esconder o gráfico' : 'Mostrar o gráfico e os períodos'; $('tlToggle').setAttribute('aria-expanded', open);
-    try { localStorage.setItem('rr3d-tl', open ? '1' : '0'); } catch (e) {}
+    $('mClock').setAttribute('aria-expanded', open);
+    if (!isMob()) try { localStorage.setItem('rr3d-tl', open ? '1' : '0'); } catch (e) {}
+    if (isMob() && !quiet) setDState(open ? 'closed' : dMin);
     if (open) requestAnimationFrame(drawChart);
   }
   $('tlToggle').onclick = () => setTimeline($('timeline').classList.contains('min'));
-  try { const v = localStorage.getItem('rr3d-tl'); if (v === '0' || (v === null && matchMedia('(max-width: 880px)').matches)) setTimeline(false); } catch (e) {}
+  $('mClock').onclick = () => setTimeline($('timeline').classList.contains('min'));
+  setDState(dMin);
+  try { const v = localStorage.getItem('rr3d-tl'); if (isMob() || v === '0' || (v === null && matchMedia('(max-width: 880px)').matches)) setTimeline(false); } catch (e) {}
+  matchMedia('(max-width: 767px)').addEventListener('change', e => { if (e.matches) { setTimeline(false, true); setDState(dMin); } });
   $('win').onchange = e => { st.win = +e.target.value; fireMat.uniforms.uWin.value = st.win; updateUi(); };
   $('mode').onchange = e => { st.mode = +e.target.value; fireMat.uniforms.uMode.value = st.mode; rebin(); updateUi(); };
   $('base').onchange = e => {
@@ -1902,16 +2122,16 @@ details.legal li { margin-bottom: 4px; }
   }
   // filter chips: what each situation means, with how many fires are in it on the selected day
   function renderSit() {
-    const wrap = $('sit'); if (!wrap) return;
-    if (!wrap.childElementCount) Object.keys(SIT).forEach(s => {
+    ['sit', 'sitPane'].forEach(id => { const wrap = $(id); if (!wrap || wrap.childElementCount) return; Object.keys(SIT).forEach(s => {
       const b = document.createElement('button'); b.type = 'button'; b.dataset.s = s;
       b.innerHTML = '<i></i><b></b><span class="n"></span><span class="sub"></span>';
       b.querySelector('i').style.setProperty('--c', SIT[s].css); if (SIT[s].dash) b.querySelector('i').classList.add('dash');
       b.querySelector('b').textContent = SIT[s].name; b.querySelector('.sub').textContent = SIT[s].sub; b.title = SIT[s].name + ': ' + SIT[s].sub + ' (clique para mostrar ou esconder)';
       b.onclick = () => { sitOn[s] = !sitOn[s]; try { localStorage.setItem('rr3d-sit', JSON.stringify(sitOn)); } catch (err) {} IN.day = null; drawInpe(); };
       wrap.appendChild(b);
-    });
-    wrap.querySelectorAll('button').forEach(b => { const s = b.dataset.s; b.setAttribute('aria-pressed', sitOn[s]); b.querySelector('.n').textContent = IN.count ? fmt(IN.count[s]) : '–'; });
+    }); });
+    document.querySelectorAll('#sit button, #sitPane button').forEach(b => { const s = b.dataset.s; b.setAttribute('aria-pressed', sitOn[s]); b.querySelector('.n').textContent = IN.count ? fmt(IN.count[s]) : '–'; });
+    const nOn = Object.keys(SIT).filter(s => sitOn[s]).length; $('sitBtn').textContent = '🔥 Filtro' + (nOn < Object.keys(SIT).length ? ' ' + nOn + '/' + Object.keys(SIT).length : '');
     $('sitDay').textContent = IN.ev.length ? 'Eventos de fogo do INPE em ' + isoBr(IN.day) + '. Clique para mostrar ou esconder.' : 'Carregando eventos do INPE…';
   }
   $('lyInpe').onchange = e => IN.layers.forEach(d => d.obj.visible = e.target.checked);
@@ -1947,11 +2167,33 @@ details.legal li { margin-bottom: 4px; }
   $('home').onclick = () => flyTo(HOME);
   // panel tabs; on phones the panel is a drawer and choosing a tab opens it
   const isPhone = () => matchMedia('(max-width: 880px)').matches;
-  function setDrawer(open) { $('panel').classList.toggle('open', open); }
-  $('grab').onclick = () => setDrawer(!$('panel').classList.contains('open'));
+  function setDrawer(open) {
+    if (isMob()) { if (!open) setDState(dMin); else if (dState !== 'full') setDState('half'); return; }
+    $('panel').classList.toggle('open', open);
+  }
+  $('grab').onclick = () => { if (dragMoved) return; setDrawer(!$('panel').classList.contains('open')); };
+  $('peek').onclick = () => { if (dragMoved) return; setDState('half'); };
+  // phones: the drawer follows the finger on its handle and snaps to the nearest height
+  (function () {
+    const P = $('panel'), order = ['closed', 'peek', 'half', 'full']; let g = null;
+    const H = () => ({ closed: 0, peek: 40, half: innerHeight * 0.52, full: innerHeight - 68 });
+    const down = e => { if (!isMob()) return; g = { y: e.clientY, h: P.getBoundingClientRect().height, s: dState, moved: false }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {} };
+    const move = e => { if (!g) return; const dy = e.clientY - g.y; if (!g.moved && Math.abs(dy) > 6) { g.moved = true; P.classList.add('dragging'); } if (g.moved) P.style.height = Math.max(0, Math.min(H().full, g.h - dy)) + 'px'; };
+    const up = e => {
+      if (!g) return; const G = g; g = null; if (!G.moved) return;
+      dragMoved = true; setTimeout(() => dragMoved = false, 80);
+      const hs = H(), now = P.getBoundingClientRect().height, dy = e.clientY - G.y;
+      let best = order.reduce((a, s) => Math.abs(hs[s] - now) < Math.abs(hs[a] - now) ? s : a, 'closed');
+      if (best === G.s && Math.abs(dy) > 30) best = order[Math.max(0, Math.min(3, order.indexOf(G.s) + (dy < 0 ? 1 : -1)))];
+      if (best === 'closed' || best === 'peek') { dMin = best; try { localStorage.setItem('rr3d-peek', best === 'peek' ? '1' : '0'); } catch (err) {} }
+      P.style.height = ''; P.classList.remove('dragging'); setDState(best);
+    };
+    ['grab', 'peek'].forEach(id => { const el = $(id); el.addEventListener('pointerdown', down); el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); });
+  })();
   const TABS = ['resumo', 'local', 'seca', 'mapa', 'dados'];
   function setTab(name, open) {
     TABS.forEach(t => { const on = t === name; $('tab-' + t).setAttribute('aria-selected', on); $('pane-' + t).hidden = !on; });
+    document.querySelectorAll('#mbar [data-tab]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tab === name));
     try { localStorage.setItem('rr3d-tab', name); } catch (e) {}
     if (open && isPhone()) setDrawer(true);
     $('panel').querySelector('.panel-in').scrollTop = 0;
@@ -1961,6 +2203,14 @@ details.legal li { margin-bottom: 4px; }
     if (isPhone() && $('tab-' + t).getAttribute('aria-selected') === 'true' && $('panel').classList.contains('open')) setDrawer(false);
     else setTab(t, true);
   });
+  document.querySelectorAll('#mbar [data-tab]').forEach(b => b.onclick = () => {
+    const t = b.dataset.tab;
+    if ($('tab-' + t).getAttribute('aria-selected') === 'true' && (dState === 'half' || dState === 'full')) setDState(dMin); else setTab(t, true);
+  });
+  $('sitBtn').onclick = () => {
+    setTab('mapa', true);
+    requestAnimationFrame(() => { const pi = $('panel').querySelector('.panel-in'); pi.scrollTop += $('sitSec').getBoundingClientRect().top - pi.getBoundingClientRect().top - 8; });
+  };
   try { const v = localStorage.getItem('rr3d-tab'); if (TABS.includes(v)) setTab(v, false); } catch (e) {}
   function setPanel(open) {
     document.querySelector('.app').classList.toggle('collapsed', !open);
@@ -2188,12 +2438,13 @@ details.legal li { margin-bottom: 4px; }
   // info card over the map: essentials first, the rest behind an arrow
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   const rowsHtml = rows => '<dl>' + rows.map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl>';
-  function showCard(html) { $('popBody').innerHTML = html; $('pop').hidden = false; $('hint').hidden = true; if (isPhone()) setDrawer(false); }
+  function showCard(html) { $('popBody').innerHTML = html; $('pop').hidden = false; $('hint').hidden = true; if (isPhone()) { if (isMob()) setTimeline(false, true); setDrawer(false); } }
   $('popX').onclick = () => { st.sel = null; showDetail(); };
   function showDetail() {
     const s = st.sel;
     $('selRing').hidden = !(s && s.kind === 'fire');
     if (!s || s.kind !== 'car') { removeDraped(carSel); carSel = null; }
+    if (!s || s.kind !== 'gauge') { gTap = -1; gaugeEls.forEach(el => el.classList.remove('tap')); }
     if (!s) { $('pop').hidden = true; return; }
     if (s.kind === 'car') { carCard(s.k); return; }
     if (s.kind === 'inpe') { inpeCard(s.k); return; }
@@ -2306,7 +2557,8 @@ details.legal li { margin-bottom: 4px; }
     if (!$('labels').hidden) PLACES.forEach((p, k) => place(lblEls[k], p[2], p[1], 0.8, r));
     if (st.pin) place(pinEl, st.pin.lon, st.pin.lat, 0.8, r);
     if (st.risk) place(riskEl, st.risk.lon, st.risk.lat, 1.0, r);
-    if (!$('labels').hidden) GAUGES.forEach((g, k) => place(gaugeEls[k], g.lon, g.lat, 0.6, r));
+    if (!$('labels').hidden) { GAUGES.forEach((g, k) => place(gaugeEls[k], g.lon, g.lat, 0.6, r)); hideGaugeOverlaps(); }
+    const nearZ = camera.position.distanceTo(controls.target) < 120; if (nearZ !== labelsNear) { labelsNear = nearZ; $('labels').classList.toggle('near', nearZ); }
     if (lblDirty || now - lblAt > 250) { lblAt = now; lblDirty = false; pickLabels(r); }
     for (const c of lblSet) place(c.el, c.lon, c.lat, 0.6, r);
     if (st.sel && st.sel.kind === 'fire') {
@@ -2319,6 +2571,7 @@ details.legal li { margin-bottom: 4px; }
   }
   resize();
   setPeriod(PERIODS[1]); // ontem e hoje
+  setMetric(metric);
   try { // my place saved in this browser
     const v = JSON.parse(localStorage.getItem('rr3d-local') || 'null');
     if (v && isFinite(v.lon) && isFinite(v.lat) && v.lon >= W && v.lon <= E && v.lat >= S && v.lat <= N) {
@@ -2332,7 +2585,7 @@ details.legal li { margin-bottom: 4px; }
   if (SOFT_LIGHT) showPerf('soft');
   roadsP.then(initRoads);
   inpeP.then(initInpe);
-  secaP.then(J => { SECA_HY0 = J && J.hy0; initSeca(J); initGauges(J); });
+  secaP.then(J => { SECA_HY0 = J && J.hy0; initSeca(J); initGauges(J); renderPeek(); drawChart(); });
   riosP.then(initRios);
   requestAnimationFrame(frame);
 })();
