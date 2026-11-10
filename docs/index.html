@@ -1529,20 +1529,22 @@ details.legal li { margin-bottom: 4px; }
     el.querySelectorAll('[data-val]').forEach(inp => inp.addEventListener('change', () => { VAL[inp.dataset.val] = Math.max(0, +inp.value || 0); try { localStorage.setItem('rr3d-vals', JSON.stringify(VAL)); } catch (e) {} renderMyStatus(); }));
   }
   // arrow on the map from the fire that brings the danger to my place, with a clickable tag at the fire
-  let riskLine = null;
+  let riskLine = null, riskEdge = null;
   const riskEl = document.createElement('button'); riskEl.className = 'lbl risk'; riskEl.hidden = true; riskEl.type = 'button'; $('labels').appendChild(riskEl);
   function drawRiskArrow(r) {
-    removeDraped(riskLine); riskLine = null; st.risk = null; riskEl.hidden = true;
+    removeDraped(riskLine); removeDraped(riskEdge); riskLine = riskEdge = null; st.risk = null; riskEl.hidden = true;
     const b = r && r.best; if (!b || r.insideHit) return;
     const a = [b.f.lon, b.f.lat], z = b.tp, kx = 111.32 * Math.cos(a[1] * Math.PI / 180), ky = 110.57;
     const dx = (z[0] - a[0]) * kx, dy = (z[1] - a[1]) * ky, L = Math.hypot(dx, dy); if (L < 0.05) return;
-    const ux = dx / L, uy = dy / L, hl = Math.min(3, Math.max(0.4, L * 0.14));
-    const head = s => { const c = Math.cos(0.45 * s), si = Math.sin(0.45 * s); return [z[0] - (ux * c - uy * si) * hl / kx, z[1] - (ux * si + uy * c) * hl / ky]; };
-    const off = Math.max(0.04, L * 0.005), rings = [];
-    for (const o of [-off, 0, off]) { const ox = -uy * o / kx, oy = ux * o / ky; rings.push([[a[0] + ox, a[1] + oy], [z[0] + ox, z[1] + oy]]); } // three close lines: a thicker arrow
-    rings.push([head(1), z, head(-1)]);
+    // a solid arrow lying on the ground: thin at the fire, wider toward the place, with a white edge
+    const ux = dx / L, uy = dy / L, hw = Math.min(0.55, Math.max(0.05, L * 0.022)), hl = Math.min(L * 0.45, Math.max(hw * 4.2, L * 0.12)), sl = L - hl;
+    const at = (s, o) => [a[0] + (ux * s - uy * o) / kx, a[1] + (uy * s + ux * o) / ky];
+    const n = Math.max(2, Math.ceil(sl / 0.6)), left = [], right = [];
+    for (let k = 0; k <= n; k++) { const s = sl * k / n, w = hw * (0.3 + 0.7 * k / n); left.push(at(s, w)); right.push(at(s, -w)); }
+    const ring = left.concat([at(sl, hw * 2.5), z, at(sl, -hw * 2.5)], right.reverse());
     const col = r.level === 'alto' ? 0xff3b30 : r.level === 'atencao' ? 0xff9f1a : 0xffd84a;
-    riskLine = makeDraped(rings, col, 1, 0.9, 0.3); riskLine.obj.renderOrder = 8;
+    riskLine = makeFill([ring], col, 0.92, 0.9); riskLine.obj.renderOrder = 8;
+    riskEdge = makeDraped([ring.concat([ring[0]])], 0xffffff, 0.95, 0.95, 0.6); riskEdge.obj.renderOrder = 9;
     st.risk = { lon: a[0], lat: a[1], a, z, d: L };
     riskEl.className = 'lbl risk ' + r.level;
     riskEl.textContent = '🔥 ' + kmTxt(b.d) + (b.riv ? ' · 🌊 rio no caminho' : b.tmin <= 24 * 7 ? ' · ' + durTxt(b.tmin) : '');
