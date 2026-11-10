@@ -42,7 +42,7 @@ html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14.5px; line-height: 1.45; overflow: hidden; }
 .app { display: grid; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: minmax(0, 1fr) auto; height: 100%; }
 .view { grid-column: 1; grid-row: 1; position: relative; min-width: 0; min-height: 0; overflow: hidden;
-  background: linear-gradient(180deg, var(--sky-top), var(--sky-bot)); }
+  background: radial-gradient(ellipse at 50% 55%, #232a2e, #12161a 75%); }
 .view canvas.gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 .view.picking canvas.gl { cursor: crosshair; }
 .timeline { grid-column: 1; grid-row: 2; background: var(--panel); border-top: 1px solid var(--line); min-width: 0;
@@ -300,6 +300,12 @@ details.legal li { margin-bottom: 4px; }
 .verdict.strong { background: #b42318; color: #fff; }
 .verdict.warn { background: var(--warn-bg); color: var(--warn-ink); }
 .sub.stale { color: #b45309; font-weight: 600; }
+.dc { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.dc h2 { margin: 0 0 8px; }
+.dc-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.dc-row a { flex: 1 1 auto; text-align: center; text-decoration: none; white-space: nowrap; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+.dc-row a.main { background: #b42318; color: #fff; border-color: transparent; }
+.dc .note a { color: inherit; font-weight: 600; }
 :root[data-theme="dark"] .sub.stale { color: #f59e0b; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sub.stale { color: #f59e0b; } }
 .loss b.big { display: block; font-family: var(--f-display); font-size: 32px; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
@@ -348,8 +354,8 @@ details.legal li { margin-bottom: 4px; }
   .sit { right: 8px; bottom: 8px; } .sit button { padding: 4px 9px 4px 8px; font-size: 11px; }
   .pop { bottom: 8px; max-height: calc(100% - 130px); }
 }
-/* phones: one thin bar at the bottom (play, date, tab icons); the timeline and the panel open above it */
-@media (max-width: 767px) {
+/* phones and tablets held upright: one thin bar at the bottom (play, date, tab icons); the timeline and the panel open above it */
+@media (max-width: 880px) {
   .app, .app.collapsed { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
   .mbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; height: calc(56px + env(safe-area-inset-bottom, 0px)); align-items: center; gap: 6px;
     padding: 0 max(8px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(8px, env(safe-area-inset-left, 0px)); background: var(--panel); border-top: 1px solid var(--line); }
@@ -483,6 +489,11 @@ details.legal li { margin-bottom: 4px; }
           <p class="kpis"><span><b id="stArea">–</b> com fogo no período</span><span><b id="stRain">–</b> de chuva em 24 h</span></p>
           <span hidden><b id="stPlaces"></b><span id="stPlacesLbl"></span></span>
           <p class="psub" id="pSub"></p>
+        </section>
+        <section class="sec dc" aria-label="Emergência e alertas oficiais">
+          <h2>Emergência e alertas oficiais</h2>
+          <div class="dc-row"><a class="btn main" href="tel:193">🚒 Bombeiros 193</a><a class="btn" href="tel:199">Defesa Civil 199</a><a class="btn" href="tel:192">SAMU 192</a></div>
+          <p class="note">Receba de graça os alertas da Defesa Civil no celular: mande um SMS com o <b>CEP</b> da sua casa para o número <b>40199</b>. <a href="sms:40199">Abrir SMS</a></p>
         </section>
         <section class="sec">
           <h2 id="evTitle">Maiores incêndios</h2>
@@ -761,7 +772,7 @@ details.legal li { margin-bottom: 4px; }
   const camera = new THREE.PerspectiveCamera(36, 1, 0.5, 6000);
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.08;
-  controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 6; controls.maxDistance = 1800;
+  controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 6; controls.maxDistance = 1000;
   controls.screenSpacePanning = false;
   function orbitPose(x, z, dist, az, pol) {
     return { pos: new THREE.Vector3(x + dist * Math.sin(pol) * Math.sin(az), dist * Math.cos(pol), z + dist * Math.sin(pol) * Math.cos(az)), tgt: new THREE.Vector3(x, 0, z) };
@@ -824,7 +835,8 @@ details.legal li { margin-bottom: 4px; }
   const munLines = makeDraped(D.munis.flatMap(m => m.r.map(flatToRing)), 0xffffff, 0.4, 0.3, 1.5); munLines.obj.visible = false;
   // rural properties with fire (CAR) and deforestation alerts (DETER): drawn on first use
   const CAR = D.car || [], DET = D.deter || [];
-  let carLayer = null, deterLayer = null, carSel = null;
+  let carLayer = null, deterLayer = null, carSel = null, detSel = null, detBox = null;
+  const DET_CLS = { DESMATAMENTO_CR: 'desmatamento com solo exposto (corte raso)', DESMATAMENTO_VEG: 'desmatamento com vegetação', CS_DESORDENADO: 'corte seletivo desordenado', CS_GEOMETRICO: 'corte seletivo geométrico', MINERACAO: 'mineração', DEGRADACAO: 'degradação', CICATRIZ_DE_QUEIMADA: 'cicatriz de queimada' };
   const CAR_TIPO = { IRU: 'Imóvel rural', AST: 'Assentamento', PCT: 'Povos e comunidades tradicionais' };
   const carBox = CAR.map(c => { let a = 1e9, b = -1e9, y0 = 1e9, y1 = -1e9; c.r.forEach(r => { for (let j = 0; j < r.length; j += 2) { a = Math.min(a, r[j]); b = Math.max(b, r[j]); y0 = Math.min(y0, r[j + 1]); y1 = Math.max(y1, r[j + 1]); } }); return [a, y0, b, y1]; });
 
@@ -2038,7 +2050,7 @@ details.legal li { margin-bottom: 4px; }
   $('speed').onclick = $('speed2').onclick = () => { const k = (SPEEDS.findIndex(s => s[0] === st.speed) + 1) % SPEEDS.length; st.speed = SPEEDS[k][0]; $('speed').textContent = $('speed2').textContent = SPEEDS[k][1]; };
   // timeline can shrink to a thin bar (play, date, slider)
   // phones (< 768 px): the drawer has four states: closed, peek (one sentence), half and full screen
-  const isMob = () => matchMedia('(max-width: 767px)').matches;
+  const isMob = () => matchMedia('(max-width: 880px)').matches;
   let dState = 'peek', dMin = 'peek', dragMoved = false;
   try { if (localStorage.getItem('rr3d-peek') === '0') dMin = 'closed'; } catch (e) {}
   function setDState(s) {
@@ -2058,7 +2070,7 @@ details.legal li { margin-bottom: 4px; }
   $('mClock').onclick = () => setTimeline($('timeline').classList.contains('min'));
   setDState(dMin);
   try { const v = localStorage.getItem('rr3d-tl'); if (isMob() || v === '0' || (v === null && matchMedia('(max-width: 880px)').matches)) setTimeline(false); } catch (e) {}
-  matchMedia('(max-width: 767px)').addEventListener('change', e => { if (e.matches) { setTimeline(false, true); setDState(dMin); } });
+  matchMedia('(max-width: 880px)').addEventListener('change', e => { if (e.matches) { setTimeline(false, true); setDState(dMin); } });
   $('win').onchange = e => { st.win = +e.target.value; fireMat.uniforms.uWin.value = st.win; updateUi(); };
   $('mode').onchange = e => { st.mode = +e.target.value; fireMat.uniforms.uMode.value = st.mode; rebin(); updateUi(); };
   $('base').onchange = e => {
@@ -2079,6 +2091,7 @@ details.legal li { margin-bottom: 4px; }
   $('lyDeter').onchange = e => {
     if (e.target.checked && !deterLayer) deterLayer = makeDraped(DET.flatMap(d => d.r.map(flatToRing)), 0xff5c7a, 0.9, 0.34, 3);
     if (deterLayer) deterLayer.obj.visible = e.target.checked;
+    if (!e.target.checked && st.sel && st.sel.kind === 'deter') { st.sel = null; showDetail(); }
   };
   // ---------- official INPE fire events: contour, type (fire / human activity) and land use
   const IN = { ev: [], day: null, layers: [] };
@@ -2296,6 +2309,8 @@ details.legal li { margin-bottom: 4px; }
     if (ki >= 0) { st.sel = { kind: 'inpe', k: ki }; showDetail(); return; }
     const k = g && perLines.visible ? eventAt(g.lon, g.lat) : -1;
     if (k >= 0) { st.sel = { kind: 'event', k }; showDetail(); return; }
+    const dk = g && deterLayer && deterLayer.obj.visible ? deterAt(g.lon, g.lat, Math.max(0.15, Math.min(3, camera.position.distanceTo(controls.target) * 0.006))) : -1;
+    if (dk >= 0) { st.sel = { kind: 'deter', k: dk, lon: g.lon, lat: g.lat }; showDetail(); return; }
     const c = g && carLayer && carLayer.obj.visible ? carAt(g.lon, g.lat) : -1;
     st.sel = c >= 0 ? { kind: 'car', k: c } : null; showDetail();
   }
@@ -2322,6 +2337,28 @@ details.legal li { margin-bottom: 4px; }
     const verdict = level === 2 ? '<span class="verdict strong">pede verificação</span>' : level === 1 ? '<span class="verdict warn">atenção</span>' : '<span class="verdict">nada a destacar</span>';
     return '<details class="more legal"><summary>O que diz a lei sobre fogo aqui ' + verdict + '</summary><div><ul>' + items.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
       '<p class="note" style="margin:4px 0 0">O satélite não mostra se havia autorização nem quem acendeu o fogo. Para confirmar é preciso consultar a autorização de queima (FEMARH ou Ibama), o período de proibição do estado e fazer vistoria. São indícios por satélite, não prova: isto não é acusação contra ninguém.</p></div></details>';
+  }
+  // deforestation alert under the click: inside a polygon (smallest first), else the closest one within tolKm
+  function deterAt(lon, lat, tolKm) {
+    if (!detBox) detBox = DET.map(d => { let a = 1e9, b = -1e9, y0 = 1e9, y1 = -1e9; d.r.forEach(r => { for (let j = 0; j < r.length; j += 2) { a = Math.min(a, r[j]); b = Math.max(b, r[j]); y0 = Math.min(y0, r[j + 1]); y1 = Math.max(y1, r[j + 1]); } }); return [a, y0, b, y1]; });
+    let best = -1, ba = 1e18, near = -1, nd = tolKm / 111;
+    for (let k = 0; k < DET.length; k++) {
+      const b = detBox[k]; if (b[0] > b[2]) continue;
+      if (lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3] && DET[k].km2 < ba && DET[k].r.some(r => pointInRing(lon, lat, r))) { best = k; ba = DET[k].km2; }
+      const d = Math.hypot(Math.max(b[0] - lon, 0, lon - b[2]), Math.max(b[1] - lat, 0, lat - b[3])); if (d < nd) { nd = d; near = k; }
+    }
+    return best >= 0 ? best : near;
+  }
+  function deterCard(k, lon, lat) {
+    const d = DET[k], ha = d.km2 * 100; let nf = 0;
+    if (F.dt) for (let i = firstAt(minOf(2026, 1, 1)), e = firstAt(TLAST + 1); i < e; i++) if (F.dt[i] === k) nf++;
+    removeDraped(detSel); detSel = makeDraped(d.r.map(flatToRing), 0xffffff, 1, 0.9, 1);
+    showCard('<h3>Alerta de desmatamento</h3><p class="when">DETER · INPE · visto pelo satélite em ' + d.d.split('-').reverse().join('/') + '</p>' + whereTxt(lon, lat) +
+      '<span class="tag">' + esc(DET_CLS[d.cls] || d.cls.replace(/_/g, ' ').toLowerCase()) + '</span><span class="tag">cerca de ' + (ha < 10 ? fmt(ha, 1) : fmt(ha, 0)) + ' ha</span>' +
+      (nf ? '<span class="tag hot">' + fmt(nf) + (nf === 1 ? ' foco de fogo' : ' focos de fogo') + ' em 2026</span>' : '') +
+      '<p style="margin:8px 0 0;font-size:13px">É um <b>alerta</b> por satélite, não uma confirmação: o INPE pode revisar. Não mostra quem desmatou nem se havia licença.</p>' +
+      '<details class="more"><summary>Mais detalhes</summary><div><p>O DETER é o sistema do INPE que avisa rápido sobre mudanças na vegetação, para orientar a fiscalização. A área é aproximada e foi medida dentro do município; pode ser maior.</p>' +
+      '<p style="margin-top:6px">Fonte: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">TerraBrasilis, INPE</a>.</p></div></details>');
   }
   function carAt(lon, lat) {
     let best = -1, ba = 1e18;
@@ -2467,9 +2504,11 @@ details.legal li { margin-bottom: 4px; }
     const s = st.sel;
     $('selRing').hidden = !(s && s.kind === 'fire');
     if (!s || s.kind !== 'car') { removeDraped(carSel); carSel = null; }
+    if (!s || s.kind !== 'deter') { removeDraped(detSel); detSel = null; }
     if (!s || s.kind !== 'gauge') { gTap = -1; gaugeEls.forEach(el => el.classList.remove('tap')); }
     if (!s) { $('pop').hidden = true; return; }
     if (s.kind === 'car') { carCard(s.k); return; }
+    if (s.kind === 'deter') { deterCard(s.k, s.lon, s.lat); return; }
     if (s.kind === 'inpe') { inpeCard(s.k); return; }
     if (s.kind === 'gauge') { gaugeCard(s.k); return; }
     if (s.kind === 'river') { riverCard(s.name, s.lon, s.lat); return; }
@@ -2571,6 +2610,12 @@ details.legal li { margin-bottom: 4px; }
       const k = Math.min(1, (now - fly.t0) / 1400), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
       camera.position.lerpVectors(fly.p0, fly.p1, e); controls.target.lerpVectors(fly.q0, fly.q1, e);
       if (k >= 1) fly = null;
+    }
+    { // far away: look more from above (no horizon); never pan outside the map
+      const cd = camera.position.distanceTo(controls.target), k = Math.max(0, Math.min(1, (cd - 150) / 450));
+      controls.maxPolarAngle = Math.PI * (0.47 - 0.15 * k);
+      const tx = Math.max(-WKM / 2, Math.min(WKM / 2, controls.target.x)), tz = Math.max(-HKM / 2, Math.min(HKM / 2, controls.target.z));
+      if (!fly && (tx !== controls.target.x || tz !== controls.target.z)) { camera.position.x += tx - controls.target.x; camera.position.z += tz - controls.target.z; controls.target.x = tx; controls.target.z = tz; }
     }
     controls.update();
     if (windLines.visible && !reduce) stepWind(st.t / STEP);
