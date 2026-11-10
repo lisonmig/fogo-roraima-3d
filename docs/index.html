@@ -102,6 +102,9 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .dg-exact { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 0; font-size: 13px; cursor: pointer; }
 .dg-exact input { margin-top: 2px; width: 16px; height: 16px; flex: none; }
 .dg-hint { margin: 2px 0 0 24px; font-size: 11.5px; opacity: .8; }
+.rain-ask { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; font-size: 13px; line-height: 1.4; }
+.rain-ask p { margin: 0 0 8px; } .rain-ask p:last-child { margin-bottom: 0; }
+.rain-ask .row { display: flex; gap: 8px; } .rain-ask .row .btn { flex: 1; min-height: 44px; }
 .perfnote { position: fixed; z-index: 60; top: 84px; left: 50%; transform: translateX(-50%); width: min(520px, calc(100vw - 32px)); background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-left: 4px solid #d97706; border-radius: 8px; padding: 10px 12px; font-size: 13.5px; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
 .perfnote p { margin: 0 0 8px; }
 .undo { position: fixed; z-index: 60; top: 84px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; white-space: nowrap; background: rgba(20,20,20,.88); color: #fff; border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 12.5px; box-shadow: 0 3px 12px rgba(0,0,0,.3); }
@@ -508,7 +511,7 @@ details.legal li { margin-bottom: 4px; }
         <section class="sec">
           <h2>Minha propriedade ou local</h2>
           <div class="mystatus" id="danger" hidden style="margin-bottom:10px"></div>
-          <p class="note" style="margin:0 0 8px">Marque no mapa, use o GPS ou digite as coordenadas na busca do mapa. O local fica salvo <b>só neste aparelho</b> e o mapa avisa ao abrir se há fogo perto. Para remover o local: <b>dois toques seguidos no mapa</b> (no computador, dois cliques com o botão direito).</p>
+          <p class="note" style="margin:0 0 8px">Marque no mapa, use o GPS ou digite as coordenadas na busca do mapa. O local fica salvo <b>só neste aparelho</b> e o mapa avisa ao abrir se há fogo perto. A única exceção acontece só se você aceitar: ao tocar em “Ver chuva ao vivo aqui”, o aparelho envia o ponto arredondado (cerca de 10 km) e o endereço de internet (IP) ao Open-Meteo. Para remover o local: <b>dois toques seguidos no mapa</b> (no computador, dois cliques com o botão direito).</p>
           <div class="row">
             <button class="btn" id="pickBtn" aria-pressed="false">Marcar no mapa</button>
             <button class="btn" id="gpsBtn" hidden>Usar meu GPS</button>
@@ -517,6 +520,7 @@ details.legal li { margin-bottom: 4px; }
           </div>
           <p class="note" id="gpsMsg" hidden></p>
           <div class="near" id="near"></div>
+          <div id="rainLive" hidden style="margin-top:10px"></div>
           <details class="more fine" id="fineBox" hidden>
             <summary>Simular multa</summary>
             <div>
@@ -653,7 +657,7 @@ details.legal li { margin-bottom: 4px; }
           <label class="fl" for="exag">Exagero do relevo: <span id="exagV">3×</span>
             <input type="range" id="exag" min="1" max="12" step="0.5" value="3"></label>
           <div class="checks"><label><input type="checkbox" id="lyLight"> Modo leve</label><label><input type="checkbox" id="lySharp"> Imagem nítida ao aproximar</label></div>
-          <p class="note" style="margin:0 0 6px">Imagem nítida: ao chegar perto, o mapa busca a foto de satélite detalhada só daquela área (usa um pouco mais de internet).</p>
+          <p class="note" style="margin:0 0 6px">Imagem nítida: ao chegar perto, o mapa busca a foto de satélite detalhada só daquela área (usa um pouco mais de internet). O servidor da imagem (EOX) recebe a área olhada e o endereço de internet (IP) do aparelho.</p>
           <p class="note" id="lightNote" style="margin:0">Modo leve: menos relevo e animação, para celulares simples.</p>
           </div>
         </details>
@@ -1562,9 +1566,51 @@ details.legal li { margin-bottom: 4px; }
     const R = st.risk; if (!R) return; if (isPhone()) setDrawer(false);
     flyTo(orbitPose(toX((R.a[0] + R.z[0]) / 2), toZ((R.a[1] + R.z[1]) / 2), Math.max(14, R.d * 2.4), 0.15, 0.75));
   }
+  // ---------- live rain at my place (optional): only after the person agrees, the device asks Open-Meteo directly,
+  // with the point rounded to 0.1 degree (about 10 km, the size of the model grid) and no referrer
+  const rainSt = { key: '', mode: 'idle', data: null };
+  const rainOk = () => { try { return localStorage.getItem('rr3d-chuva') === '1'; } catch (e) { return false; } };
+  function renderRain(force) {
+    const box = $('rainLive'), p = st.pin; if (!p) { box.hidden = true; rainSt.key = ''; rainSt.mode = 'idle'; rainSt.data = null; return; }
+    const key = p.lon.toFixed(1) + ',' + p.lat.toFixed(1);
+    if (key !== rainSt.key) { rainSt.key = key; rainSt.mode = 'idle'; rainSt.data = null; } else if (!force && !box.hidden && box.dataset.m === rainSt.mode) return;
+    box.hidden = false; box.dataset.m = rainSt.mode;
+    const off = '<a href="#" data-r="off">Desligar e esquecer minha escolha</a>', d = rainSt.data;
+    box.innerHTML = rainSt.mode === 'ask' ? '<div class="rain-ask"><p><b>Chuva ao vivo, só se você quiser.</b> Para mostrar a chuva de agora, este aparelho vai pedir os dados direto ao Open-Meteo (serviço de previsão do tempo, na Europa). Ele recebe o ponto do seu local arredondado a cerca de 10 km e o endereço de internet (IP) do seu aparelho. O nosso site não recebe nada. Não conseguimos controlar o que esse serviço guarda: veja a política dele. Você pode desligar quando quiser.</p><div class="row"><button class="btn" data-r="no">Agora não</button><button class="btn" data-r="yes">Aceitar e ver</button></div></div>'
+      : rainSt.mode === 'loading' ? '<p class="note">Buscando a chuva…</p>'
+      : rainSt.mode === 'err' ? '<p class="note">Não deu para ver a chuva agora. Os dados do mapa continuam valendo.</p><button class="btn" data-r="go">Tentar de novo</button>'
+      : rainSt.mode === 'ok' && d ? '<div class="rain-ask"><p><b>🌧 Chuva nas últimas 24 h aqui: ' + fmt(d.r24, 1) + ' mm</b> · últimas 3 h: ' + fmt(d.r3, 1) + ' mm' + (d.rh != null ? ' · umidade ' + fmt(d.rh) + '%' : '') + '.</p>' +
+          '<p class="note" style="margin:4px 0 0">Valor do modelo Open-Meteo, que enxerga quadrados de cerca de 11 km e pode não captar chuva de bairro. Não é medida de estação. Dados das ' + esc(d.hm) + (d.age != null ? ' (há ' + d.age + ' min)' : '') + '.</p>' +
+          '<p class="note" style="margin:4px 0 0">Fonte: Open-Meteo (CC BY 4.0) · <a href="#" data-r="go">Atualizar</a> · ' + off + '</p></div>'
+      : '<button class="btn" data-r="go">🌧 Ver chuva ao vivo aqui (opcional)</button>' + (rainOk() ? '<p class="note" style="margin:4px 0 0">Chuva ao vivo: ligada · ' + off + '</p>' : '');
+  }
+  async function fetchRain() {
+    const key = rainSt.key; rainSt.mode = 'loading'; renderRain(true);
+    const [lon, lat] = key.split(','), ac = new AbortController(), tm = setTimeout(() => ac.abort(), 8000);
+    try {
+      const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=relative_humidity_2m&hourly=precipitation&past_days=1&forecast_days=1&timezone=America%2FBoa_Vista',
+        { referrerPolicy: 'no-referrer', credentials: 'omit', signal: ac.signal });
+      if (!r.ok) throw new Error('http');
+      const j = await r.json(), tt = j.hourly.time, pr = j.hourly.precipitation, now = j.current.time;
+      let k = -1; for (let i = 0; i < tt.length; i++) if (tt[i] <= now) k = i;
+      if (k < 0) throw new Error('sem hora');
+      const sum = n => { let s = 0, c = 0; for (let i = Math.max(0, k - n + 1); i <= k; i++) if (pr[i] != null) { s += pr[i]; c++; } if (!c) throw new Error('sem dado'); return s; };
+      const age = Math.round((Date.now() - (Date.parse(now + ':00Z') - (j.utc_offset_seconds || 0) * 1000)) / 60000);
+      if (key !== rainSt.key) return;
+      rainSt.data = { r24: sum(24), r3: sum(3), rh: j.current.relative_humidity_2m, hm: now.slice(11, 16).replace(':', 'h'), age: age >= 0 && age < 600 ? age : null }; rainSt.mode = 'ok';
+    } catch (e) { if (key !== rainSt.key) return; rainSt.mode = 'err'; }
+    clearTimeout(tm); renderRain(true);
+  }
+  $('rainLive').addEventListener('click', e => {
+    const a = e.target.dataset && e.target.dataset.r; if (!a) return; e.preventDefault();
+    if (a === 'go') { if (rainOk()) fetchRain(); else { rainSt.mode = 'ask'; renderRain(true); } }
+    else if (a === 'yes') { try { localStorage.setItem('rr3d-chuva', '1'); } catch (err) {} fetchRain(); }
+    else if (a === 'no') { rainSt.mode = 'idle'; renderRain(true); }
+    else if (a === 'off') { try { localStorage.removeItem('rr3d-chuva'); } catch (err) {} rainSt.mode = 'idle'; rainSt.data = null; renderRain(true); }
+  });
   let myPropLine = null, myPropCod = null;
   function renderMyStatus() {
-    const el = $('myStatus'), el2 = $('danger'), p = st.pin;
+    const el = $('myStatus'), el2 = $('danger'), p = st.pin; renderRain();
     if (!p) { el.hidden = true; el2.hidden = true; removeDraped(myPropLine); myPropLine = null; myPropCod = null; drawRiskArrow(null); return; }
     if (!CT.ok && !CT.loading) loadCarTodos().finally(() => { if (st.pin) renderMyStatus(); });
     const r = computeDanger(p), cls = 'mystatus ' + LEVELS[r.level].cls;
