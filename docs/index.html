@@ -102,6 +102,25 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .dg-exact { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 0; font-size: 13px; cursor: pointer; }
 .dg-exact input { margin-top: 2px; width: 16px; height: 16px; flex: none; }
 .dg-hint { margin: 2px 0 0 24px; font-size: 11.5px; opacity: .8; }
+#report { position: fixed; inset: 0; z-index: 100; overflow: auto; background: rgba(0,0,0,.55); padding: 16px; -webkit-overflow-scrolling: touch; }
+.rep-page { max-width: 760px; margin: 0 auto; background: #fff; color: #1b1917; border-radius: 10px; padding: 22px 26px 26px; font: 14.5px/1.5 var(--f-body); }
+.rep-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; position: sticky; top: 0; background: #fff; padding: 4px 0 8px; }
+.rep-actions .btn { background: #f1eee9; color: #1b1917; border-color: #d9d3ca; text-decoration: none; }
+.rep-kick { margin: 0; font: 600 12px var(--f-data); letter-spacing: .08em; text-transform: uppercase; color: #c2410c; }
+.rep-page h1 { font: 700 26px/1.15 var(--f-display); margin: 2px 0 6px; color: #1b1917; }
+.rep-page h2 { font: 700 15px var(--f-body); margin: 18px 0 6px; padding-bottom: 3px; border-bottom: 2px solid #1b1917; color: #1b1917; text-transform: none; letter-spacing: 0; }
+.rep-sub { margin: 0 0 6px; color: #5a534b; font-size: 13px; }
+.rep-page table { width: 100%; border-collapse: collapse; }
+.rep-page td { padding: 5px 0; border-bottom: 1px solid #e6e1d9; vertical-align: top; }
+.rep-page td:last-child { text-align: right; font-weight: 600; white-space: nowrap; padding-left: 12px; }
+.rep-page ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: #3d3833; }
+.rep-foot { margin: 16px 0 0; font-size: 12px; color: #5a534b; }
+@media print {
+  body > *:not(#report) { display: none !important; }
+  #report { position: static; background: none; padding: 0; overflow: visible; }
+  .rep-page { max-width: none; border-radius: 0; padding: 0; }
+  .rep-actions { display: none; }
+}
 .rain-ask { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; font-size: 13px; line-height: 1.4; }
 .rain-ask p { margin: 0 0 8px; } .rain-ask p:last-child { margin-bottom: 0; }
 .rain-ask .row { display: flex; gap: 8px; } .rain-ask .row .btn { flex: 1; min-height: 44px; }
@@ -668,6 +687,12 @@ details.legal li { margin-bottom: 4px; }
         <section class="sec">
           <h2>Multas possíveis em 2026 (teto legal)</h2>
           <div id="loss"></div>
+        </section>
+        <section class="sec">
+          <h2>Relatório</h2>
+          <p class="note" style="margin:0 0 8px">Gera um resumo do fogo no <b>período escolhido na linha do tempo</b>, para imprimir, salvar em PDF ou mandar pelo WhatsApp.</p>
+          <div class="row"><select id="repScope" aria-label="Área do relatório"></select><button class="btn" id="repBtn">📄 Gerar relatório</button></div>
+          <p class="note" id="repMsg" hidden></p>
         </section>
         <details class="block">
           <summary>Como a área é calculada</summary>
@@ -2705,6 +2730,73 @@ details.legal li { margin-bottom: 4px; }
     img.src = 'https://tiles.maps.eox.at/wms?service=WMS&request=GetMap&version=1.1.1&layers=s2cloudless-2025&styles=&srs=EPSG:4326&format=image/jpeg&width=' + px + '&height=' + px +
       '&bbox=' + [lon - hx, lat - hz, lon + hx, lat + hz].map(v => v.toFixed(5)).join(',');
   }
+  // ---------- report on demand: fire in the chosen period for the state, one municipality or around my place
+  (() => {
+    const sel = $('repScope');
+    sel.innerHTML = '<option value="rr">Roraima inteira</option><option value="local">Perto do meu local</option>' +
+      D.muns.map((m, k) => [m, k]).sort((a, b) => a[0].localeCompare(b[0], 'pt-BR')).map(([m, k]) => '<option value="m' + k + '">' + esc(m) + '</option>').join('');
+  })();
+  function buildReport() {
+    const v = $('repScope').value, p = st.pin, R = +$('radius').value; let scope, test;
+    if (v === 'local') {
+      if (!p) return { err: 'Marque primeiro o seu local na aba “Meu local”.' };
+      const kx = 111.32 * Math.cos(p.lat * Math.PI / 180);
+      scope = 'Até ' + R + ' km de ' + (/^Coordenada/.test(p.label) ? 'um local marcado' : p.label); test = i => Math.hypot((F.lon[i] - p.lon) * kx, (F.lat[i] - p.lat) * 110.57) <= R;
+    } else if (v[0] === 'm') { const k = +v.slice(1); scope = 'Município de ' + D.muns[k]; test = i => F.m[i] === k; }
+    else { scope = 'Estado de Roraima'; test = () => true; }
+    const from = period.from, to = Math.min(period.to, TLAST), cells = new Map(), byMun = new Map(), byLc = new Map(), byTi = new Map(), byDay = new Map(), cars = new Set(), dets = new Set(); let n = 0;
+    for (let i = firstAt(from), e = firstAt(to + 1); i < e; i++) {
+      if (!test(i)) continue; n++;
+      const dk = fmtD(F.t[i]); byDay.set(dk, (byDay.get(dk) || 0) + 1);
+      if (F.dt[i] >= 0) dets.add(F.dt[i]);
+      if (!F.v[i]) continue; // area only from the 375 m sensors
+      const key = Math.round(F.lat[i] / 0.003375) * 100000 + Math.round(F.lon[i] / 0.003375); if (cells.has(key)) continue; cells.set(key, 1);
+      byMun.set(F.m[i], (byMun.get(F.m[i]) || 0) + 1); byLc.set(F.c[i], (byLc.get(F.c[i]) || 0) + 1);
+      if (F.ti[i] >= 0) byTi.set(F.ti[i], (byTi.get(F.ti[i]) || 0) + 1);
+      if (F.car[i] >= 0) cars.add(F.car[i]);
+    }
+    const HA = 14.06, ha = c => 'cerca de ' + fmt(c * HA, 0) + ' ha', top = (m, k) => [...m].sort((a, b) => b[1] - a[1]).slice(0, k);
+    const day = top(byDay, 1)[0], rows = [];
+    rows.push(['Resumo', [['Detecções de satélite', fmt(n)], ['Área aproximada com fogo', ha(cells.size)], ['Dia com mais detecções', day ? day[0] + ' (' + fmt(day[1]) + ')' : 'nenhum'],
+      ['Imóveis rurais (CAR) com fogo dentro', fmt(cars.size)], ['Alertas de desmatamento (DETER) com fogo', fmt(dets.size)]]]);
+    if (v[0] !== 'm' && byMun.size) rows.push(['Municípios com mais área com fogo', top(byMun, 8).map(([k, c]) => [D.muns[k], ha(c)])]);
+    if (byLc.size) rows.push(['Tipo de vegetação atingida', top(byLc, 8).map(([k, c]) => [D.lc[k], ha(c)])]);
+    if (byTi.size) rows.push(['Terras Indígenas com fogo', top(byTi, 8).map(([k, c]) => ['TI ' + D.tis[k].nome, ha(c)])]);
+    if (SECA) { const lv = SECA.last && SECA.last.cm != null ? SECA.last.cm : SECA.dayValue; rows.push(['Seca', [['Rio Branco em Boa Vista (última leitura)', cmTxt(lv) + (SECA.rank === 1 ? ', o mais baixo para a data desde ' + SECA.firstYear : '')]]]); }
+    const now = new Date(), gen = now.toLocaleDateString('pt-BR') + ' às ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const notes = ['Área calculada com os focos dos sensores VIIRS: cada quadrado de 375 m conta 14 ha, uma vez só no período. É aproximada e pode ser maior ou menor que a área queimada de verdade.',
+      'O satélite não vê fogo pequeno, sob nuvem ou fumaça, e não mostra quem acendeu o fogo nem se havia autorização. Os números são indícios, não prova, e não acusam ninguém.',
+      'O CAR é declarado pelo dono; o DETER é alerta, não confirmação.',
+      'Fontes: INPE (Programa Queimadas e DETER), ANA, FUNAI, SICAR, NASA MODIS. Dados coletados até ' + fmtT(D.meta.lastFire) + ' (horário de Roraima).'];
+    return { scope, per: fmtD(from) + ' ' + fmtH(from) + ' a ' + fmtD(to) + ' ' + fmtH(to), perName: period.long || period.name, gen, rows, notes, empty: n === 0 };
+  }
+  function reportText(r) {
+    const L = ['🔥 FOGO EM RORAIMA · RELATÓRIO', r.scope, 'Período: ' + r.per + ' (' + r.perName + ')', ''];
+    if (r.empty) L.push('Nenhuma detecção de fogo neste período e local.', '');
+    else r.rows.forEach(([t, kv]) => { L.push('*' + t + '*'); kv.forEach(([k, v]) => L.push('• ' + k + ': ' + v)); L.push(''); });
+    L.push('Dados de satélite: indícios, não prova. Emergência: Bombeiros 193 · Defesa Civil 199', 'Gerado em ' + r.gen + ' em https://fogororaima.com.br');
+    return L.join('\n');
+  }
+  function showReport() {
+    const r = buildReport(), msg = $('repMsg'); msg.hidden = true;
+    if (r.err) { msg.textContent = r.err; msg.hidden = false; return; }
+    let el = $('report'); if (!el) { el = document.createElement('div'); el.id = 'report'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Relatório'); document.body.appendChild(el); }
+    el.innerHTML = '<div class="rep-page"><div class="rep-actions"><button class="btn" data-a="print">🖨 Imprimir ou salvar em PDF</button><button class="btn" data-a="copy">Copiar texto</button><a class="btn" data-a="wa" target="_blank" rel="noopener">WhatsApp</a><button class="btn" data-a="close">Fechar</button></div>' +
+      '<p class="rep-kick">Fogo em Roraima 3D · relatório</p><h1>' + esc(r.scope) + '</h1><p class="rep-sub">Período: <b>' + esc(r.per) + '</b> (' + esc(r.perName) + ') · horário de Roraima<br>Gerado em ' + esc(r.gen) + ' · fogororaima.com.br</p>' +
+      (r.empty ? '<p><b>Nenhuma detecção de fogo neste período e local.</b></p>' : r.rows.map(([t, kv]) => '<h2>' + esc(t) + '</h2><table>' + kv.map(([k, v]) => '<tr><td>' + esc(k) + '</td><td>' + esc(v) + '</td></tr>').join('') + '</table>').join('')) +
+      '<h2>Como ler estes números</h2><ul>' + r.notes.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' +
+      '<p class="rep-foot">Projeto de extensão · Universidade Estadual de Roraima (UERR). Ferramenta de apoio: não substitui o Corpo de Bombeiros (193) nem a Defesa Civil (199).</p></div>';
+    const txt = reportText(r);
+    el.querySelector('[data-a=wa]').href = 'https://wa.me/?text=' + encodeURIComponent(txt);
+    el.onclick = async e => {
+      const a = e.target.dataset && e.target.dataset.a; if (!a || a === 'wa') return;
+      if (a === 'close') el.remove();
+      else if (a === 'print') window.print();
+      else if (a === 'copy') { let ok = false; try { await navigator.clipboard.writeText(txt); ok = true; } catch (err) { const ta = document.createElement('textarea'); ta.value = txt; el.appendChild(ta); ta.select(); try { ok = document.execCommand('copy'); } catch (e2) {} ta.remove(); } e.target.textContent = ok ? 'Texto copiado' : 'Não deu para copiar'; }
+    };
+    el.scrollTop = 0;
+  }
+  $('repBtn').onclick = showReport;
   // ---------- loop
   let prev = performance.now();
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
