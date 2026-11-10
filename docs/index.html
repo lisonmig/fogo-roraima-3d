@@ -506,7 +506,7 @@ details.legal li { margin-bottom: 4px; }
         <section class="sec">
           <h2>Minha propriedade ou local</h2>
           <div class="mystatus" id="danger" hidden style="margin-bottom:10px"></div>
-          <p class="note" style="margin:0 0 8px">Marque no mapa, use o GPS ou digite as coordenadas na busca do mapa. O local fica salvo <b>só neste aparelho</b> e o mapa avisa ao abrir se há fogo perto.</p>
+          <p class="note" style="margin:0 0 8px">Marque no mapa, use o GPS ou digite as coordenadas na busca do mapa. O local fica salvo <b>só neste aparelho</b> e o mapa avisa ao abrir se há fogo perto. Para remover o local: <b>dois toques seguidos no mapa</b> (no computador, dois cliques com o botão direito).</p>
           <div class="row">
             <button class="btn" id="pickBtn" aria-pressed="false">Marcar no mapa</button>
             <button class="btn" id="gpsBtn" hidden>Usar meu GPS</button>
@@ -2330,7 +2330,26 @@ details.legal li { margin-bottom: 4px; }
   }
   let downAt = null;
   renderer.domElement.addEventListener('pointerdown', e => downAt = [e.clientX, e.clientY]);
-  renderer.domElement.addEventListener('pointerup', e => { if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 5) pick(e.clientX, e.clientY); downAt = null; });
+  // double tap (touch) or double right click (mouse) on the map removes the marked place; a small note lets the person undo it
+  let lastTap = null, undoEl = null;
+  function removePinUndo() {
+    const p = st.pin; if (!p) return; const was = { lon: p.lon, lat: p.lat, label: p.label };
+    clearPin(); if (undoEl) undoEl.remove();
+    undoEl = document.createElement('div'); undoEl.className = 'perfnote'; undoEl.setAttribute('role', 'status');
+    undoEl.innerHTML = '<p>📍 Local removido.</p><div class="row"><button class="btn">Desfazer</button></div>';
+    const el = undoEl, close = () => { el.remove(); if (undoEl === el) undoEl = null; };
+    el.querySelector('button').onclick = () => { setPin(was.lon, was.lat, was.label); close(); };
+    document.body.appendChild(el); setTimeout(close, 8000);
+  }
+  renderer.domElement.addEventListener('pointerup', e => {
+    const tap = downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < (e.pointerType === 'mouse' ? 5 : 10); downAt = null; if (!tap) return;
+    const kind = e.pointerType === 'mouse' ? (e.button === 2 ? 'r' : 'l') : 't', now = performance.now();
+    const dbl = lastTap && lastTap.kind === kind && now - lastTap.t < 450 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40;
+    lastTap = dbl ? null : { kind, t: now, x: e.clientX, y: e.clientY };
+    if (dbl && kind !== 'l' && st.pin && !st.picking) { removePinUndo(); return; }
+    if (kind === 'r') return;
+    pick(e.clientX, e.clientY);
+  });
 
   // ---------- "could it be illegal?": what the satellite data can and cannot say
   function legalHtml(o) {
