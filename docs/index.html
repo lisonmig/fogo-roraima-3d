@@ -652,7 +652,8 @@ details.legal li { margin-bottom: 4px; }
           </div>
           <label class="fl" for="exag">Exagero do relevo: <span id="exagV">3×</span>
             <input type="range" id="exag" min="1" max="12" step="0.5" value="3"></label>
-          <div class="checks"><label><input type="checkbox" id="lyLight"> Modo leve</label></div>
+          <div class="checks"><label><input type="checkbox" id="lyLight"> Modo leve</label><label><input type="checkbox" id="lySharp"> Imagem nítida ao aproximar</label></div>
+          <p class="note" style="margin:0 0 6px">Imagem nítida: ao chegar perto, o mapa busca a foto de satélite detalhada só daquela área (usa um pouco mais de internet).</p>
           <p class="note" id="lightNote" style="margin:0">Modo leve: menos relevo e animação, para celulares simples.</p>
           </div>
         </details>
@@ -796,12 +797,18 @@ details.legal li { margin-bottom: 4px; }
   const bx = burnCanvas.getContext('2d');
   const texBurn = new THREE.CanvasTexture(burnCanvas);
   const terrainMat = new THREE.ShaderMaterial({
-    uniforms: { uMap: { value: texImg }, uBurn: { value: texBurn }, uMapOn: { value: 1 }, uBurnOn: { value: 1 }, uPlain: { value: new THREE.Color(css('--plain')) } },
+    uniforms: { uMap: { value: texImg }, uBurn: { value: texBurn }, uMapOn: { value: 1 }, uBurnOn: { value: 1 }, uPlain: { value: new THREE.Color(css('--plain')) },
+      uDet: { value: texImg }, uDetBox: { value: new THREE.Vector4(0, 0, 1, 1) }, uDetOn: { value: 0 } },
     vertexShader: `varying vec2 vUv; varying vec3 vN; void main(){ vUv = uv; vN = normal; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `uniform sampler2D uMap; uniform sampler2D uBurn; uniform float uMapOn; uniform float uBurnOn; uniform vec3 uPlain;
+      uniform sampler2D uDet; uniform vec4 uDetBox; uniform float uDetOn;
       varying vec2 vUv; varying vec3 vN;
       void main(){
         vec3 base = mix(uPlain, texture2D(uMap, vUv).rgb, uMapOn);
+        vec2 dq = (vUv - uDetBox.xy) / (uDetBox.zw - uDetBox.xy);
+        if (uDetOn > 0.0 && dq.x > 0.0 && dq.x < 1.0 && dq.y > 0.0 && dq.y < 1.0) {
+          vec2 de = min(dq, 1.0 - dq); base = mix(base, texture2D(uDet, dq).rgb, uDetOn * smoothstep(0.0, 0.07, min(de.x, de.y)));
+        }
         vec4 b = texture2D(uBurn, vUv); base = mix(base, b.rgb, b.a * uBurnOn);
         vec3 n = normalize(vN); vec3 L = normalize(vec3(-0.55, 0.75, -0.40));
         float l = 0.42 + 0.85 * max(dot(n, L), 0.0) + 0.10 * (1.0 - n.y);
@@ -2093,6 +2100,7 @@ details.legal li { margin-bottom: 4px; }
   $('mode').onchange = e => { st.mode = +e.target.value; fireMat.uniforms.uMode.value = st.mode; rebin(); updateUi(); };
   $('base').onchange = e => {
     const v = e.target.value; terrainMat.uniforms.uMapOn.value = v === 'none' ? 0 : 1; terrainMat.uniforms.uMap.value = v === 'lc' ? texLc : texImg;
+    sharp.base = v === 'sat'; if (!sharp.base) terrainMat.uniforms.uDetOn.value = 0; else if (sharp.tex) terrainMat.uniforms.uDetOn.value = 1;
     $('legendLc').hidden = v !== 'lc';
   };
   $('legendLc').innerHTML = D.lc.map((n, k) => '<span><i class="sq" style="background:' + D.lcColors[k] + '"></i>' + n + '</span>').join('');
@@ -2627,6 +2635,30 @@ details.legal li { margin-bottom: 4px; }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);
   new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
+  // ---------- sharp satellite image near the camera: one detail window from the EOX server, blended into the terrain
+  const sharp = { base: true, on: true, key: '', want: '', tex: null, at: 0, lx: 1e9, lz: 1e9, token: 0, retry: 0 };
+  try { const v = localStorage.getItem('rr3d-sharp'); sharp.on = v === null ? !(navigator.connection && navigator.connection.saveData) : v === '1'; } catch (e) {}
+  $('lySharp').checked = sharp.on;
+  $('lySharp').onchange = e => { sharp.on = e.target.checked; try { localStorage.setItem('rr3d-sharp', sharp.on ? '1' : '0'); } catch (err) {} if (!sharp.on) terrainMat.uniforms.uDetOn.value = 0; else if (sharp.tex && sharp.base) terrainMat.uniforms.uDetOn.value = 1; };
+  function sharpTick(now) {
+    if (!sharp.on || !sharp.base || now - sharp.at < 450 || now < sharp.retry) return; sharp.at = now;
+    const tx = controls.target.x, tz = controls.target.z, still = Math.hypot(tx - sharp.lx, tz - sharp.lz) < 0.02; sharp.lx = tx; sharp.lz = tz;
+    const d = camera.position.distanceTo(controls.target); if (d > 72 || !still || fly) return;
+    const BX = d <= 12 ? 16 : d <= 24 ? 32 : d <= 48 ? 64 : 128, step = BX / 4, ix = Math.round(tx / step), iz = Math.round(tz / step), key = BX + ':' + ix + ':' + iz;
+    if (key === sharp.key || key === sharp.want) return; sharp.want = key;
+    const lon = cLon + ix * step / KX, lat = cLat - iz * step / KZ, hx = BX / 2 / KX, hz = BX / 2 / KZ, px = LIGHT && BX >= 64 ? 512 : 1024, token = ++sharp.token;
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (token !== sharp.token) return;
+      const t = new THREE.Texture(img); t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy()); t.needsUpdate = true;
+      terrainMat.uniforms.uDet.value = t; terrainMat.uniforms.uDetBox.value.set((lon - hx - W) / (E - W), (lat - hz - S) / (N - S), (lon + hx - W) / (E - W), (lat + hz - S) / (N - S));
+      terrainMat.uniforms.uDetOn.value = sharp.on && sharp.base ? 1 : 0;
+      if (sharp.tex) sharp.tex.dispose(); sharp.tex = t; sharp.key = key; sharp.want = '';
+    };
+    img.onerror = () => { if (token === sharp.token) { sharp.want = ''; sharp.retry = performance.now() + 15000; } };
+    img.src = 'https://tiles.maps.eox.at/wms?service=WMS&request=GetMap&version=1.1.1&layers=s2cloudless-2025&styles=&srs=EPSG:4326&format=image/jpeg&width=' + px + '&height=' + px +
+      '&bbox=' + [lon - hx, lat - hz, lon + hx, lat + hz].map(v => v.toFixed(5)).join(',');
+  }
   // ---------- loop
   let prev = performance.now();
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2686,6 +2718,7 @@ details.legal li { margin-bottom: 4px; }
     }
     controls.update();
     if (windLines.visible && !reduce) stepWind(st.t / STEP);
+    sharpTick(now);
     renderer.render(scene, camera);
     perfTick(now);
     const r = renderer.domElement.getBoundingClientRect();
