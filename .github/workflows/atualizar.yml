@@ -1,4 +1,6 @@
-# Atualiza os dados do mapa e publica o site (GitHub Pages) a cada 2 horas.
+# Atualiza os dados do mapa e publica o site (GitHub Pages).
+# Quem dispara: um agendador externo (cron-job.org, a cada 30 min, pela API workflow_dispatch),
+# porque o agendamento do próprio GitHub atrasa ou pula execuções. O agendamento abaixo fica como reserva.
 # Os downloads ficam guardados entre uma execução e outra (cache), então só baixa o que é novo.
 # Uma vez por dia, o arquivo histórico dos eventos de fogo do INPE é salvo no repositório,
 # porque o INPE só mostra os eventos atuais.
@@ -6,8 +8,13 @@ name: Atualizar mapa
 
 on:
   schedule:
-    - cron: '17 */2 * * *'   # a cada 2 horas (horário UTC; Roraima é UTC-4)
-  workflow_dispatch:          # botão "Run workflow" para atualizar na hora
+    - cron: '17 */2 * * *'   # reserva: a cada 2 horas (UTC; Roraima é UTC-4)
+  workflow_dispatch:          # botão "Run workflow" e o agendador externo
+    inputs:
+      forcar:
+        description: 'Reservado para baixar tudo de novo (por enquanto sem efeito)'
+        required: false
+        default: 'false'
   push:
     branches: [main]
 
@@ -58,7 +65,7 @@ jobs:
           python -I scripts/prep_car_todos.py dados-3d docs || echo "::warning::falhou o CAR"
 
       - name: Salvar o histórico dos eventos do INPE (uma vez por dia)
-        if: github.event_name == 'schedule'
+        if: github.event_name != 'push'   # agendamento do GitHub ou agendador externo
         run: |
           if [ "$(date -u +%H)" = "04" ]; then
             git config user.name "github-actions[bot]"
