@@ -146,7 +146,7 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
   transform: translate(-50%, calc(-100% - 6px)); box-shadow: 0 1px 6px rgba(0,0,0,.5); }
 .lbl.gauge::after { width: 8px; height: 8px; margin-left: -4px; bottom: -11px; background: var(--c); border: 2px solid #fff; }
 .pop .gv { margin: 2px 0 2px; font-size: 14px; }
-.pop .gv b { font-family: var(--f-display); font-size: 22px; }
+.pop .gv b { font-family: var(--f-display); font-size: 22px; white-space: nowrap; }
 .pop .gchart { display: block; width: 100%; height: 96px; margin-top: 4px; }
 .kv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; font-size: 13px; }
 .kv span:nth-child(even) { font-family: var(--f-data); text-align: right; }
@@ -1012,9 +1012,11 @@ details.legal li { margin-bottom: 4px; }
   // quanto tempo atrás (t em minutos desde T0)
   const agoMin = t => (Date.now() - T0) / 60000 - t;
   const agoTxt = t => { const m = Math.max(0, agoMin(t)); return m < 60 ? 'há ' + Math.max(1, Math.round(m)) + ' min' : m < 48 * 60 ? 'há ' + Math.round(m / 60) + ' h' : 'há ' + Math.round(m / 1440) + ' dias'; };
+  const GEN = D.meta.generated ? (Date.parse(D.meta.generated.replace('Z', ':00Z')) - T0) / 60000 : null;
   const renderUpdated = () => {
-    const el = $('updated'), old = agoMin(D.meta.lastFire) > 180;
-    el.textContent = 'Dados do INPE até ' + fmtD(D.meta.lastFire) + ' às ' + fmtH(D.meta.lastFire) + ' (' + agoTxt(D.meta.lastFire) + ') · horário de Roraima' + (old ? ' · atualização atrasada' : '');
+    const el = $('updated'), old = GEN != null && agoMin(GEN) > 180;
+    el.textContent = (GEN != null ? 'Atualizado ' + fmtD(GEN) + ' às ' + fmtH(GEN) + ' (' + agoTxt(GEN) + ') · último foco visto ' + fmtD(D.meta.lastFire) + ' às ' + fmtH(D.meta.lastFire)
+      : 'Dados do INPE até ' + fmtD(D.meta.lastFire) + ' às ' + fmtH(D.meta.lastFire)) + ' · horário de Roraima' + (old ? ' · atualização atrasada' : '');
     el.classList.toggle('stale', old);
   };
   renderUpdated(); setInterval(renderUpdated, 60000);
@@ -1231,7 +1233,7 @@ details.legal li { margin-bottom: 4px; }
       '<p class="gv"><b>' + cmTxt(v) + '</b> na régua · normal para a data: <b>' + cmTxt(g.med) + '</b></p>' +
       '<p class="note" style="margin:0 0 4px">' + [where, ch(g.d7, 7), ch(g.d30, 30)].filter(Boolean).join(' · ') + '.</p>' +
       '<canvas class="gchart" id="gChart" aria-label="Nível deste ano comparado com o normal"></canvas>' +
-      '<p class="chart-leg"><i style="background:var(--accent)"></i>este ano<i style="border-top:1.5px dashed var(--muted);height:0;width:14px"></i>normal<i style="background:var(--ink);opacity:.2"></i>8 em cada 10 anos</p>' +
+      '<p class="chart-leg"><i style="background:var(--accent)"></i>este ano<i style="border-top:1.5px dashed var(--muted);height:0;width:14px"></i>normal<i style="background:var(--ink);opacity:.2"></i>8 em 10 anos</p>' +
       '<p style="margin:6px 0 0;font-size:13px">' + RISK_TXT[g.risk] + '</p>' +
       '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([['Recorde de seca', cmTxt(g.record.cm) + ' em ' + isoDate(g.record.date)], ['Anos com dados', g.nYears + ' (desde ' + g.firstYear + ')'],
         ['Chuva em 30 dias aqui', fmt(rain30(g.lon, g.lat), 0) + ' mm (modelo)']]) +
@@ -1245,14 +1247,14 @@ details.legal li { margin-bottom: 4px; }
     cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
     const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
     const vals = g.band.p90.concat(g.band.p10, g.cur).filter(v => v != null), lo = Math.min(...vals), hi = Math.max(...vals);
-    const L = 4, T = 6, w = r.width - 8, h = r.height - 18, X = i => L + i / 365 * w, Y = v => T + (1 - (v - lo) / Math.max(1, hi - lo)) * h;
+    const L = 4, T = 6, w = r.width - 8, h = r.height - 22, X = i => L + i / 365 * w, Y = v => T + (1 - (v - lo) / Math.max(1, hi - lo)) * h;
     c.fillStyle = css('--ink'); c.globalAlpha = 0.15; c.beginPath(); let s0 = false;
     for (let i = 0; i < 366; i++) if (g.band.p90[i] != null) { s0 ? c.lineTo(X(i), Y(g.band.p90[i])) : (c.moveTo(X(i), Y(g.band.p90[i])), s0 = true); }
     for (let i = 365; i >= 0; i--) if (g.band.p10[i] != null) c.lineTo(X(i), Y(g.band.p10[i])); c.fill(); c.globalAlpha = 1;
     const path = (a, col, wd, dash) => { c.beginPath(); let on = false; a.forEach((v, i) => { if (v == null) { on = false; return; } on ? c.lineTo(X(i), Y(v)) : (c.moveTo(X(i), Y(v)), on = true); }); c.strokeStyle = col; c.lineWidth = wd; c.setLineDash(dash || []); c.stroke(); c.setLineDash([]); };
     path(g.band.med, css('--muted'), 1.2, [4, 3]); path(g.cur, css('--accent'), 2.4);
     c.fillStyle = css('--muted'); c.font = '10px ' + css('--f-data'); c.textAlign = 'center';
-    ['ago', 'out', 'dez', 'fev', 'abr', 'jun'].forEach((m, k) => c.fillText(m, X([0, 61, 122, 184, 243, 304][k] + 15), T + h + 13));
+    ['ago', 'out', 'dez', 'fev', 'abr', 'jun'].forEach((m, k) => c.fillText(m, X([0, 61, 122, 184, 243, 304][k] + 15), T + h + 13.5));
   }
   function riverCard(name, lon, lat) {
     const nn = nrm(name), on = GAUGES.map((g, k) => [g, k]).filter(([g]) => name && nn.includes(nrm(g.river)));
@@ -1413,7 +1415,8 @@ details.legal li { margin-bottom: 4px; }
   function dangerHeadline(r) {
     const b = r.best;
     if (!b) return 'Nenhum foco a até 40 km nas últimas 24 h.';
-    if (r.insideHit) return 'O satélite viu fogo dentro ' + (r.prop ? 'da sua propriedade' : 'do seu local') + (b.f.t != null ? ' ' + agoTxt(b.f.t) : '') + '.';
+    if (r.insideHit) return b.f.t == null && b.f.src === 'inpe' ? 'Um incêndio ativo do INPE tem contorno sobre ' + (r.prop ? 'a sua propriedade' : 'o seu local') + '.'
+      : 'O satélite viu fogo dentro ' + (r.prop ? 'da sua propriedade' : 'do seu local') + (b.f.t != null ? ' ' + agoTxt(b.f.t) : '') + '.';
     return 'Fogo a ' + kmTxt(b.d) + ' ' + aoDir(b.brg) + (r.prop ? ' da sua propriedade' : ' do seu local') + (b.f.t != null ? ', visto ' + agoTxt(b.f.t) : '') + (b.riv ? ', do outro lado do ' + b.riv.replace(/^Rio /, 'Rio ') : ', ' + windRel(b)) + '.';
   }
   // the closest fire is across a river (and is not the one that brings the danger)
@@ -1456,7 +1459,7 @@ details.legal li { margin-bottom: 4px; }
     let h = '<div class="dg-head"><span class="dg-badge">' + L.icon + ' ' + L.name + '</span></div><p class="dg-main">' + esc(dangerHeadline(r)) + '</p>';
     const a = arrivalTxt(r); if (a) h += '<p class="dg-time">⏱ ' + a + '</p>';
     if (r.level !== 'nenhum') h += '<p class="dg-warn">🚨 ' + WARN + '</p>';
-    if (r.insideHit) h += '<p class="dg-sub">Cada ponto do satélite cobre cerca de 375 m × 375 m; o fogo pode estar perto da divisa, não necessariamente dentro.</p>';
+    if (r.insideHit) h += '<p class="dg-sub">' + (b.f.t == null && b.f.src === 'inpe' ? 'O contorno do INPE é aproximado: o fogo pode estar na borda ou já ter passado. Veja a situação do incêndio no mapa.' : 'Cada ponto do satélite cobre cerca de 375 m × 375 m; o fogo pode estar perto da divisa, não necessariamente dentro.') + '</p>';
     const rn = riverNote(r); if (rn) h += '<p class="dg-sub"><b>' + esc(rn) + '</b></p>';
     if (b) h += '<p class="dg-sub">Vento de ' + dirName(b.w.from) + ' a ' + fmt(b.w.sp) + ' km/h · umidade ' + fmt(b.w.rh) + '% · ' + rainTxt(b.w.rain) + ' em 24 h · no caminho: ' + esc(D.lc[b.lcPath].toLowerCase()) + (b.f.t != null ? ' · fogo visto ' + fmtT(b.f.t) : b.f.src === 'inpe' ? ' · borda de incêndio ativo (INPE)' : '') + '</p>';
     if (r.places > 1) h += '<p class="dg-sub">' + r.places + ' locais com fogo a até 10 km.</p>';
