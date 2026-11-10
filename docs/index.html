@@ -1071,9 +1071,17 @@ details.legal li { margin-bottom: 4px; }
   }
 
   // phone drawer, closed: one sentence (fire now and the Rio Branco level)
+  // Rio Branco level at the moment shown on the timeline (last reading when it is "now")
+  function rioAt(t) { let best = null; for (const p of rioPts()) { if (p.t <= t + 720) best = p; else break; } return best; }
   function renderPeek() {
-    const J = SECA, v = J ? (J.last && J.last.cm != null ? J.last.cm : J.dayValue) : null, n = st.nPlaces || 0;
-    $('peekTxt').innerHTML = '🔥 <b>' + fmt(n) + '</b> ' + (n === 1 ? 'local' : 'locais') + ' com fogo' + (v != null ? ' · 💧 Rio Branco <b>' + cmTxt(v) + '</b>' : '');
+    const J = SECA, n = st.nPlaces || 0; let rio = '';
+    if (J) {
+      const now = st.t >= TLAST - 360, p = now ? null : rioAt(st.t);
+      const v = now ? (J.last && J.last.cm != null ? J.last.cm : J.dayValue) : p && p.v;
+      if (v != null) rio = ' · 💧 Rio Branco <b>' + cmTxt(v) + '</b>' + (now || p.last ? '' : ' em ' + fmtD(p.t));
+      else if (!now) rio = ' · 💧 Rio Branco: sem leitura nesta data';
+    }
+    $('peekTxt').innerHTML = '🔥 <b>' + fmt(n) + '</b> ' + (n === 1 ? 'local' : 'locais') + ' com fogo' + rio;
   }
 
   // ---------- plain-language summary
@@ -1177,7 +1185,7 @@ details.legal li { margin-bottom: 4px; }
       el.style.setProperty('--c', g.noData ? '#888' : RISK[g.risk][1]);
       el.innerHTML = '<span class="gd">💧</span><span class="gt"></span>';
       el.querySelector('.gt').textContent = g.noData ? ' sem dado' : ' ' + cmTxt(g.last.cm);
-      el.title = g.river + ' em ' + g.name + (g.noData ? ': sem leitura recente' : ': ' + RISK[g.risk][0].toLowerCase()) + '. Clique para ver.';
+      el.title = g.river + ' em ' + g.name + (g.noData ? (g.lastDay ? ': sem transmitir desde ' + g.lastDay.split('-').reverse().join('/') : ': sem leitura recente') : ': ' + RISK[g.risk][0].toLowerCase()) + '. Clique para ver.';
       el.setAttribute('aria-label', el.title);
       el.onclick = () => { st.sel = { kind: 'gauge', k }; showDetail(); };
       el.dataset.off = $('lyRios').checked ? '' : '1';
@@ -1214,7 +1222,7 @@ details.legal li { margin-bottom: 4px; }
   function gaugeCard(k) {
     const g = GAUGES[k];
     gTap = k; gaugeEls.forEach((el, j) => el.classList.toggle('tap', j === k));
-    if (g.noData) { showCard('<h3>' + esc(g.river) + ' · ' + esc(g.name) + '</h3><p class="when">Régua da ANA</p><p>Esta estação está sem leitura recente.</p>'); return; }
+    if (g.noData) { showCard('<h3>' + esc(g.river) + ' · ' + esc(g.name) + '</h3><p class="when">Régua da ANA</p><p>' + (g.lastDay ? 'Esta estação está <b>sem transmitir desde ' + g.lastDay.split('-').reverse().join('/') + '</b>. Pode ser falha no equipamento ou na transmissão da ANA.' : 'Esta estação está sem leitura recente.') + '</p>'); return; }
     const v = g.last.cm, dayLbl = isoBr(addDays(SECA_HY0 || '2026-08-01', g.day)), ch = (a, n) => a == null ? '' : (v - a <= 0 ? '−' : '+') + fmt(Math.abs(v - a), 0) + ' cm em ' + n + ' dias';
     const lt = g.last.t ? g.last.t.slice(8, 10) + '/' + g.last.t.slice(5, 7) + ' às ' + g.last.t.slice(11, 16) : '';
     const where = g.rank === 1 ? 'O mais baixo para ' + dayLbl + ' desde ' + g.firstYear : g.rank <= 3 ? 'Entre os 3 mais baixos para ' + dayLbl + ' desde ' + g.firstYear : 'Mais baixo que em ' + fmt(100 - g.pct) + '% dos anos para ' + dayLbl;

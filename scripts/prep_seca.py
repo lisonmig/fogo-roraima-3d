@@ -50,9 +50,19 @@ def history(code):
     return json.load(open(path)) if os.path.exists(path) else {}
 
 def recent(code, daily):
-    """Telemetry after the end of the daily series (or the last 60 days), averaged per day; returns the last reading."""
-    start = max(dt.date.fromisoformat(max(daily)) + dt.timedelta(days=1), TODAY - dt.timedelta(days=150)) if daily else TODAY - dt.timedelta(days=60)
-    last = None
+    """Telemetry after the end of the daily series, averaged per day; returns the last reading.
+    The daily means are kept in a cache file, so each run only downloads the last few days and the
+    current hydrological year never loses its first months (before, only the last 150 days were fetched)."""
+    tpath = os.path.join(RAW, 'ana_%s_telemetria.json' % code)
+    try: tele = json.load(open(tpath))
+    except Exception: tele = {}
+    last = tuple(tele.pop('_last')) if tele.get('_last') else None
+    tele.pop('_last', None)
+    hist_end = dt.date.fromisoformat(max(daily)) if daily else None
+    start = hist_end + dt.timedelta(days=1) if hist_end else TODAY - dt.timedelta(days=60)
+    start = max(start, hy_start(TODAY) - dt.timedelta(days=30))  # nothing older than the current hydrological year is needed
+    if tele: start = max(start, dt.date.fromisoformat(max(tele)) - dt.timedelta(days=2))  # cache: only the newest days
+    daily_tele = tele
     while start <= TODAY:
         end = min(TODAY, start + dt.timedelta(days=30))
         try:
@@ -62,10 +72,14 @@ def recent(code, daily):
                 if v.strip():
                     by.setdefault(t.strip()[:10], []).append(float(v))
                     if last is None or t.strip() > last[0]: last = (t.strip(), float(v))
-            for k, vs in by.items(): daily[k] = round(sum(vs) / len(vs), 1)
+            for k, vs in by.items(): daily_tele[k] = round(sum(vs) / len(vs), 1)
         except Exception as e:
             print(code, 'telemetry', start, 'failed:', e)
         start = end + dt.timedelta(days=1)
+    try: json.dump(dict(daily_tele, _last=list(last) if last else None), open(tpath, 'w'))
+    except Exception as e: print(code, 'telemetry cache not saved:', e)
+    for k, v in daily_tele.items():  # telemetry only after the end of the official (consisted) series
+        if hist_end is None or dt.date.fromisoformat(k) > hist_end: daily[k] = v
     return last
 
 def hy_start(d): return dt.date(d.year if d.month >= 8 else d.year - 1, 8, 1)
@@ -82,7 +96,7 @@ def summarize(code, name, river, lat, lon, full):
     past = {y: s for y, s in years.items() if y < cur_y0 and sum(v is not None for v in s) > 300}
     cur = years.get(cur_y0, [None] * 366)[:idx(TODAY) + 1]
     have = [i for i, v in enumerate(cur) if v is not None]
-    if not have or len(past) < 5: return {'code': code, 'name': name, 'river': river, 'lat': lat, 'lon': lon, 'noData': True}
+    if not have or len(past) < 5: return {'code': code, 'name': name, 'river': river, 'lat': lat, 'lon': lon, 'noData': True, 'lastDay': max(daily)}
     ti = have[-1]
     if TODAY.toordinal() - (hy_start(TODAY).toordinal() + ti) > 10:  # no reading in the last 10 days
         return {'code': code, 'name': name, 'river': river, 'lat': lat, 'lon': lon, 'noData': True, 'lastDay': (hy_start(TODAY) + dt.timedelta(days=ti)).isoformat()}
