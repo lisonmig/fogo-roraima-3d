@@ -762,7 +762,7 @@ details.legal li { margin-bottom: 4px; }
   const roadsP = fetch('estradas.json').then(r => r.ok ? r.json() : null).catch(() => null);
   try {
     const load = src => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error(src)); i.src = src; });
-    [D, hImg, tImg, lcImg] = await Promise.all([fetch('roraima3d.json').then(r => { if (!r.ok) throw new Error('dados'); return r.json(); }), load('relevo.png'), load('imagem.jpg'), load('cobertura.png')]);
+    [D, hImg, tImg, lcImg] = await Promise.all([fetch('roraima3d.json').then(r => { if (!r.ok) throw new Error('dados'); return r.json(); }), load('relevo.png'), load('imagem.webp').catch(() => load('imagem.jpg')), load('cobertura.png')]);
   } catch (e) { $('loading').textContent = 'Não foi possível carregar os dados (' + e.message + '). Recarregue a página.'; return; }
 
   const [W, S, E, N] = D.meta.bbox, [GW, GH] = D.meta.grid;

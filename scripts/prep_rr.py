@@ -394,7 +394,8 @@ meta = {'bbox': [W, S, E, N], 't0': T0.strftime('%Y-%m-%dT%H:%MZ'), 'grid': [GW,
         # when this file was made (UTC): the page shows the age of the data from this, not from the last fire,
         # because at night there can be hours without any new fire even when the data is fresh
         'generated': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%MZ')}
-json.dump({'meta': meta, 'sats': sats, 'muns': muns, 'fires': F, 'events': events, 'weather': weather, 'rr': rr_ring,
+json.dump({'meta': meta, 'sats': sats, 'muns': muns, 'fires': {k: v for k, v in F.items() if k not in ('r', 'uc')},  # 'r' (risco) and 'uc' are not read by the page
+           'events': events, 'weather': weather, 'rr': rr_ring,
            'munis': MUNIS, 'tis': TIS, 'ucs': UCS, 'car': CARS, 'deter': DETER, 'lc': LC_GROUPS, 'lcColors': ['#%02x%02x%02x' % c for c in LC_COLORS]},
           open(os.path.join(OUT, 'roraima3d.json'), 'w', encoding='utf-8'), separators=(',', ':'), ensure_ascii=False)
 for n in sorted(os.listdir(OUT)):

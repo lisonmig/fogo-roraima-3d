@@ -24,7 +24,7 @@ page = page.replace('https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.
 page = page.replace('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js', 'vendor/OrbitControls.js')
 open(os.path.join(DST, 'index.html'), 'w', encoding='utf-8').write(HEAD + page.rstrip() + '\n</html>\n')
 
-for n in ['roraima3d.json', 'estradas.json', 'eventos_inpe.json', 'seca.json', 'rios.json', 'car_todos.json', 'relevo.png', 'imagem.jpg', 'cobertura.png']:
+for n in ['roraima3d.json', 'estradas.json', 'eventos_inpe.json', 'seca.json', 'rios.json', 'car_todos.json', 'relevo.png', 'imagem.jpg', 'imagem.webp', 'cobertura.png']:
     p = os.path.join(SRC, n)
     if os.path.exists(p): shutil.copy2(p, os.path.join(DST, n))
     else: print('faltando:', n)
