@@ -299,6 +299,9 @@ details.legal li { margin-bottom: 4px; }
 .verdict { font: 600 11.5px var(--f-body); padding: 2px 7px; border-radius: 999px; margin-left: 4px; background: var(--chip); color: var(--ink); }
 .verdict.strong { background: #b42318; color: #fff; }
 .verdict.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.sub.stale { color: #b45309; font-weight: 600; }
+:root[data-theme="dark"] .sub.stale { color: #f59e0b; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sub.stale { color: #f59e0b; } }
 .loss b.big { display: block; font-family: var(--f-display); font-size: 32px; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
 .loss p { margin: 0 0 6px; font-size: 13.5px; }
 .loss .rows { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; font-size: 12.5px; }
@@ -645,7 +648,7 @@ details.legal li { margin-bottom: 4px; }
       <!-- DADOS -->
       <div class="pane" id="pane-dados" role="tabpanel" aria-labelledby="tab-dados" hidden>
         <section class="sec">
-          <h2>Prejuízo estimado em 2026</h2>
+          <h2>Multas possíveis em 2026 (teto legal)</h2>
           <div id="loss"></div>
         </section>
         <details class="block">
@@ -1006,7 +1009,15 @@ details.legal li { margin-bottom: 4px; }
   const TLAST = Math.ceil((D.meta.lastFire + 1) / 60) * 60;
   const lastL = loc(D.meta.lastFire);
   const yesterdayFrom = (Date.UTC(lastL.getUTCFullYear(), lastL.getUTCMonth(), lastL.getUTCDate() - 1, -TZ) - T0) / 60000;
-  $('updated').textContent = 'Dados do INPE até ' + fmtD(D.meta.lastFire) + ' às ' + fmtH(D.meta.lastFire) + ' · horário de Roraima';
+  // quanto tempo atrás (t em minutos desde T0)
+  const agoMin = t => (Date.now() - T0) / 60000 - t;
+  const agoTxt = t => { const m = Math.max(0, agoMin(t)); return m < 60 ? 'há ' + Math.max(1, Math.round(m)) + ' min' : m < 48 * 60 ? 'há ' + Math.round(m / 60) + ' h' : 'há ' + Math.round(m / 1440) + ' dias'; };
+  const renderUpdated = () => {
+    const el = $('updated'), old = agoMin(D.meta.lastFire) > 180;
+    el.textContent = 'Dados do INPE até ' + fmtD(D.meta.lastFire) + ' às ' + fmtH(D.meta.lastFire) + ' (' + agoTxt(D.meta.lastFire) + ') · horário de Roraima' + (old ? ' · atualização atrasada' : '');
+    el.classList.toggle('stale', old);
+  };
+  renderUpdated(); setInterval(renderUpdated, 60000);
   // recent periods end now and start at the end; seasons start at their busiest day
   const PERIODS = [
     { group: 'recent', name: 'Agora', long: 'Últimas 6 horas', from: Math.max(0, TLAST - 360), to: TLAST, startAtEnd: true },
@@ -1394,8 +1405,8 @@ details.legal li { margin-bottom: 4px; }
   function dangerHeadline(r) {
     const b = r.best;
     if (!b) return 'Nenhum foco a até 40 km nas últimas 24 h.';
-    if (r.insideHit) return 'Há fogo dentro ' + (r.prop ? 'da sua propriedade' : 'do seu local') + '.';
-    return 'Fogo a ' + kmTxt(b.d) + ' ' + aoDir(b.brg) + (r.prop ? ' da sua propriedade' : ' do seu local') + (b.riv ? ', do outro lado do ' + b.riv.replace(/^Rio /, 'Rio ') : ', ' + windRel(b)) + '.';
+    if (r.insideHit) return 'O satélite viu fogo dentro ' + (r.prop ? 'da sua propriedade' : 'do seu local') + (b.f.t != null ? ' ' + agoTxt(b.f.t) : '') + '.';
+    return 'Fogo a ' + kmTxt(b.d) + ' ' + aoDir(b.brg) + (r.prop ? ' da sua propriedade' : ' do seu local') + (b.f.t != null ? ', visto ' + agoTxt(b.f.t) : '') + (b.riv ? ', do outro lado do ' + b.riv.replace(/^Rio /, 'Rio ') : ', ' + windRel(b)) + '.';
   }
   // the closest fire is across a river (and is not the one that brings the danger)
   function riverNote(r) {
@@ -1437,6 +1448,7 @@ details.legal li { margin-bottom: 4px; }
     let h = '<div class="dg-head"><span class="dg-badge">' + L.icon + ' ' + L.name + '</span></div><p class="dg-main">' + esc(dangerHeadline(r)) + '</p>';
     const a = arrivalTxt(r); if (a) h += '<p class="dg-time">⏱ ' + a + '</p>';
     if (r.level !== 'nenhum') h += '<p class="dg-warn">🚨 ' + WARN + '</p>';
+    if (r.insideHit) h += '<p class="dg-sub">Cada ponto do satélite cobre cerca de 375 m × 375 m; o fogo pode estar perto da divisa, não necessariamente dentro.</p>';
     const rn = riverNote(r); if (rn) h += '<p class="dg-sub"><b>' + esc(rn) + '</b></p>';
     if (b) h += '<p class="dg-sub">Vento de ' + dirName(b.w.from) + ' a ' + fmt(b.w.sp) + ' km/h · umidade ' + fmt(b.w.rh) + '% · ' + rainTxt(b.w.rain) + ' em 24 h · no caminho: ' + esc(D.lc[b.lcPath].toLowerCase()) + (b.f.t != null ? ' · fogo visto ' + fmtT(b.f.t) : b.f.src === 'inpe' ? ' · borda de incêndio ativo (INPE)' : '') + '</p>';
     if (r.places > 1) h += '<p class="dg-sub">' + r.places + ' locais com fogo a até 10 km.</p>';
@@ -2284,11 +2296,11 @@ details.legal li { margin-bottom: 4px; }
   function legalHtml(o) {
     const items = [], dtRec = o.dt >= 0 ? DET[o.dt] : null;
     let level = 0; // 0 none, 1 attention, 2 strong
-    if (dtRec || o.dtAny) { level = 2; items.push('<b>Desmatamento recente:</b> ' + (dtRec ? 'alerta DETER (' + dtRec.cls.replace(/_/g, ' ').toLowerCase() + ') em ' + dtRec.d.split('-').reverse().join('/') : 'há alerta DETER de desmatamento na área') + '. Queimar área desmatada sem licença é ilegal.'); }
+    if (dtRec || o.dtAny) { level = 2; items.push('<b>Desmatamento recente:</b> ' + (dtRec ? 'alerta DETER (' + dtRec.cls.replace(/_/g, ' ').toLowerCase() + ') em ' + dtRec.d.split('-').reverse().join('/') : 'há alerta DETER de desmatamento na área') + '. Queimar área desmatada exige licença do órgão ambiental. Alerta DETER é alerta, não confirmação.'); }
     if (o.inpe) {
       const e = o.inpe;
       items.unshift('<b>Classificação do INPE: ' + esc(e.tipo.toLowerCase()) + '</b>, ' + (INPE_TXT[e.tipo] || '') + '.');
-      if (e.desm != null && e.desm >= 20) { level = 2; items.push('<b>Desmatamento:</b> ' + fmt(e.desm, 0) + '% da área queimada era área desmatada, segundo o INPE. Queimar área desmatada sem licença é ilegal.'); }
+      if (e.desm != null && e.desm >= 20) { level = 2; items.push('<b>Desmatamento:</b> ' + fmt(e.desm, 0) + '% da área queimada era área desmatada, segundo o INPE. Queimar área desmatada exige licença do órgão ambiental.'); }
       if (e.veg != null && e.veg >= 30) { level = Math.max(level, 1); items.push('<b>Vegetação nativa:</b> ' + fmt(e.veg, 0) + '% da área queimada; queimar vegetação nativa exige autorização (art. 58-A).'); }
     }
     if (o.lc === 0) { level = Math.max(level, 1); items.push('<b>Floresta:</b> queimar vegetação nativa exige autorização; incêndio em floresta pode ser enquadrado no art. 58-A.'); }
@@ -2296,9 +2308,9 @@ details.legal li { margin-bottom: 4px; }
     else if (o.lc >= 0) items.push('<b>' + esc(D.lc[o.lc]) + ':</b> queima de manejo é permitida só com autorização do órgão ambiental.');
     if (o.ti >= 0) items.push('<b>Terra Indígena ' + esc(D.tis[o.ti].nome) + ':</b> o uso tradicional do fogo pelos povos indígenas é permitido por lei; fogo de terceiros na TI dobra a multa.');
     if (o.car >= 0 && CAR[o.car]) items.push('<b>Imóvel no CAR</b> (' + esc(CAR_TIPO[CAR[o.car].tipo] || CAR[o.car].tipo) + ', ' + fmt(CAR[o.car].area, 0) + ' ha): o responsável precisa de autorização de queima e deve manter ações de prevenção (art. 58-C).');
-    const verdict = level === 2 ? '<span class="verdict strong">indício forte</span>' : level === 1 ? '<span class="verdict warn">atenção</span>' : '<span class="verdict">sem indício por satélite</span>';
-    return '<details class="more legal"><summary>Pode ser ilegal? ' + verdict + '</summary><div><ul>' + items.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
-      '<p class="note" style="margin:4px 0 0">O satélite não mostra se havia autorização nem quem acendeu o fogo. Para confirmar é preciso consultar a autorização de queima (FEMARH ou Ibama), o período de proibição do estado e fazer vistoria. Isto não é acusação.</p></div></details>';
+    const verdict = level === 2 ? '<span class="verdict strong">pede verificação</span>' : level === 1 ? '<span class="verdict warn">atenção</span>' : '<span class="verdict">nada a destacar</span>';
+    return '<details class="more legal"><summary>O que diz a lei sobre fogo aqui ' + verdict + '</summary><div><ul>' + items.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
+      '<p class="note" style="margin:4px 0 0">O satélite não mostra se havia autorização nem quem acendeu o fogo. Para confirmar é preciso consultar a autorização de queima (FEMARH ou Ibama), o período de proibição do estado e fazer vistoria. São indícios por satélite, não prova: isto não é acusação contra ninguém.</p></div></details>';
   }
   function carAt(lon, lat) {
     let best = -1, ba = 1e18;
@@ -2361,12 +2373,12 @@ details.legal li { margin-bottom: 4px; }
       if (c.dt || c.lc === 0) { ind += v; haInd += a; }
     });
     const short = v => v >= 1e9 ? fmt(v / 1e9, 1) + (v < 2e9 ? ' bilhão' : ' bilhões') : fmt(v / 1e6, 0) + (v < 2e6 ? ' milhão' : ' milhões');
-    $('loss').innerHTML = '<div class="loss"><p><b class="big">R$ ' + short(ind) + '</b>em multas possíveis onde há indício de fogo ilegal em 2026 (floresta ou desmatamento recente), até ' + fmtD(TLAST) + '.</p>' +
+    $('loss').innerHTML = '<div class="loss"><p><b class="big">R$ ' + short(ind) + '</b>em multas possíveis pela lei, se não houvesse autorização, nas áreas com fogo em floresta ou com alerta de desmatamento em 2026, até ' + fmtD(TLAST) + '. Não é prejuízo e não é multa aplicada: o satélite não sabe se havia autorização.</p>' +
       '<p>Teto, se todo o fogo do ano fosse sem autorização: <b>R$ ' + short(top) + '</b>.</p>' +
       '<details class="more"><summary>Detalhes e como foi calculado</summary><div>' +
       '<div class="rows"><span>Área com fogo em 2026</span><span>' + fmt(ha, 0) + ' ha</span>' +
       [...byLc].sort((a, b) => b[1] - a[1]).map(([k, v]) => '<span>· ' + esc(D.lc[k]) + '</span><span>' + fmt(v, 0) + ' ha</span>').join('') +
-      '<span>Com indício (floresta ou DETER)</span><span>' + fmt(haInd, 0) + ' ha</span><span>Dentro de Terras Indígenas</span><span>' + fmt(haTi, 0) + ' ha</span>' +
+      '<span>Em floresta ou com alerta DETER</span><span>' + fmt(haInd, 0) + ' ha</span><span>Dentro de Terras Indígenas</span><span>' + fmt(haTi, 0) + ' ha</span>' +
       '<span>Dentro de imóveis do CAR</span><span>' + fmt(haCar, 0) + ' ha · ' + fmt(props.size) + ' imóveis</span></div>' +
       '<p style="margin-top:8px">Área: quadrados de 375 m (14 ha) com foco VIIRS de 01/01/2026 até hoje. Valor: R$ 10.000/ha em vegetação nativa (art. 58-A) e R$ 3.000/ha nas demais (art. 58), em dobro em Terra Indígena (Decreto 6.514/2008, redação de 2024).</p>' +
       '<p>É uma estimativa de <b>multas possíveis</b>, não do prejuízo econômico total: não inclui perda de pasto, cercas, gado, madeira, saúde ou carbono, nem a multa do art. 58-C. Parte do fogo é legal (queima autorizada, uso tradicional indígena) e parte é acidental; o satélite não distingue. Os números servem para dar ordem de grandeza.</p>' +
