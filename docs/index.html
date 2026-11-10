@@ -104,6 +104,8 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .dg-hint { margin: 2px 0 0 24px; font-size: 11.5px; opacity: .8; }
 .perfnote { position: fixed; z-index: 60; top: 84px; left: 50%; transform: translateX(-50%); width: min(520px, calc(100vw - 32px)); background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-left: 4px solid #d97706; border-radius: 8px; padding: 10px 12px; font-size: 13.5px; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
 .perfnote p { margin: 0 0 8px; }
+.undo { position: fixed; z-index: 60; top: 84px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; white-space: nowrap; background: rgba(20,20,20,.88); color: #fff; border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 12.5px; box-shadow: 0 3px 12px rgba(0,0,0,.3); }
+.undo button { border: 0; border-radius: 999px; background: rgba(255,255,255,.18); color: #fff; font: 600 12px var(--f-body); padding: 4px 10px; cursor: pointer; }
 .perfnote .row { display: flex; gap: 8px; flex-wrap: wrap; }
 .dg-msg { margin: 6px 0 0; font-size: 12.5px; font-weight: 600; }
 .dg-text { width: 100%; margin-top: 6px; font: 12px var(--f-data); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px; resize: vertical; }
@@ -2335,11 +2337,11 @@ details.legal li { margin-bottom: 4px; }
   function removePinUndo() {
     const p = st.pin; if (!p) return; const was = { lon: p.lon, lat: p.lat, label: p.label };
     clearPin(); if (undoEl) undoEl.remove();
-    undoEl = document.createElement('div'); undoEl.className = 'perfnote'; undoEl.setAttribute('role', 'status');
-    undoEl.innerHTML = '<p>📍 Local removido.</p><div class="row"><button class="btn">Desfazer</button></div>';
+    undoEl = document.createElement('div'); undoEl.className = 'undo'; undoEl.setAttribute('role', 'status');
+    undoEl.innerHTML = '<span>Local removido</span><button>Desfazer</button>';
     const el = undoEl, close = () => { el.remove(); if (undoEl === el) undoEl = null; };
     el.querySelector('button').onclick = () => { setPin(was.lon, was.lat, was.label); close(); };
-    document.body.appendChild(el); setTimeout(close, 8000);
+    document.body.appendChild(el); setTimeout(close, 4000);
   }
   renderer.domElement.addEventListener('pointerup', e => {
     const tap = downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < (e.pointerType === 'mouse' ? 5 : 10); downAt = null; if (!tap) return;
