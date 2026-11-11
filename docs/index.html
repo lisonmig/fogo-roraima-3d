@@ -316,7 +316,8 @@ label.fl select, label.fl input[type=range] { width: 100%; }
 .hud { pointer-events: none; }
 .hud-card { background: rgba(12, 12, 12, .62); color: #f4efe8; border-radius: 6px; padding: 7px 10px; font: 12px var(--f-data); backdrop-filter: blur(4px); }
 .hud-card b { font-family: var(--f-display); font-size: 17px; font-weight: 700; display: block; letter-spacing: .02em; }
-.tools { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); top: max(10px, env(safe-area-inset-top, 0px)); display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.tools { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); top: max(10px, env(safe-area-inset-top, 0px)); display: flex; flex-direction: column; gap: 6px; align-items: flex-end; z-index: 4; }
+.qmark { display: inline-block; width: 15px; height: 15px; margin-right: 4px; border-radius: 50%; background: #fff; color: #111; font: 800 11px/15px var(--f-body); text-align: center; vertical-align: -2px; }
 .compass { width: 44px; height: 44px; border-radius: 50%; background: rgba(12,12,12,.62); color: #fff; display: grid; place-items: center; font: 700 13px var(--f-display); cursor: pointer; border: 0; }
 .compass span { display: block; }
 .compass span::before { content: "▲"; display: block; font-size: 10px; color: #ff7a2f; line-height: 1; text-align: center; }
@@ -493,7 +494,7 @@ details.legal li { margin-bottom: 4px; }
       <button class="vbtn" id="topView">Vista de cima</button>
       <button class="vbtn" id="moreBtn" aria-expanded="false" title="Mais botões do mapa">⋯ Mais</button>
       <button class="vbtn" id="bigBtn" aria-pressed="false" title="Aumentar o texto">A+ Texto</button>
-      <button class="vbtn" id="helpBtn" title="Como usar o mapa" aria-label="Como usar o mapa">❓ Como usar</button>
+      <button class="vbtn" id="helpBtn" title="Como usar o mapa" aria-label="Como usar o mapa"><span class="qmark" aria-hidden="true">?</span>Como usar</button>
       <button class="vbtn" id="whereBtn" hidden title="Mostrar onde você está (GPS)" aria-pressed="false">◎ Onde estou</button>
       <button class="vbtn" id="sitBtn" title="Mostrar ou esconder incêndios queimando, em observação ou apagados">🔥 Filtro</button>
     </div>
