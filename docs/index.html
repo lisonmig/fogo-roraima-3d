@@ -205,6 +205,7 @@ html.big .panel-in, html.big .pop, html.big .timeline, html.big .mbar, html.big 
   transform: translate(-50%, calc(-100% - 6px)); box-shadow: 0 1px 6px rgba(0,0,0,.5); }
 .lbl.firetop { pointer-events: auto; cursor: pointer; border: 1.5px solid #fff; border-radius: 999px; padding: 2px 8px 3px; background: #b42318; color: #fff; text-shadow: none; font: 700 11.5px var(--f-body); transform: translate(-50%, calc(-100% - 10px)); z-index: 3; }
 .lbl.firetop::after { display: none; }
+.labels.notop .lbl.firetop { display: none !important; }
 .lbl.gauge::after { width: 8px; height: 8px; margin-left: -4px; bottom: -11px; background: var(--c); border: 2px solid #fff; }
 .pop .gv { margin: 2px 0 2px; font-size: 14px; }
 .pop .gv b { font-family: var(--f-display); font-size: 22px; white-space: nowrap; }
@@ -739,6 +740,7 @@ details.legal li { margin-bottom: 4px; }
           <p class="note" id="nasaNote" hidden></p>
           <div class="checks" style="margin-top:10px">
             <label><input type="checkbox" id="lyFire" checked> Focos</label>
+            <label><input type="checkbox" id="lyTop" checked> Nomes dos incêndios</label>
             <label><input type="checkbox" id="lyPer" checked> Contornos</label>
             <label><input type="checkbox" id="lyInpe" checked> Eventos do INPE</label>
             <label><input type="checkbox" id="lyScar" checked> Cicatrizes</label>
@@ -2687,8 +2689,14 @@ details.legal li { margin-bottom: 4px; }
 
   // ---------- controls
   const playBtns = (txt, lbl) => ['play', 'mPlay'].forEach(id => { $(id).textContent = txt; $(id).setAttribute('aria-label', lbl); });
-  function play() { if (st.t >= period.to - 1) setTime(period.from, true); st.playing = true; playBtns('❚❚', 'Pausar'); }
-  function pause() { st.playing = false; playBtns('▶', 'Reproduzir'); burnKey = -1; paintBurn(st.t, true); }
+  function play() { if (st.t >= period.to - 1) setTime(period.from, true); st.playing = true; playBtns('❚❚', 'Pausar'); syncTop(); }
+  function pause() { st.playing = false; playBtns('▶', 'Reproduzir'); burnKey = -1; paintBurn(st.t, true); syncTop(); }
+  // labels with the name and time of the biggest fires: hidden while the timeline plays (they jump around and cover the map),
+  // and they can be switched off in the Mapa tab; the choice is kept on this device
+  function syncTop() { $('labels').classList.toggle('notop', st.playing || !$('lyTop').checked); }
+  try { if (localStorage.getItem('rr3d-top') === '0') $('lyTop').checked = false; } catch (e) {}
+  $('lyTop').onchange = e => { try { localStorage.setItem('rr3d-top', e.target.checked ? '1' : '0'); } catch (x) {} syncTop(); };
+  syncTop();
   $('play').onclick = $('mPlay').onclick = () => st.playing ? pause() : play();
   // speed: one button that cycles through three speeds
   const SPEEDS = [[8, '8 h/s'], [24, '1 dia/s'], [72, '3 dias/s']];
