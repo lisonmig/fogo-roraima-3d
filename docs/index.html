@@ -648,7 +648,7 @@ details.legal li { margin-bottom: 4px; }
         <section class="sec">
           <h2>Camadas</h2>
           <label class="fl" for="base">Fundo do mapa
-            <select id="base"><option value="sat">Imagem de satélite (2025, sem nuvens)</option><option value="lc">Tipo de vegetação (MODIS 2023)</option><option value="nasa">Imagem de ontem (NASA, com nuvens)</option><option value="none">Só relevo</option></select></label>
+            <select id="base"><option value="sat">Imagem de satélite (2025, sem nuvens)</option><option value="lc">Tipo de vegetação (MODIS 2023)</option><option value="inpe">Floresta e desmatamento (INPE PRODES)</option><option value="nasa">Imagem de ontem (NASA, com nuvens)</option><option value="none">Só relevo</option></select></label>
           <p class="note" id="nasaNote" hidden></p>
           <div class="checks" style="margin-top:10px">
             <label><input type="checkbox" id="lyFire" checked> Focos</label>
@@ -708,6 +708,7 @@ details.legal li { margin-bottom: 4px; }
             <span><i class="sq" style="background:#241a16"></i>queimou há até 60 dias (clareia com o tempo)</span>
           </div>
           <div class="legend" id="legendLc" hidden></div>
+          <div class="legend" id="legendInpe" hidden><span><i class="sq" style="background:#265c34"></i>floresta</span><span><i class="sq" style="background:#b0a876"></i>vegetação natural sem floresta (lavrado, campinarana)</span><span><i class="sq" style="background:#c4c4c4"></i>desmatado até 2025 (PRODES)</span><span><i class="sq" style="background:#4682be"></i>água</span><span><i class="sq" style="background:#3c3e42"></i>fora de Roraima (sem dados)</span></div>
           <details class="more"><summary>O que é um foco?</summary><div>
             <p>Um <b>foco de calor</b> é um local mais quente que o normal visto por satélite. Quase sempre é fogo, mas não é um incêndio confirmado.</p>
             <p>Um <b>local com fogo</b> é um quadrado de cerca de 2 km com pelo menos um foco. Assim, o mesmo fogo visto várias vezes pelo satélite GOES conta uma vez só.</p>
@@ -765,7 +766,7 @@ details.legal li { margin-bottom: 4px; }
           <summary>Fontes</summary>
           <div class="src" style="border:0;padding:0">
           <p class="note" style="margin:0 0 8px">📘 <a href="sobre.html">Sobre o projeto e como os números são calculados</a> · 📄 <a href="termos.html">Termos, privacidade e correções</a></p>
-          <p><b>Fontes.</b> Focos: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>. Terras Indígenas: <a href="https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas" target="_blank" rel="noopener">FUNAI</a>. Municípios e limite estadual: IBGE. Imóveis rurais: <a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">SICAR</a> (CAR, dados públicos, sem nome de dono). Desmatamento, área queimada e degradação: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE DETER</a> (alertas desde dezembro de 2024, não confirmação). Desmatamento medido por ano: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (últimos 3 anos publicados). Eventos de fogo oficiais (contorno, tipo e uso da terra): <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">INPE, Evento de Fogo</a>; o INPE lista só os eventos ativos ou em observação, então o mapa guarda cada atualização para formar o histórico a partir de 30/09/2026. Estradas, rios, vilas e fazendas: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© colaboradores do OpenStreetMap</a> (ODbL); o mapa colaborativo pode ter falhas ou estradas faltando. Vegetação: MODIS Land Cover (IGBP) 2023, NASA GIBS. Relevo: Terrarium/Mapzen (SRTM). Imagem: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2025 by EOX IT Services GmbH</a> (dados Copernicus Sentinel modificados, CC BY-NC-SA 4.0). Imagem de ontem: <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">NASA GIBS/Worldview</a> (satélites VIIRS, dados públicos; mostra nuvens e fumaça). Vento, umidade, temperatura e chuva: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (modelo, não estação).</p>
+          <p><b>Fontes.</b> Focos: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>. Terras Indígenas: <a href="https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas" target="_blank" rel="noopener">FUNAI</a>. Municípios e limite estadual: IBGE. Imóveis rurais: <a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">SICAR</a> (CAR, dados públicos, sem nome de dono). Desmatamento, área queimada e degradação: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE DETER</a> (alertas desde dezembro de 2024, não confirmação). Desmatamento medido por ano: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (últimos 3 anos publicados). Eventos de fogo oficiais (contorno, tipo e uso da terra): <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">INPE, Evento de Fogo</a>; o INPE lista só os eventos ativos ou em observação, então o mapa guarda cada atualização para formar o histórico a partir de 30/09/2026. Estradas, rios, vilas e fazendas: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© colaboradores do OpenStreetMap</a> (ODbL); o mapa colaborativo pode ter falhas ou estradas faltando. Vegetação: MODIS Land Cover (IGBP) 2023, NASA GIBS; floresta e desmatamento: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (mapa de classes até 2025). Relevo: Terrarium/Mapzen (SRTM). Imagem: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2025 by EOX IT Services GmbH</a> (dados Copernicus Sentinel modificados, CC BY-NC-SA 4.0). Imagem de ontem: <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">NASA GIBS/Worldview</a> (satélites VIIRS, dados públicos; mostra nuvens e fumaça). Vento, umidade, temperatura e chuva: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (modelo, não estação).</p>
           <p>Unidades de conservação ficaram de fora: o serviço do MMA consultado trazia nomes trocados com os desenhos.</p>
           <p>Projeto de extensão · UERR.</p>
           </div>
@@ -2394,11 +2395,20 @@ details.legal li { margin-bottom: 4px; }
     img.src = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&CRS=EPSG:4326&FORMAT=image/jpeg' +
       '&LAYERS=VIIRS_SNPP_CorrectedReflectance_TrueColor,VIIRS_NOAA20_CorrectedReflectance_TrueColor&BBOX=' + [S, W, N, E].join(',') + '&WIDTH=' + Wd + '&HEIGHT=' + H + '&TIME=' + day;
   }
+  // "Floresta e desmatamento (INPE)": class image built from PRODES (scripts/prep_vegetacao_inpe.py), loaded only when chosen
+  const inpeVeg = { tex: null, busy: false };
+  function loadInpeVeg() {
+    inpeVeg.busy = true; const img = new Image();
+    img.onload = () => { inpeVeg.tex = mkTex(img); inpeVeg.tex.magFilter = THREE.NearestFilter; inpeVeg.busy = false; if ($('base').value === 'inpe') applyBase('inpe'); };
+    img.onerror = () => { inpeVeg.busy = false; if ($('base').value === 'inpe') { $('base').value = 'sat'; applyBase('sat'); } };
+    img.src = 'vegetacao_inpe.png';
+  }
   function applyBase(v) {
-    const useNasa = v === 'nasa' && nasa.tex;
-    terrainMat.uniforms.uMapOn.value = v === 'none' ? 0 : 1; terrainMat.uniforms.uMap.value = v === 'lc' ? texLc : useNasa ? nasa.tex : texImg;
+    const useNasa = v === 'nasa' && nasa.tex, useInpe = v === 'inpe' && inpeVeg.tex;
+    terrainMat.uniforms.uMapOn.value = v === 'none' ? 0 : 1; terrainMat.uniforms.uMap.value = v === 'lc' ? texLc : useNasa ? nasa.tex : useInpe ? inpeVeg.tex : texImg;
     sharp.base = v === 'sat'; if (!sharp.base) terrainMat.uniforms.uDetOn.value = 0; else if (sharp.tex) terrainMat.uniforms.uDetOn.value = 1;
-    $('legendLc').hidden = v !== 'lc';
+    $('legendLc').hidden = v !== 'lc'; $('legendInpe').hidden = v !== 'inpe';
+    if (v === 'inpe' && !inpeVeg.tex && !inpeVeg.busy) loadInpeVeg();
     const nt = $('nasaNote');
     if (v !== 'nasa') { nt.hidden = true; return; }
     nt.hidden = false;
