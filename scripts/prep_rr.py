@@ -295,16 +295,21 @@ print('CAR: properties in RR', len(car_raw), '| with VIIRS fire', len(CARS), '| 
 try:
     det_geo = load_json(get('https://terrabrasilis.dpi.inpe.br/geoserver/deter-amz/ows?' + urllib.parse.urlencode({'service': 'WFS', 'version': '1.0.0',
         'request': 'GetFeature', 'typeName': 'deter-amz:deter_amz', 'outputFormat': 'application/json',
-        'CQL_FILTER': f"uf='RR' AND view_date >= '{(T0 - dt.timedelta(days=365)).strftime('%Y-%m-%d')}' AND (classname LIKE 'DESMATAMENTO%' OR classname LIKE 'CS_%')"}),
+        'CQL_FILTER': f"uf='RR' AND view_date >= '{(T0 - dt.timedelta(days=365)).strftime('%Y-%m-%d')}' AND (classname LIKE 'DESMATAMENTO%' OR classname LIKE 'CS_%' OR classname LIKE 'CICATRIZ%' OR classname = 'DEGRADACAO')"}),
         os.path.join(RAW, f'rr_deter_{TEND.strftime("%Y%m%d")}.geojson'), timeout=600))
 except Exception as e:  # use the latest day already downloaded, or no alerts
     old = sorted(n for n in os.listdir(RAW) if n.startswith('rr_deter_') and n.endswith('.geojson'))
     print('DETER download failed, using', old[-1] if old else 'nothing', ':', e)
     det_geo = load_json(open(os.path.join(RAW, old[-1]), 'rb').read()) if old else {'features': []}
 DETER, det_geoms, det_days = [], [], []
+QUEIM = []  # burn scars and degradation (DETER): own layer, never counted as deforestation
 for f in det_geo['features']:
     p = f['properties']; g = shape(f['geometry'])
     if not g.is_valid: g = g.buffer(0)
+    cls = p.get('classname') or ''
+    if cls.startswith('CICATRIZ') or cls == 'DEGRADACAO':
+        QUEIM.append({'cls': cls, 'd': p['view_date'][:10], 'km2': round(p.get('areamunkm') or 0, 3), 'r': rings_of(g, 0.0003)})
+        continue
     d = dt.datetime.strptime(p['view_date'][:10], '%Y-%m-%d')
     DETER.append({'cls': p.get('classname'), 'd': p['view_date'][:10], 'km2': round(p.get('areamunkm') or 0, 3), 'r': rings_of(g, 0.0003)})
     det_geoms.append(g); det_days.append((d - T0).days)
@@ -318,6 +323,7 @@ for la, lo, t in zip(F['lat'], F['lon'], F['t']):
             k = int(k)
             if -365 <= fd - det_days[k] <= 30 and det_geoms[k].contains(pt): hit = k; break
     F['dt'].append(hit)
+print('DETER burn scars/degradation', len(QUEIM))
 print('DETER alerts', len(DETER), '| fires on recently deforested land', sum(1 for x in F['dt'] if x >= 0))
 
 # conservation units: left out on purpose. In Nov 2026 the MMA/CNUC WFS layer (geoservicos.inde.gov.br)
@@ -396,7 +402,7 @@ meta = {'bbox': [W, S, E, N], 't0': T0.strftime('%Y-%m-%dT%H:%MZ'), 'grid': [GW,
         'generated': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%MZ')}
 json.dump({'meta': meta, 'sats': sats, 'muns': muns, 'fires': {k: v for k, v in F.items() if k not in ('r', 'uc')},  # 'r' (risco) and 'uc' are not read by the page
            'events': events, 'weather': weather, 'rr': rr_ring,
-           'munis': MUNIS, 'tis': TIS, 'ucs': UCS, 'car': CARS, 'deter': DETER, 'lc': LC_GROUPS, 'lcColors': ['#%02x%02x%02x' % c for c in LC_COLORS]},
+           'munis': MUNIS, 'tis': TIS, 'ucs': UCS, 'car': CARS, 'deter': DETER, 'queim': QUEIM, 'lc': LC_GROUPS, 'lcColors': ['#%02x%02x%02x' % c for c in LC_COLORS]},
           open(os.path.join(OUT, 'roraima3d.json'), 'w', encoding='utf-8'), separators=(',', ':'), ensure_ascii=False)
 # small summary for the first screen (shown while the 3D map loads): places with fire in the last 24 h and where
 _t1 = F['t'][-1]; _cells, _bym = set(), {}
