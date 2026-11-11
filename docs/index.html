@@ -20,9 +20,7 @@
 <meta property="og:url" content="https://fogororaima.com.br/">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="pt_BR">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
+<link rel="stylesheet" href="fonts.css">
 <style>
 /* Layout: 3D viewport (top-left), timeline below it, control panel on the right (summary first); stacks on phones */
 :root {
@@ -150,6 +148,13 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .tour-card p { margin: 0 0 14px; font-size: 15px; line-height: 1.45; }
 .tour-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 14px; } .tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); } .tour-dots i.on { background: var(--accent); }
 .tour-row { display: flex; gap: 8px; } .tour-row .btn { flex: 1; min-height: 44px; font-size: 15px; } .tour-next { background: var(--accent) !important; color: #fff !important; border-color: transparent !important; }
+.flist { list-style: none; margin: 4px 0 8px; padding: 0; } .flist li button { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--ink); padding: 7px 2px; cursor: pointer; font: 14px var(--f-body); }
+.flist .km { font-weight: 600; } .flist .dt { grid-column: 1 / -1; font-size: 12px; color: var(--muted); } .flist li.empty { padding: 8px 2px; color: var(--muted); font-size: 13px; }
+#flExport { flex-wrap: wrap; gap: 6px; } #flExport .btn { flex: 1 1 auto; }
+html.big .panel-in, html.big .pop, html.big .timeline, html.big .mbar, html.big #tour, html.big .peek { zoom: 1.18; }
+#bigBtn[aria-pressed="true"] { background: var(--accent); }
+#moreBtn { display: none; }
+.rep-map { display: block; width: 100%; border-radius: 8px; margin: 6px 0 12px; }
 @keyframes mepulse { 0% { box-shadow: 0 0 0 0 rgba(43,124,255,.55); } 70% { box-shadow: 0 0 0 16px rgba(43,124,255,0); } 100% { box-shadow: 0 0 0 0 rgba(43,124,255,0); } }
 @media (prefers-reduced-motion: reduce) { .medot { animation: none; } }
 #whereBtn[aria-pressed="true"] { background: #2b7cff; }
@@ -407,6 +412,11 @@ details.legal li { margin-bottom: 4px; }
   .sit { right: 8px; bottom: 8px; } .sit button { padding: 4px 9px 4px 8px; font-size: 11px; }
   .pop { bottom: 8px; max-height: calc(100% - 130px); }
 }
+@media (max-width: 880px) {
+  #moreBtn { display: block; }
+  .tools .vbtn:not(#whereBtn):not(#moreBtn) { display: none; }
+  .tools.open .vbtn:not(#whereBtn):not(#moreBtn):not([hidden]) { display: block; }
+}
 /* phones and tablets held upright: one thin bar at the bottom (play, date, tab icons); the timeline and the panel open above it */
 @media (max-width: 880px) {
   .app, .app.collapsed { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
@@ -478,6 +488,8 @@ details.legal li { margin-bottom: 4px; }
       <button class="compass" id="compass" title="Virar para o norte"><span id="needle">N</span></button>
       <button class="vbtn" id="home">Estado todo</button>
       <button class="vbtn" id="topView">Vista de cima</button>
+      <button class="vbtn" id="moreBtn" aria-expanded="false" title="Mais botões do mapa">⋯ Mais</button>
+      <button class="vbtn" id="bigBtn" aria-pressed="false" title="Aumentar o texto">A+ Texto</button>
       <button class="vbtn" id="helpBtn" title="Como usar o mapa" aria-label="Como usar o mapa">? Ajuda</button>
       <button class="vbtn" id="whereBtn" hidden title="Mostrar onde você está (GPS)" aria-pressed="false">◎ Onde estou</button>
       <button class="vbtn" id="sitBtn" title="Mostrar ou esconder incêndios queimando, em observação ou apagados">🔥 Filtro</button>
@@ -718,6 +730,14 @@ details.legal li { margin-bottom: 4px; }
         <section class="sec">
           <h2>O que a lei prevê (referência)</h2>
           <div id="loss"></div>
+        </section>
+        <section class="sec">
+          <h2>Lista de focos</h2>
+          <p class="note" style="margin:0 0 8px">Focos do período escolhido na linha do tempo. Toque num foco para ir até ele.</p>
+          <label class="fl" for="flSort">Ordem<select id="flSort"><option value="imp">Mais importantes primeiro</option><option value="new">Mais recentes primeiro</option><option value="near">Mais perto do ponto marcado</option></select></label>
+          <ol class="flist" id="flList"></ol>
+          <div class="row" id="flExport"><button class="btn" data-x="csv">⬇ CSV (planilha)</button><button class="btn" data-x="kml">⬇ KML (GPS, Google Earth)</button><button class="btn" data-x="geojson">⬇ GeoJSON (QGIS)</button></div>
+          <p class="note">Os arquivos trazem posição, data e hora, satélite, margem de erro e força de cada foco do período. Não trazem dados de imóveis do CAR. Fonte: INPE.</p>
         </section>
         <section class="sec">
           <h2>Relatório</h2>
@@ -1220,7 +1240,7 @@ details.legal li { margin-bottom: 4px; }
       el.onclick = () => { st.sel = { kind: 'fire', i }; showDetail(); }; });
   }
   function updateUi() {
-    updateTopFires();
+    updateTopFires(); if (window.__flT) clearTimeout(window.__flT); window.__flT = setTimeout(renderFireList, 400);
     const d = loc(st.t);
     $('clock').innerHTML = two(d.getUTCDate()) + ' ' + MESES[d.getUTCMonth()] + ' ' + d.getUTCFullYear() + ' · ' + two(d.getUTCHours()) + 'h<small>horário de Roraima</small>';
     $('mClock').innerHTML = '<b>' + two(d.getUTCDate()) + ' ' + MESES[d.getUTCMonth()] + '</b><small>' + two(d.getUTCHours()) + 'h</small>';
@@ -1423,7 +1443,7 @@ details.legal li { margin-bottom: 4px; }
     for (let i = 365; i >= 0; i--) if (g.band.p10[i] != null) c.lineTo(X(i), Y(g.band.p10[i])); c.fill(); c.globalAlpha = 1;
     const path = (a, col, wd, dash) => { c.beginPath(); let on = false; a.forEach((v, i) => { if (v == null) { on = false; return; } on ? c.lineTo(X(i), Y(v)) : (c.moveTo(X(i), Y(v)), on = true); }); c.strokeStyle = col; c.lineWidth = wd; c.setLineDash(dash || []); c.stroke(); c.setLineDash([]); };
     path(g.band.med, css('--muted'), 1.2, [4, 3]); path(g.cur, css('--accent'), 2.4);
-    c.fillStyle = css('--muted'); c.font = '10px ' + css('--f-data'); c.textAlign = 'center';
+    c.fillStyle = css('--muted'); c.font = '11px ' + css('--f-data'); c.textAlign = 'center';
     ['ago', 'out', 'dez', 'fev', 'abr', 'jun'].forEach((m, k) => c.fillText(m, X([0, 61, 122, 184, 243, 304][k] + 15), T + h + 13.5));
   }
   function riverCard(name, lon, lat) {
@@ -1640,6 +1660,7 @@ details.legal li { margin-bottom: 4px; }
     // what to do now: always open, right under the danger headline (text reviewed by the civil defence consultant)
     if (r.level === 'alto' || r.level === 'atencao') h += '<div class="dg-todo"><b>O que fazer agora</b><ol>' + TODO_STEPS.map(s => '<li>' + s + '</li>').join('') + '</ol></div>';
     if (r.level === 'baixo') h += '<p class="dg-warn">🚨 ' + WARN + '</p>';
+    if (r.level !== 'nenhum') { const ti = D.tis.find(t => t.r.some(rr => pointInRing(r.p.lon, r.p.lat, rr))); if (ti) h += '<p class="dg-sub"><b>Terra Indígena ' + esc(ti.nome) + ':</b> avise também a brigada indígena da comunidade (Prevfogo/Ibama) e a coordenação local da FUNAI ou do DSEI.</p>'; }
     if (r.insideHit) h += '<p class="dg-sub">' + (b.f.t == null && b.f.src === 'inpe' ? 'O contorno do INPE é aproximado: o fogo pode estar na borda ou já ter passado. Veja a situação do incêndio no mapa.' : (() => { const sp = satPix(b.f.sat); return sp ? 'Foco visto pelo ' + sp.name + ' (' + esc(b.f.sat) + '): a posição pode ter erro de cerca de ' + sp.txt + '. O fogo pode estar perto da divisa, não necessariamente dentro.' : 'A posição do satélite tem margem de erro; o fogo pode estar perto da divisa, não necessariamente dentro.'; })()) + '</p>';
     const rn = riverNote(r); if (rn) h += '<p class="dg-sub"><b>' + esc(rn) + '</b></p>';
     if (b) h += '<p class="dg-sub">Vento de ' + dirName(b.w.from) + ' a ' + fmt(b.w.sp) + ' km/h · umidade ' + fmt(b.w.rh) + '% · ' + rainTxt(b.w.rain) + ' em 24 h · no caminho: ' + esc(D.lc[b.lcPath].toLowerCase()) + (b.f.t != null ? ' · fogo visto ' + fmtT(b.f.t) : b.f.src === 'inpe' ? ' · borda de incêndio ativo (INPE)' : '') + '</p>';
@@ -2112,7 +2133,8 @@ details.legal li { margin-bottom: 4px; }
       const P = bins[pk], C = bins[cur]; if (!P) return 'Nenhum local com fogo neste período.';
       const head = 'Pico: ' + fmt(P) + (P === 1 ? ' local' : ' locais') + ' com fogo ' + per + ', ' + binWhen(pk);
       if (C === P) return head + ' · ' + (cur === pk ? (atEnd() ? 'é agora' : 'é o momento escolhido') : now + ' também');
-      return head + ' · ' + now + ' ' + fmt(C) + ' (' + Math.round((1 - C / P) * 100) + '% menos)';
+      const hh = loc(st.t).getUTCHours(), night = hh >= 18 || hh < 6;
+      return head + ' · ' + now + ' ' + fmt(C) + (night ? ' (à noite passam poucos satélites, por isso o número cai)' : ' (' + Math.round((1 - C / P) * 100) + '% menos)');
     }
     if (metric === 'chuva') {
       let pk = 0, tot = 0; for (let b = 0; b < rbins.length; b++) { tot += rbins[b]; if (rbins[b] > rbins[pk]) pk = b; }
@@ -2157,7 +2179,7 @@ details.legal li { margin-bottom: 4px; }
       else { const vs = pts.map(p => p.v); lo = Math.floor(Math.min(...vs) / 10) * 10; hi = Math.ceil(Math.max(...vs) / 10) * 10; if (hi - lo < 20) { lo -= 10; hi += 10; } }
     }
     const Y = v => T + h - (v - lo) / (hi - lo) * h;
-    cx.font = '10px ' + css('--f-data'); cx.fillStyle = muted; cx.strokeStyle = line; cx.lineWidth = 1; cx.textAlign = 'right';
+    cx.font = '11px ' + css('--f-data'); cx.fillStyle = muted; cx.strokeStyle = line; cx.lineWidth = 1; cx.textAlign = 'right';
     if (!msg) [lo, (lo + hi) / 2, hi].forEach((v, k) => { const y = Y(v); cx.beginPath(); cx.moveTo(L, y + .5); cx.lineTo(L + w, y + .5); cx.stroke(); cx.fillText(fmt(v, metric === 'chuva' && hi < 4 && v % 1 ? 1 : 0) + (k === 2 ? unit : ''), L - 4, y + 3); });
     const bw = w / bins.length, cur = curBin();
     if (metric === 'fogo' || metric === 'chuva') {
@@ -2175,7 +2197,7 @@ details.legal li { margin-bottom: 4px; }
       if (pts.length < 45) { cx.fillStyle = col; pts.forEach(p => { cx.beginPath(); cx.arc(X(p.t), Y(p.v), 2.6, 0, 2 * Math.PI); cx.fill(); }); }
       cx.restore();
     }
-    if (msg) { cx.fillStyle = muted; cx.textAlign = 'center'; cx.font = '12px ' + css('--f-body'); cx.fillText(msg, L + w / 2, T + h / 2 + 4); cx.font = '10px ' + css('--f-data'); }
+    if (msg) { cx.fillStyle = muted; cx.textAlign = 'center'; cx.font = '12px ' + css('--f-body'); cx.fillText(msg, L + w / 2, T + h / 2 + 4); cx.font = '11px ' + css('--f-data'); }
     cx.fillStyle = muted; cx.textAlign = 'center';
     if (span <= 4 * 1440) {
       for (let tk = period.from; tk <= period.to; tk += 360) { const dd = loc(tk); cx.fillText((dd.getUTCHours() === 0 ? fmtD(tk) + ' ' : '') + two(dd.getUTCHours()) + 'h', X(tk), T + h + 13); }
@@ -2230,7 +2252,7 @@ details.legal li { margin-bottom: 4px; }
     IN.ev.forEach((e, k) => { const a = isoMin(e.d0), b = isoMin(e.d1) + 1440; if (b >= period.from && a < period.to && e.ha >= 50) items.push({ mine: false, k, km2: e.ha / 100, from: a, to: b, e }); });
     const list = items.sort((a, b) => b.km2 - a.km2).slice(0, 8);
     const ul = $('events'); ul.innerHTML = '';
-    $('evTitle').textContent = 'Maiores incêndios · ' + period.name;
+    $('evTitle').textContent = 'Maiores incêndios com fogo no período · ' + period.name.toLowerCase();
     if (!list.length) { ul.innerHTML = '<li class="empty">Nenhum incêndio grande neste período.</li>'; return; }
     list.forEach(x => {
       const li = document.createElement('li'), b = document.createElement('button'), e = x.e;
@@ -2463,6 +2485,7 @@ details.legal li { margin-bottom: 4px; }
   })();
   const TABS = ['resumo', 'local', 'seca', 'mapa', 'dados'];
   function setTab(name, open) {
+    if (name === 'dados') setTimeout(renderFireList, 0);
     TABS.forEach(t => { const on = t === name; $('tab-' + t).setAttribute('aria-selected', on); $('pane-' + t).hidden = !on; });
     document.querySelectorAll('#mbar [data-tab]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tab === name));
     try { localStorage.setItem('rr3d-tab', name); } catch (e) {}
@@ -2763,7 +2786,7 @@ details.legal li { margin-bottom: 4px; }
     }
     const X = i => L + i / 365 * w, Y = v => T + (1 - (Math.max(ymin, Math.min(ymax, v)) - ymin) / (ymax - ymin)) * h;
     const ink = css('--ink'), muted = css('--muted'), line = css('--line'), acc = css('--accent'), rain = css('--rain');
-    c.font = '10px ' + css('--f-data'); c.textAlign = 'right'; c.fillStyle = muted; c.strokeStyle = line; c.lineWidth = 1;
+    c.font = '11px ' + css('--f-data'); c.textAlign = 'right'; c.fillStyle = muted; c.strokeStyle = line; c.lineWidth = 1;
     ticks.forEach(v => { c.beginPath(); c.moveTo(L, Y(v) + .5); c.lineTo(L + w, Y(v) + .5); c.stroke(); c.fillText(v === 0 ? '0' : fmt(v / 100, dec) + ' m', L - 4, Y(v) + 3); });
     const area = (lo, hi, col) => { c.beginPath(); let st0 = false; for (let i = 0; i < 366; i++) { if (J.band[hi][i] == null) continue; st0 ? c.lineTo(X(i), Y(J.band[hi][i])) : (c.moveTo(X(i), Y(J.band[hi][i])), st0 = true); }
       for (let i = 365; i >= 0; i--) if (J.band[lo][i] != null) c.lineTo(X(i), Y(J.band[lo][i])); c.closePath(); c.fillStyle = col; c.fill(); };
@@ -2921,11 +2944,12 @@ details.legal li { margin-bottom: 4px; }
     return L.join('\n');
   }
   function showReport() {
+    let repImg = ''; try { renderer.render(scene, camera); repImg = renderer.domElement.toDataURL('image/jpeg', 0.82); } catch (e) {}
     const r = buildReport(), msg = $('repMsg'); msg.hidden = true;
     if (r.err) { msg.textContent = r.err; msg.hidden = false; return; }
     let el = $('report'); if (!el) { el = document.createElement('div'); el.id = 'report'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Relatório'); document.body.appendChild(el); }
     el.innerHTML = '<div class="rep-page"><div class="rep-actions"><button class="btn" data-a="print">🖨 Imprimir ou salvar em PDF</button><button class="btn" data-a="copy">Copiar texto</button><a class="btn" data-a="wa" target="_blank" rel="noopener">WhatsApp</a><button class="btn" data-a="close">Fechar</button></div>' +
-      '<p class="rep-kick">Fogo em Roraima 3D · relatório</p><h1>' + esc(r.scope) + '</h1><p class="rep-sub">Período: <b>' + esc(r.per) + '</b> (' + esc(r.perName) + ') · horário de Roraima<br>Gerado em ' + esc(r.gen) + ' · fogororaima.com.br</p>' +
+      '<p class="rep-kick">Fogo em Roraima 3D · relatório</p><h1>' + esc(r.scope) + '</h1>' + (repImg ? '<img class="rep-map" src="' + repImg + '" alt="Mapa no momento em que o relatório foi gerado">' : '') + '<p class="rep-sub">Período: <b>' + esc(r.per) + '</b> (' + esc(r.perName) + ') · horário de Roraima<br>Gerado em ' + esc(r.gen) + ' · fogororaima.com.br</p>' +
       (r.empty ? '<p><b>Nenhuma detecção de fogo neste período e local.</b></p>' : r.rows.map(([t, kv]) => '<h2>' + esc(t) + '</h2><table>' + kv.map(([k, v]) => '<tr><td>' + esc(k) + '</td><td>' + esc(v) + '</td></tr>').join('') + '</table>').join('')) +
       '<h2>Como ler estes números</h2><ul>' + r.notes.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' +
       '<p class="rep-foot">Projeto de extensão · Universidade Estadual de Roraima (UERR). Ferramenta de apoio: não substitui o Corpo de Bombeiros (193) nem a Defesa Civil (199).</p></div>';
@@ -2963,6 +2987,58 @@ details.legal li { margin-bottom: 4px; }
   }
   $('helpBtn').onclick = () => { tourK = 0; showTour(); };
   try { if (localStorage.getItem('rr3d-tour') !== '1') setTimeout(() => { tourK = 0; showTour(); }, 600); } catch (e) {}
+  // ---------- list of fires (also a text alternative to the 3D map) and download
+  function fireRows() {
+    const p = st.pin, rows = windowIdx().map(i => ({ i, s: fireScore(i, st.t), d: p ? distKm(p.lon, p.lat, F.lon[i], F.lat[i]) : null }));
+    const how = $('flSort').value;
+    rows.sort(how === 'new' ? (a, b) => F.t[b.i] - F.t[a.i] : how === 'near' && p ? (a, b) => a.d - b.d : (a, b) => b.s - a.s);
+    return rows;
+  }
+  function renderFireList() {
+    if ($('pane-dados').hidden) return;
+    const rows = fireRows(), ol = $('flList'); ol.innerHTML = '';
+    if ($('flSort').value === 'near' && !st.pin) { ol.innerHTML = '<li class="empty">Marque um ponto no mapa (dois toques) para ordenar pela distância.</li>'; return; }
+    if (!rows.length) { ol.innerHTML = '<li class="empty">Nenhum foco neste período.</li>'; return; }
+    rows.slice(0, 30).forEach(({ i, s, d }) => {
+      const li = document.createElement('li'), b = document.createElement('button'), sp = satPix(D.sats[F.s[i]]);
+      b.innerHTML = '<span class="nm"></span><span class="km"></span><span class="dt"></span>';
+      b.querySelector('.nm').textContent = (s >= 70 ? '🔥 ' : s >= 40 ? '🟠 ' : '🟡 ') + D.muns[F.m[i]];
+      b.querySelector('.km').textContent = d != null ? kmTxt(d) : 'nota ' + Math.round(s);
+      b.querySelector('.dt').textContent = fmtT(F.t[i]) + ' · ' + agoTxt(F.t[i]) + ' · ' + D.sats[F.s[i]] + (sp ? ' (±' + sp.txt + ')' : '') + ' · ' + D.lc[F.c[i]].toLowerCase();
+      b.onclick = () => { st.sel = { kind: 'fire', i }; showDetail(); if (isPhone()) setDrawer(false); flyTo(orbitPose(toX(F.lon[i]), toZ(F.lat[i]), 30, 0.15, 0.8)); };
+      li.appendChild(b); ol.appendChild(li);
+    });
+    if (rows.length > 30) { const li = document.createElement('li'); li.className = 'empty'; li.textContent = 'Mais ' + fmt(rows.length - 30) + ' focos no período (todos estão nos arquivos para baixar).'; ol.appendChild(li); }
+  }
+  $('flSort').onchange = renderFireList;
+  $('flExport').onclick = e => {
+    const x = e.target.dataset && e.target.dataset.x; if (!x) return;
+    const rows = fireRows(), iso = t => new Date(T0 + t * 60000).toISOString().slice(0, 16).replace('T', ' ');
+    const rec = rows.map(({ i, s }) => { const sp = satPix(D.sats[F.s[i]]); return { local: fmtD(F.t[i]) + ' ' + fmtH(F.t[i]), utc: iso(F.t[i]), lat: F.lat[i], lon: F.lon[i], sat: D.sats[F.s[i]],
+      margem_m: sp ? Math.round(sp.km * 1000) : '', frp_mw: F.f[i] >= 0 ? F.f[i] : '', municipio: D.muns[F.m[i]], vegetacao: D.lc[F.c[i]], nota: Math.round(s) }; });
+    const per = period.name.toLowerCase().replace(/\s+/g, '-'), name = 'focos-roraima-' + per + '-' + iso(st.t).slice(0, 10);
+    let data, type;
+    if (x === 'csv') {
+      const q = v => /[",;\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v;
+      data = '\ufeffdata_hora_roraima;data_hora_utc;latitude;longitude;satelite;margem_m;frp_mw;municipio;vegetacao;nota_importancia\n' +
+        rec.map(r => [r.local, r.utc, r.lat, r.lon, r.sat, r.margem_m, r.frp_mw, r.municipio, r.vegetacao, r.nota].map(q).join(';')).join('\n'); type = 'text/csv';
+    } else if (x === 'kml') {
+      const e2 = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+      data = '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Focos de fogo – Roraima (INPE)</name>' +
+        rec.map(r => '<Placemark><name>' + e2(r.municipio + ' ' + r.local) + '</name><description>' + e2(r.sat + ' · margem ' + r.margem_m + ' m · FRP ' + r.frp_mw + ' MW · ' + r.vegetacao) + '</description><Point><coordinates>' + r.lon + ',' + r.lat + ',0</coordinates></Point></Placemark>').join('') +
+        '</Document></kml>'; type = 'application/vnd.google-earth.kml+xml';
+    } else {
+      data = JSON.stringify({ type: 'FeatureCollection', fonte: 'INPE, Programa Queimadas, via fogororaima.com.br', features: rec.map(r => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [r.lon, r.lat] },
+        properties: { data_hora_roraima: r.local, data_hora_utc: r.utc, satelite: r.sat, margem_m: r.margem_m, frp_mw: r.frp_mw, municipio: r.municipio, vegetacao: r.vegetacao, nota_importancia: r.nota } })) }); type = 'application/geo+json';
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type })); a.download = name + '.' + x; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  };
+  // ---------- bigger text (A+) and the "more" menu of the map buttons on phones
+  const setBig = on => { document.documentElement.classList.toggle('big', on); $('bigBtn').setAttribute('aria-pressed', on); try { localStorage.setItem('rr3d-big', on ? '1' : '0'); } catch (e) {} };
+  $('bigBtn').onclick = () => setBig(!document.documentElement.classList.contains('big'));
+  try { if (localStorage.getItem('rr3d-big') === '1') setBig(true); } catch (e) {}
+  $('moreBtn').onclick = () => { const o = !document.querySelector('.tools').classList.contains('open'); document.querySelector('.tools').classList.toggle('open', o); $('moreBtn').setAttribute('aria-expanded', o); };
   // ---------- loop
   let prev = performance.now();
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
