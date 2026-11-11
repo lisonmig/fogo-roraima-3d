@@ -64,6 +64,9 @@ jobs:
           python -I scripts/prep_estradas.py dados-3d docs || echo "::warning::falharam as estradas"
           python -I scripts/prep_car_todos.py dados-3d docs || echo "::warning::falhou o CAR"
 
+      - name: Desmatamento medido (PRODES, baixa de novo só a cada 30 dias)
+        run: python -I scripts/prep_prodes.py dados-3d docs || echo "::warning::falhou o PRODES; a camada fica indisponível"
+
       - name: Salvar o histórico dos eventos do INPE (uma vez por dia)
         if: github.event_name != 'push'   # agendamento do GitHub ou agendador externo
         run: |

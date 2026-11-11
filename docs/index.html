@@ -660,10 +660,12 @@ details.legal li { margin-bottom: 4px; }
             <label><input type="checkbox" id="lyCar"> Imóveis rurais (CAR)</label>
             <label><input type="checkbox" id="lyDeter"> Desmatamento (DETER)</label>
             <label><input type="checkbox" id="lyQueim"> Área queimada (DETER)</label>
+            <label><input type="checkbox" id="lyProdes"> Desmatamento medido (PRODES)</label>
             <label><input type="checkbox" id="lyWind" checked> Vento</label>
             <label><input type="checkbox" id="lyLbl" checked> Nomes</label>
             <label><input type="checkbox" id="lyRios" checked> Rios</label>
           </div>
+          <p class="note" id="prodesNote" hidden></p>
           <label class="fl" for="roads" style="margin-top:10px">Estradas
             <select id="roads"><option value="off">Não mostrar</option><option value="main">Só rodovias (BR e RR)</option><option value="all">Todas, com vicinais e ramais</option></select></label>
           <p class="note" id="roadsNote" hidden>Nas cidades aparecem só as avenidas principais; no interior, todas as estradas, vicinais e ramais. Aproxime o mapa para ver os nomes.</p>
@@ -696,6 +698,7 @@ details.legal li { margin-bottom: 4px; }
             <span><i class="ln" style="color:#5eead4"></i>imóvel rural (CAR) com fogo</span>
             <span><i class="ln" style="color:#c39af0"></i>desmatamento recente (DETER)</span>
             <span><i class="ln" style="color:#b39a80"></i>área queimada ou degradada (DETER)</span>
+            <span><i class="ln" style="color:#ddd6ee"></i>desmatamento medido por ano (PRODES)</span>
             <span><i class="ln" style="color:#5fb4ff"></i>rio (forte: rio largo ou principal, barreira para o fogo)</span>
             <span><i class="ln" style="color:#f2b33d"></i>rodovia federal</span>
             <span><i class="ln" style="color:#efe0a8"></i>rodovia estadual ou avenida</span>
@@ -762,7 +765,7 @@ details.legal li { margin-bottom: 4px; }
           <summary>Fontes</summary>
           <div class="src" style="border:0;padding:0">
           <p class="note" style="margin:0 0 8px">📘 <a href="sobre.html">Sobre o projeto e como os números são calculados</a> · 📄 <a href="termos.html">Termos, privacidade e correções</a></p>
-          <p><b>Fontes.</b> Focos: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>. Terras Indígenas: <a href="https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas" target="_blank" rel="noopener">FUNAI</a>. Municípios e limite estadual: IBGE. Imóveis rurais: <a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">SICAR</a> (CAR, dados públicos, sem nome de dono). Desmatamento, área queimada e degradação: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE DETER</a> (alertas dos últimos 12 meses, não confirmação). Eventos de fogo oficiais (contorno, tipo e uso da terra): <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">INPE, Evento de Fogo</a>; o INPE lista só os eventos ativos ou em observação, então o mapa guarda cada atualização para formar o histórico a partir de 30/09/2026. Estradas, rios, vilas e fazendas: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© colaboradores do OpenStreetMap</a> (ODbL); o mapa colaborativo pode ter falhas ou estradas faltando. Vegetação: MODIS Land Cover (IGBP) 2023, NASA GIBS. Relevo: Terrarium/Mapzen (SRTM). Imagem: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2025 by EOX IT Services GmbH</a> (dados Copernicus Sentinel modificados, CC BY-NC-SA 4.0). Imagem de ontem: <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">NASA GIBS/Worldview</a> (satélites VIIRS, dados públicos; mostra nuvens e fumaça). Vento, umidade, temperatura e chuva: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (modelo, não estação).</p>
+          <p><b>Fontes.</b> Focos: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>. Terras Indígenas: <a href="https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas" target="_blank" rel="noopener">FUNAI</a>. Municípios e limite estadual: IBGE. Imóveis rurais: <a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">SICAR</a> (CAR, dados públicos, sem nome de dono). Desmatamento, área queimada e degradação: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE DETER</a> (alertas desde dezembro de 2024, não confirmação). Desmatamento medido por ano: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (últimos 3 anos publicados). Eventos de fogo oficiais (contorno, tipo e uso da terra): <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">INPE, Evento de Fogo</a>; o INPE lista só os eventos ativos ou em observação, então o mapa guarda cada atualização para formar o histórico a partir de 30/09/2026. Estradas, rios, vilas e fazendas: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© colaboradores do OpenStreetMap</a> (ODbL); o mapa colaborativo pode ter falhas ou estradas faltando. Vegetação: MODIS Land Cover (IGBP) 2023, NASA GIBS. Relevo: Terrarium/Mapzen (SRTM). Imagem: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2025 by EOX IT Services GmbH</a> (dados Copernicus Sentinel modificados, CC BY-NC-SA 4.0). Imagem de ontem: <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">NASA GIBS/Worldview</a> (satélites VIIRS, dados públicos; mostra nuvens e fumaça). Vento, umidade, temperatura e chuva: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (modelo, não estação).</p>
           <p>Unidades de conservação ficaram de fora: o serviço do MMA consultado trazia nomes trocados com os desenhos.</p>
           <p>Projeto de extensão · UERR.</p>
           </div>
@@ -960,6 +963,21 @@ details.legal li { margin-bottom: 4px; }
   let queimLayer = null, queimFill = null, qmSel = null, qmSelFill = null, qmBox = null;
   const QM_CLS = { CICATRIZ_DE_QUEIMADA: 'cicatriz de queimada', DEGRADACAO: 'degradação da floresta' };
   if (!QM.length) { $('lyQueim').disabled = true; $('lyQueim').parentNode.title = 'Sem dados de área queimada nesta atualização'; }
+  // measured deforestation (INPE PRODES, yearly): prodes.json is loaded only when the layer is turned on
+  const PRD = { list: [], years: [], got: '', loading: null, fill: null, line: null, sel: null, selFill: null };
+  function loadProdes() {
+    if (!PRD.loading) PRD.loading = fetch('prodes.json').then(r => r.ok ? r.json() : null).then(J => {
+      if (!J) return;
+      const [ox, oy] = J.origin, q = J.q; PRD.years = J.years; PRD.got = J.got;
+      PRD.list = J.p.map(c => {
+        let a = 1e9, b = -1e9, y0 = 1e9, y1 = -1e9;
+        const rings = c[3].map(fl => { let x = fl[0], y = fl[1]; const r = [ox + x / q, oy + y / q]; for (let k = 2; k < fl.length; k += 2) { x += fl[k]; y += fl[k + 1]; r.push(ox + x / q, oy + y / q); }
+          for (let j = 0; j < r.length; j += 2) { a = Math.min(a, r[j]); b = Math.max(b, r[j]); y0 = Math.min(y0, r[j + 1]); y1 = Math.max(y1, r[j + 1]); } return r; });
+        return { y: c[0], km2: c[1], d: c[2], r: rings, box: [a, y0, b, y1] };
+      });
+    }).catch(() => {});
+    return PRD.loading;
+  }
   const CAR_TIPO = { IRU: 'Imóvel rural', AST: 'Assentamento', PCT: 'Povos e comunidades tradicionais' };
   const carBox = CAR.map(c => { let a = 1e9, b = -1e9, y0 = 1e9, y1 = -1e9; c.r.forEach(r => { for (let j = 0; j < r.length; j += 2) { a = Math.min(a, r[j]); b = Math.max(b, r[j]); y0 = Math.min(y0, r[j + 1]); y1 = Math.max(y1, r[j + 1]); } }); return [a, y0, b, y1]; });
 
@@ -2399,6 +2417,20 @@ details.legal li { margin-bottom: 4px; }
     if (carLayer) carLayer.obj.visible = on; $('lyCar').checked = on;
   }
   $('lyCar').onchange = e => showCarLayer(e.target.checked);
+  function showProdes() {
+    const nt = $('prodesNote');
+    if (!PRD.list.length) { nt.textContent = 'Não foi possível carregar o PRODES agora. Tente de novo mais tarde.'; $('lyProdes').checked = false; PRD.loading = null; return; }
+    if (!PRD.fill) { const rr = PRD.list.flatMap(d => d.r.map(flatToRing)); PRD.fill = makeFill(rr, 0xb3a9cc, 0.4, 0.26); PRD.line = makeDraped(rr, 0xddd6ee, 0.75, 0.31, 3); }
+    const on = $('lyProdes').checked; PRD.fill.obj.visible = PRD.line.obj.visible = on; nt.hidden = !on;
+    nt.textContent = 'Desmatamento medido pelo INPE (PRODES) nos anos ' + PRD.years.join(', ') + '. Cada ano PRODES vai de agosto a julho. Toque numa área para ver o ano. É medição oficial anual, não mostra quem desmatou.';
+  }
+  $('lyProdes').onchange = e => {
+    const on = e.target.checked, nt = $('prodesNote');
+    nt.hidden = !on;
+    if (PRD.fill) PRD.fill.obj.visible = PRD.line.obj.visible = on;
+    else if (on) { nt.textContent = 'Carregando o desmatamento medido (PRODES)…'; loadProdes().then(showProdes); }
+    if (!on && st.sel && st.sel.kind === 'prodes') { st.sel = null; showDetail(); }
+  };
   $('lyQueim').onchange = e => {
     if (e.target.checked && !queimLayer && QM.length) { const rr = QM.flatMap(d => d.r.map(flatToRing)); queimFill = makeFill(rr, 0x3d2f24, 0.55, 0.3); queimLayer = makeDraped(rr, 0xb39a80, 0.95, 0.36, 3); }
     if (queimLayer) queimLayer.obj.visible = queimFill.obj.visible = e.target.checked;
@@ -2630,6 +2662,8 @@ details.legal li { margin-bottom: 4px; }
     if (dk >= 0) { st.sel = { kind: 'deter', k: dk, lon: g.lon, lat: g.lat }; showDetail(); return; }
     const qk = g && queimLayer && queimLayer.obj.visible ? queimAt(g.lon, g.lat, Math.max(0.15, Math.min(3, camera.position.distanceTo(controls.target) * 0.006))) : -1;
     if (qk >= 0) { st.sel = { kind: 'queim', k: qk, lon: g.lon, lat: g.lat }; showDetail(); return; }
+    const pk = g && PRD.fill && PRD.fill.obj.visible ? prodesAt(g.lon, g.lat, Math.max(0.15, Math.min(3, camera.position.distanceTo(controls.target) * 0.006))) : -1;
+    if (pk >= 0) { st.sel = { kind: 'prodes', k: pk, lon: g.lon, lat: g.lat }; showDetail(); return; }
     const c = g && carLayer && carLayer.obj.visible ? carAt(g.lon, g.lat) : -1;
     st.sel = c >= 0 ? { kind: 'car', k: c } : null; showDetail();
   }
@@ -2715,6 +2749,25 @@ details.legal li { margin-bottom: 4px; }
     }
     return best >= 0 ? best : near;
   }
+  // PRODES area under the click: inside a polygon (smallest first), else the closest one within tolKm
+  function prodesAt(lon, lat, tolKm) {
+    let best = -1, ba = 1e18, near = -1, nd = tolKm / 111;
+    for (let k = 0; k < PRD.list.length; k++) {
+      const P = PRD.list[k], b = P.box;
+      if (lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3] && P.km2 < ba && P.r.some(r => pointInRing(lon, lat, r))) { best = k; ba = P.km2; }
+      const d = Math.hypot(Math.max(b[0] - lon, 0, lon - b[2]), Math.max(b[1] - lat, 0, lat - b[3])); if (d < nd) { nd = d; near = k; }
+    }
+    return best >= 0 ? best : near;
+  }
+  function prodesCard(k, lon, lat) {
+    const d = PRD.list[k], ha = d.km2 * 100;
+    removeDraped(PRD.sel); removeDraped(PRD.selFill); PRD.selFill = makeFill(d.r.map(flatToRing), 0xffffff, 0.3, 0.4); PRD.sel = makeDraped(d.r.map(flatToRing), 0xffffff, 1, 0.9, 1);
+    showCard('<h3>Desmatamento medido</h3><p class="when">PRODES · INPE · ano ' + d.y + (d.d ? ' · imagem de ' + d.d.split('-').reverse().join('/') : '') + '</p>' + whereTxt(lon, lat) +
+      '<span class="tag">ano PRODES ' + d.y + '</span><span class="tag">cerca de ' + (ha < 10 ? fmt(ha, 1) : fmt(ha, 0)) + ' ha</span>' +
+      '<p style="margin:8px 0 0;font-size:13px">Área onde o INPE mediu a retirada da floresta no ano PRODES ' + d.y + ' (de agosto de ' + (d.y - 1) + ' a julho de ' + d.y + '). Não mostra quem desmatou nem se havia autorização.</p>' +
+      '<details class="more"><summary>Mais detalhes</summary><div><p>O PRODES é a medição oficial e anual do desmatamento na Amazônia, feita pelo INPE com imagens de satélite. É mais preciso que o DETER, mas sai uma vez por ano. Áreas muito pequenas (menos de cerca de 6,25 ha) não entram. O mapa mostra os últimos 3 anos publicados' + (PRD.got ? ' (baixados em ' + PRD.got.split('-').reverse().join('/') + ')' : '') + '.</p>' +
+      '<p style="margin-top:6px">Fonte: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">TerraBrasilis, INPE (PRODES)</a>.</p></div></details>');
+  }
   function queimCard(k, lon, lat) {
     const d = QM[k], ha = d.km2 * 100, deg = d.cls === 'DEGRADACAO';
     removeDraped(qmSel); removeDraped(qmSelFill); qmSelFill = makeFill(d.r.map(flatToRing), 0xffffff, 0.3, 0.4); qmSel = makeDraped(d.r.map(flatToRing), 0xffffff, 1, 0.9, 1);
@@ -2722,7 +2775,7 @@ details.legal li { margin-bottom: 4px; }
       '<span class="tag">' + esc(QM_CLS[d.cls] || d.cls.replace(/_/g, ' ').toLowerCase()) + '</span><span class="tag">cerca de ' + (ha < 10 ? fmt(ha, 1) : fmt(ha, 0)) + ' ha</span>' +
       '<p style="margin:8px 0 0;font-size:13px">É um <b>alerta do INPE</b>, não confirmação de autoria: mostra a marca deixada na vegetação, não quem causou nem se havia autorização.</p>' +
       '<details class="more"><summary>Mais detalhes</summary><div><p>' + (deg ? 'Degradação é floresta que perdeu parte das árvores ou da copa sem ser derrubada por completo. Pode vir de fogo repetido ou de retirada de madeira.' : 'Cicatriz de queimada é a área onde a vegetação aparece queimada na imagem de satélite.') +
-      ' A área é aproximada e foi medida dentro do município. O mapa mostra os alertas dos últimos 12 meses.</p>' +
+      ' A área é aproximada e foi medida dentro do município. O mapa mostra os alertas desde dezembro de 2024.</p>' +
       '<p style="margin-top:6px">Fonte: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">TerraBrasilis, INPE (DETER)</a>.</p></div></details>');
   }
   function deterCard(k, lon, lat) {
@@ -2911,11 +2964,13 @@ details.legal li { margin-bottom: 4px; }
     if (!s || s.kind !== 'car') { removeDraped(carSel); carSel = null; }
     if (!s || s.kind !== 'deter') { removeDraped(detSel); removeDraped(detSelFill); detSel = detSelFill = null; }
     if (!s || s.kind !== 'queim') { removeDraped(qmSel); removeDraped(qmSelFill); qmSel = qmSelFill = null; }
+    if (!s || s.kind !== 'prodes') { removeDraped(PRD.sel); removeDraped(PRD.selFill); PRD.sel = PRD.selFill = null; }
     if (!s || s.kind !== 'gauge') { gTap = -1; gaugeEls.forEach(el => el.classList.remove('tap')); }
     if (!s) { $('pop').hidden = true; return; }
     if (s.kind === 'car') { carCard(s.k); return; }
     if (s.kind === 'deter') { deterCard(s.k, s.lon, s.lat); return; }
     if (s.kind === 'queim') { queimCard(s.k, s.lon, s.lat); return; }
+    if (s.kind === 'prodes') { prodesCard(s.k, s.lon, s.lat); return; }
     if (s.kind === 'inpe') { inpeCard(s.k); return; }
     if (s.kind === 'gauge') { gaugeCard(s.k); return; }
     if (s.kind === 'river') { riverCard(s.name, s.lon, s.lat); return; }

@@ -45,7 +45,7 @@ small { color: var(--muted); }
 <tr><th>Dado</th><th>Fonte</th><th>Atualização</th></tr>
 <tr><td>Focos de calor e eventos de fogo</td><td>INPE, Programa Queimadas</td><td>a cada 30 min</td></tr>
 <tr><td>Alertas de desmatamento</td><td>INPE, DETER (TerraBrasilis)</td><td>a cada 30 min</td></tr>
-<tr><td>Área queimada e degradação (alertas)</td><td>INPE, DETER: classes cicatriz de queimada e degradação, últimos 12 meses</td><td>a cada 30 min</td></tr>
+<tr><td>Área queimada e degradação (alertas)</td><td>INPE, DETER: classes cicatriz de queimada e degradação, desde dezembro de 2024</td><td>a cada 30 min</td></tr>
 <tr><td>Nível dos rios</td><td>ANA, réguas telemétricas e série histórica</td><td>a cada 30 min</td></tr>
 <tr><td>Vento, chuva, umidade</td><td>Open-Meteo (modelo de previsão)</td><td>a cada 30 min</td></tr>
 <tr><td>Imóveis rurais (CAR)</td><td>SICAR, dados públicos sem nome</td><td>a cada 30 a 60 dias</td></tr>
@@ -53,6 +53,7 @@ small { color: var(--muted); }
 <tr><td>Terras Indígenas, municípios</td><td>FUNAI, IBGE</td><td>fixo</td></tr>
 <tr><td>Vegetação</td><td>NASA MODIS 2023 (500 m)</td><td>fixo</td></tr>
 <tr><td>Imagem e relevo</td><td>Sentinel-2 cloudless 2025 (EOX); SRTM</td><td>fixo</td></tr>
+<tr><td>Desmatamento medido por ano</td><td>INPE, PRODES (TerraBrasilis), últimos 3 anos publicados</td><td>a cada 30 dias (o INPE publica uma vez por ano)</td></tr>
 <tr><td>Imagem de ontem (opcional)</td><td>NASA GIBS/Worldview, satélites VIIRS (SNPP e NOAA-20), cerca de 250 m, dados públicos; mostra nuvens e fumaça</td><td>uma foto por dia, baixada só quando escolhida</td></tr>
 </table>
 <p>O GitHub baixa os dados, prepara os arquivos e publica o site sozinho. O topo do mapa mostra quando o satélite viu o último fogo e quando os dados foram coletados.</p>
@@ -118,6 +119,7 @@ small { color: var(--muted); }
 <li><b>FRP</b> – potência do fogo medida pelo satélite, em megawatts.</li>
 <li><b>Cicatriz</b> – área já queimada.</li>
 <li><b>DETER</b> – alerta rápido de desmatamento do INPE; é alerta, não confirmação.</li>
+<li><b>PRODES</b> – medição oficial e anual do desmatamento do INPE; mais precisa que o DETER, mas sai uma vez por ano. O mapa nunca cruza o PRODES com o CAR.</li>
 <li><b>Área queimada (DETER)</b> – cicatriz de queimada ou floresta degradada marcada pelo INPE; mostra a marca na vegetação, não quem causou.</li>
 <li><b>CAR</b> – Cadastro Ambiental Rural, declarado pelo dono do imóvel.</li>
 <li><b>Terra Indígena</b> – área demarcada pela FUNAI; o uso tradicional do fogo é permitido por lei.</li>
