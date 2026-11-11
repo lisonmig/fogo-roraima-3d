@@ -139,6 +139,13 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .perfnote p { margin: 0 0 8px; }
 .undo { position: fixed; z-index: 60; top: 84px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; white-space: nowrap; background: rgba(20,20,20,.88); color: #fff; border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 12.5px; box-shadow: 0 3px 12px rgba(0,0,0,.3); }
 .medot { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: #2b7cff; border: 3px solid #fff; box-shadow: 0 0 0 0 rgba(43,124,255,.6); animation: mepulse 1.8s infinite; pointer-events: none; z-index: 3; }
+#tour { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.55); }
+.tour-card { width: min(380px, 100%); background: var(--panel); color: var(--ink); border-radius: 14px; padding: 22px 20px 16px; text-align: center; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+.tour-ic { font-size: 46px; line-height: 1; margin-bottom: 8px; }
+.tour-card h2 { margin: 0 0 6px; font: 700 21px var(--f-display); text-transform: none; letter-spacing: 0; color: var(--ink); }
+.tour-card p { margin: 0 0 14px; font-size: 15px; line-height: 1.45; }
+.tour-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 14px; } .tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); } .tour-dots i.on { background: var(--accent); }
+.tour-row { display: flex; gap: 8px; } .tour-row .btn { flex: 1; min-height: 44px; font-size: 15px; } .tour-next { background: var(--accent) !important; color: #fff !important; border-color: transparent !important; }
 @keyframes mepulse { 0% { box-shadow: 0 0 0 0 rgba(43,124,255,.55); } 70% { box-shadow: 0 0 0 16px rgba(43,124,255,0); } 100% { box-shadow: 0 0 0 0 rgba(43,124,255,0); } }
 @media (prefers-reduced-motion: reduce) { .medot { animation: none; } }
 #whereBtn[aria-pressed="true"] { background: #2b7cff; }
@@ -465,6 +472,7 @@ details.legal li { margin-bottom: 4px; }
       <button class="compass" id="compass" title="Virar para o norte"><span id="needle">N</span></button>
       <button class="vbtn" id="home">Estado todo</button>
       <button class="vbtn" id="topView">Vista de cima</button>
+      <button class="vbtn" id="helpBtn" title="Como usar o mapa" aria-label="Como usar o mapa">? Ajuda</button>
       <button class="vbtn" id="whereBtn" hidden title="Mostrar onde você está (GPS)" aria-pressed="false">◎ Onde estou</button>
       <button class="vbtn" id="sitBtn" title="Mostrar ou esconder incêndios queimando, em observação ou apagados">🔥 Filtro</button>
     </div>
@@ -2854,6 +2862,29 @@ details.legal li { margin-bottom: 4px; }
     el.scrollTop = 0;
   }
   $('repBtn').onclick = showReport;
+  // ---------- first visit: a short guide (4 cards, little text); the "?" button shows it again
+  const TOUR = [
+    ['🛰️', 'Fogo visto do satélite', 'Os pontos que brilham são focos de fogo vistos pelos satélites do INPE. Quanto mais forte o brilho, mais recente e mais forte o fogo.'],
+    ['👆', 'Toque para saber mais', 'Um toque num fogo, num rio 💧 ou numa mancha abre os detalhes. Arraste para girar o mapa; use dois dedos para aproximar.'],
+    ['📍', 'Marque o seu lugar', 'Dois toques no mapa marcam um ponto. O site diz se há fogo perto, para que lado o vento leva e o que fazer. Dois toques no alfinete removem.'],
+    ['📞', 'Em perigo, ligue', '<b>193</b> Bombeiros · <b>199</b> Defesa Civil. O satélite pode não ver fogo pequeno, sob nuvem ou à noite: se vir fumaça, não espere o mapa.']
+  ];
+  let tourK = 0;
+  function showTour() {
+    let el = $('tour'); if (!el) { el = document.createElement('div'); el.id = 'tour'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Como usar o mapa'); document.body.appendChild(el); }
+    const [ic, t, x] = TOUR[tourK], last = tourK === TOUR.length - 1;
+    el.innerHTML = '<div class="tour-card"><div class="tour-ic" aria-hidden="true">' + ic + '</div><h2>' + t + '</h2><p>' + x + '</p>' +
+      '<div class="tour-dots" aria-hidden="true">' + TOUR.map((_, k) => '<i' + (k === tourK ? ' class="on"' : '') + '></i>').join('') + '</div>' +
+      '<div class="tour-row"><button class="btn" data-t="skip">' + (last ? 'Fechar' : 'Pular') + '</button><button class="btn tour-next" data-t="next">' + (last ? 'Começar' : 'Próximo') + '</button></div></div>';
+    el.onclick = e => {
+      const a = e.target.dataset && e.target.dataset.t; if (!a && e.target !== el) return;
+      if (a === 'next' && !last) { tourK++; showTour(); return; }
+      el.remove(); try { localStorage.setItem('rr3d-tour', '1'); } catch (err) {}
+    };
+    el.querySelector('.tour-next').focus();
+  }
+  $('helpBtn').onclick = () => { tourK = 0; showTour(); };
+  try { if (localStorage.getItem('rr3d-tour') !== '1') setTimeout(() => { tourK = 0; showTour(); }, 600); } catch (e) {}
   // ---------- loop
   let prev = performance.now();
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
