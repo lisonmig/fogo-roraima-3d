@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sobre o projeto e metodologia – Fogo em Roraima 3D</title>
+<meta name="description" content="Como o Fogo em Roraima 3D funciona: fontes de dados, satélites e margem de erro, nota de importância do fogo, área com fogo, tempo de chegada, nível dos rios, glossário e como citar.">
+<link rel="canonical" href="https://fogororaima.com.br/sobre.html">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="icone.svg">
+<style>
+:root { --bg: #f7f5f1; --ink: #1b1917; --muted: #5a534b; --line: #ded8ce; --accent: #c2410c; --card: #fff; --blue: #2b6cb0; }
+@media (prefers-color-scheme: dark) { :root { --bg: #121110; --ink: #ece7df; --muted: #b3aba0; --line: #34302b; --accent: #ff7a2f; --card: #1c1a18; --blue: #6aa5e6; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 780px; margin: 0 auto; padding: 24px 16px 48px; }
+a { color: var(--accent); }
+.top { display: inline-block; margin-bottom: 18px; font-weight: 600; text-decoration: none; }
+h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; }
+.sub { color: var(--muted); margin: 0 0 18px; }
+h2 { font-size: 21px; margin: 32px 0 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+h3 { font-size: 17px; margin: 18px 0 4px; }
+ul { padding-left: 20px; } li { margin: 4px 0; }
+.box { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; margin: 12px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; margin: 8px 0; } td, th { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: top; } th { font-weight: 600; }
+nav.idx { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 15px; }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0; font-size: 14px; }
+.flow span { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+.flow b { color: var(--muted); font-weight: 400; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 6px; border: 1px solid rgba(0,0,0,.4); }
+code { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: 14px; }
+small { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<a class="top" href="./">← Voltar ao mapa</a>
+<h1>Sobre o projeto e como os números são calculados</h1>
+<p class="sub">Fogo em Roraima 3D é um mapa público, gratuito e sem anúncios dos focos de incêndio, da seca dos rios e do risco para quem mora e produz em Roraima. Projeto de extensão da Universidade Estadual de Roraima (UERR).</p>
+<nav class="idx"><a href="#dados">De onde vêm os dados</a><a href="#satelites">Satélites e margem de erro</a><a href="#importancia">Importância do fogo</a><a href="#area">Área com fogo</a><a href="#perigo">Perigo e tempo de chegada</a><a href="#rios">Rios</a><a href="#limites">Limites</a><a href="#glossario">Glossário</a><a href="#citar">Como citar</a></nav>
+
+<h2 id="dados">1. De onde vêm os dados</h2>
+<div class="flow"><span>🛰️ Satélites</span><b>→</b><span>INPE (focos e eventos de fogo)</span><b>→</b><span>GitHub, a cada 30 min</span><b>→</b><span>🗺️ fogororaima.com.br</span></div>
+<table>
+<tr><th>Dado</th><th>Fonte</th><th>Atualização</th></tr>
+<tr><td>Focos de calor e eventos de fogo</td><td>INPE, Programa Queimadas</td><td>a cada 30 min</td></tr>
+<tr><td>Alertas de desmatamento</td><td>INPE, DETER (TerraBrasilis)</td><td>a cada 30 min</td></tr>
+<tr><td>Nível dos rios</td><td>ANA, réguas telemétricas e série histórica</td><td>a cada 30 min</td></tr>
+<tr><td>Vento, chuva, umidade</td><td>Open-Meteo (modelo de previsão)</td><td>a cada 30 min</td></tr>
+<tr><td>Imóveis rurais (CAR)</td><td>SICAR, dados públicos sem nome</td><td>a cada 30 a 60 dias</td></tr>
+<tr><td>Estradas, vilas, rios do mapa</td><td>OpenStreetMap</td><td>a cada 30 a 60 dias</td></tr>
+<tr><td>Terras Indígenas, municípios</td><td>FUNAI, IBGE</td><td>fixo</td></tr>
+<tr><td>Vegetação</td><td>NASA MODIS 2023 (500 m)</td><td>fixo</td></tr>
+<tr><td>Imagem e relevo</td><td>Sentinel-2 cloudless 2025 (EOX); SRTM</td><td>fixo</td></tr>
+</table>
+<p>O GitHub baixa os dados, prepara os arquivos e publica o site sozinho. O topo do mapa mostra quando o satélite viu o último fogo e quando os dados foram coletados.</p>
+
+<h2 id="satelites">2. Satélites e margem de erro</h2>
+<p>Um <b>foco</b> é um ponto onde o satélite viu calor compatível com fogo. Cada satélite vê o chão em quadrados de tamanho diferente, e a posição real do fogo pode estar em qualquer parte do quadrado:</p>
+<table>
+<tr><th>Sensor (satélites)</th><th>Margem de erro</th><th>Passagens</th></tr>
+<tr><td>VIIRS (NOAA-20, NOAA-21, Suomi NPP)</td><td>cerca de 375 m</td><td>2 por dia cada, por volta de 1h30 e 13h30</td></tr>
+<tr><td>MODIS (Aqua, Terra)</td><td>cerca de 1 km</td><td>2 por dia cada</td></tr>
+<tr><td>AVHRR (MetOp)</td><td>cerca de 1 km</td><td>2 por dia cada</td></tr>
+<tr><td>GOES-19 (geoestacionário)</td><td>2 a 3 km</td><td>a cada 10 minutos</td></tr>
+<tr><td>MSG (geoestacionário)</td><td>3 a 5 km</td><td>a cada 15 minutos</td></tr>
+</table>
+<p>O mesmo fogo costuma ser visto por vários satélites. Por isso o site conta <b>locais com fogo</b> (quadrados de cerca de 2 km) e não soma focos. Para comparar anos, o INPE usa um <b>satélite de referência</b> (hoje o Aqua, sensor MODIS, à tarde); a linha do tempo permite ver só ele. O Aqua está no fim da vida útil: quando o INPE trocar a referência, o site vai seguir a nova.</p>
+
+<h2 id="importancia">3. Importância de cada fogo (nota de 0 a 100)</h2>
+<table>
+<tr><th>Parte</th><th>Pontos</th><th>Como</th></tr>
+<tr><td>Recente</td><td>até 40</td><td>visto há menos de 3 h: 40 · 3 a 12 h: 25 · 12 a 24 h: 10 · mais antigo: 0</td></tr>
+<tr><td>Tamanho</td><td>até 25</td><td>quantos focos no mesmo local (2 km) em 12 h</td></tr>
+<tr><td>Força</td><td>até 20</td><td>potência medida (FRP), comparada dentro do mesmo tipo de satélite (a do GOES não é comparável à do VIIRS)</td></tr>
+<tr><td>Perto de gente</td><td>até 15</td><td>a menos de 2 km de vila, comunidade ou cidade: 15 · a menos de 5 km: 8</td></tr>
+</table>
+<p>Os 5 fogos com nota mais alta ganham rótulo no mapa, e a câmera chega no de maior nota. A aparência muda com a idade:</p>
+<ul>
+<li><span class="sw" style="background:#ff8a1f"></span><b>Chama</b> – visto há até 6 h (os mais importantes soltam fumaça).</li>
+<li><span class="sw" style="background:#e04a12"></span><b>Brasa</b> – de 6 a 24 h.</li>
+<li><span class="sw" style="background:#7a2a12"></span><b>Carvão</b> – de 1 a 7 dias.</li>
+<li><span class="sw" style="background:#2b1d18"></span><b>Cicatriz</b> – a área escura pintada no chão, que some aos poucos até 60 dias.</li>
+</ul>
+<p>O cartão do foco pode dizer <b>"parece queima pequena (roça ou manejo)"</b> (poucos focos, uma passagem, em pasto ou lavoura) ou <b>"parece incêndio"</b> (muitos focos, fogo que durou mais de 12 h, ou classificado como incêndio pelo INPE). É só uma pista: quem confirma é a vistoria.</p>
+
+<h2 id="area">4. Área com fogo</h2>
+<p>Regra única do site: <b>quadrados de 375 m do VIIRS (cerca de 14 ha) com pelo menos um foco no período, cada quadrado contado uma vez</b>. É uma estimativa: erra para mais em fogo pequeno (um foco marca o quadrado inteiro) e para menos em fogo rápido de capim que queima entre uma passagem e outra.</p>
+<p>A lista "Maiores incêndios" mostra a área do <b>contorno oficial do INPE</b> (eventos de fogo) quando existe, marcada como "contorno INPE". As duas medidas são diferentes e não devem ser somadas.</p>
+
+<h2 id="perigo">5. Perigo no ponto marcado e tempo de chegada</h2>
+<p>O site olha os focos das últimas 24 h e os contornos de incêndios ativos do INPE até 40 km do ponto e estima a velocidade do fogo com uma regra prática:</p>
+<ul>
+<li><b>Capim, pasto, lavrado:</b> 8% a 20% da velocidade do vento (no mínimo 0,1 a 0,3 km/h). <b>Floresta:</b> 0,01 a 0,06 km/h.</li>
+<li><b>Umidade e chuva:</b> chuva de 5 mm ou mais × 0,3 · umidade de 70% ou mais × 0,4 · de 50% a 70% × 0,7 · abaixo de 30% × 1,3.</li>
+<li><b>Direção do vento:</b> soprando do fogo para o ponto × 1 · de lado × 0,35 · para longe × 0,08 · vento fraco × 0,6.</li>
+<li><b>Rio no caminho:</b> rio largo ou principal entre o fogo e o ponto reduz muito a chance (× 0,03), porque o fogo rasteiro raramente atravessa.</li>
+</ul>
+<p><b>Níveis:</b> <i>Perigo alto</i> – fogo no local, a até 2 km sem rio no caminho ou chegando em até 6 h · <i>Atenção</i> – a até 8 km ou chegando em até 24 h · <i>Baixo</i> – fogo a até 40 km. Se o fogo foi visto há mais de 24 h, o nível baixa um degrau. É uma regra simples, não um modelo completo de propagação: o fogo real pode ser mais rápido ou mais lento.</p>
+
+<h2 id="rios">6. Nível dos rios</h2>
+<p>Cada régua da ANA é comparada com todos os anos anteriores na mesma data. <b>Risco hídrico crítico</b>: entre os 3 menores níveis já medidos para a data ou abaixo de 9 em cada 10 anos (percentil 10). O número é a altura na régua, não a profundidade, e pode ser negativo. O ano hidrológico vai de agosto a julho.</p>
+
+<h2 id="limites">7. Limites</h2>
+<ul>
+<li>O satélite não vê fogo pequeno, sob nuvem ou fumaça, e passa poucas vezes à noite.</li>
+<li>O mapa não sabe quem acendeu o fogo nem se havia autorização: fogo num imóvel do CAR não quer dizer culpa do dono (veja os <a href="termos.html">termos de uso</a>).</li>
+<li>Chuva, vento e umidade vêm de modelo de previsão (quadrados de cerca de 11 km), não de estação.</li>
+<li>A vegetação vem de um mapa de 500 m e pode errar em áreas pequenas.</li>
+</ul>
+
+<h2 id="glossario">8. Glossário</h2>
+<ul>
+<li><b>Foco de calor</b> – ponto onde o satélite viu calor; não mostra o tamanho do incêndio.</li>
+<li><b>Evento de fogo (INPE)</b> – agrupamento oficial de focos, com contorno e situação (queimando, em observação, sem fogo visto).</li>
+<li><b>FRP</b> – potência do fogo medida pelo satélite, em megawatts.</li>
+<li><b>Cicatriz</b> – área já queimada.</li>
+<li><b>DETER</b> – alerta rápido de desmatamento do INPE; é alerta, não confirmação.</li>
+<li><b>CAR</b> – Cadastro Ambiental Rural, declarado pelo dono do imóvel.</li>
+<li><b>Terra Indígena</b> – área demarcada pela FUNAI; o uso tradicional do fogo é permitido por lei.</li>
+<li><b>Régua</b> – estação da ANA que mede o nível de um rio.</li>
+</ul>
+
+<h2 id="citar">9. Equipe e como citar</h2>
+<p>Projeto de extensão da Universidade Estadual de Roraima (UERR), com Warlison Vieira e colaboradores. O código é aberto em <a href="https://github.com/lisonmig/fogo-roraima-3d" target="_blank" rel="noopener">github.com/lisonmig/fogo-roraima-3d</a> (licença MIT). Sugestões e correções: veja <a href="termos.html#contestar">como pedir</a>.</p>
+<div class="box"><b>Como citar (ABNT):</b><br>VIEIRA, Warlison. <b>Fogo em Roraima 3D</b>: mapa de focos de incêndio e seca em Roraima. Boa Vista: Universidade Estadual de Roraima, 2026. Disponível em: https://fogororaima.com.br. Acesso em: <i>dia mês ano</i>.</div>
+<p><small>Fontes completas e licenças nos <a href="termos.html#fontes">termos de uso</a>. Em emergência, ligue 193 (Bombeiros) ou 199 (Defesa Civil).</small></p>
+</main>
+</body>
+</html>

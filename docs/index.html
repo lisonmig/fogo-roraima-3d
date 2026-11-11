@@ -154,6 +154,9 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 html.big .panel-in, html.big .pop, html.big .timeline, html.big .mbar, html.big #tour, html.big .peek { zoom: 1.18; }
 #bigBtn[aria-pressed="true"] { background: var(--accent); }
 #moreBtn { display: none; }
+.loading .ld { max-width: 340px; padding: 16px; text-align: center; line-height: 1.4; } .loading .ld p { margin: 6px 0; }
+.loading .ld-big { font: 700 20px var(--f-body); } .loading .ld-small, .loading .ld-wait { font-weight: 400; font-size: 14px; opacity: .85; }
+.loading .ld-sos { margin-top: 14px !important; font-size: 14px; } .loading .ld-sos a { color: inherit; font-weight: 700; }
 .rep-map { display: block; width: 100%; border-radius: 8px; margin: 6px 0 12px; }
 @keyframes mepulse { 0% { box-shadow: 0 0 0 0 rgba(43,124,255,.55); } 70% { box-shadow: 0 0 0 16px rgba(43,124,255,0); } 100% { box-shadow: 0 0 0 0 rgba(43,124,255,0); } }
 @media (prefers-reduced-motion: reduce) { .medot { animation: none; } }
@@ -502,7 +505,7 @@ details.legal li { margin-bottom: 4px; }
       <button class="x" id="popX" aria-label="Fechar">×</button>
       <div id="popBody"></div>
     </div>
-    <div class="loading" id="loading">Carregando relevo, imagem e focos de Roraima…</div>
+    <div class="loading" id="loading"><div class="ld"><div id="ldSum"></div><p class="ld-wait">Carregando o mapa 3D de Roraima…</p><p class="ld-sos">Emergência: <a href="tel:193">193 Bombeiros</a> · <a href="tel:199">199 Defesa Civil</a></p></div></div>
   </main>
 
   <section class="timeline" id="timeline" aria-label="Linha do tempo">
@@ -553,7 +556,7 @@ details.legal li { margin-bottom: 4px; }
         <section class="sec" aria-live="polite">
           <div class="summary" id="summary"></div>
           <button class="secamini" id="secaMini" hidden></button>
-          <p class="kpis"><span><b id="stArea">–</b> com fogo no período</span><span><b id="stRain">–</b> de chuva em 24 h</span></p>
+          <p class="kpis"><span title="Quadrados de 375 m com foco no período, cada um contado uma vez"><b id="stArea">–</b> com fogo no período (estimativa)</span><span><b id="stRain">–</b> de chuva em 24 h</span></p>
           <span hidden><b id="stPlaces"></b><span id="stPlacesLbl"></span></span>
           <p class="psub" id="pSub"></p>
         </section>
@@ -755,7 +758,7 @@ details.legal li { margin-bottom: 4px; }
         <details class="block" open>
           <summary>Fontes</summary>
           <div class="src" style="border:0;padding:0">
-          <p class="note" style="margin:0 0 8px">📄 <a href="termos.html">Termos de uso, privacidade e como pedir correção de uma informação</a></p>
+          <p class="note" style="margin:0 0 8px">📘 <a href="sobre.html">Sobre o projeto e como os números são calculados</a> · 📄 <a href="termos.html">Termos, privacidade e correções</a></p>
           <p><b>Fontes.</b> Focos: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>. Terras Indígenas: <a href="https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas" target="_blank" rel="noopener">FUNAI</a>. Municípios e limite estadual: IBGE. Imóveis rurais: <a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">SICAR</a> (CAR, dados públicos, sem nome de dono). Desmatamento: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE DETER</a>. Eventos de fogo oficiais (contorno, tipo e uso da terra): <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">INPE, Evento de Fogo</a>; o INPE lista só os eventos ativos ou em observação, então o mapa guarda cada atualização para formar o histórico a partir de 30/09/2026. Estradas, rios, vilas e fazendas: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© colaboradores do OpenStreetMap</a> (ODbL); o mapa colaborativo pode ter falhas ou estradas faltando. Vegetação: MODIS Land Cover (IGBP) 2023, NASA GIBS. Relevo: Terrarium/Mapzen (SRTM). Imagem: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2025 by EOX IT Services GmbH</a> (dados Copernicus Sentinel modificados, CC BY-NC-SA 4.0). Vento, umidade, temperatura e chuva: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (modelo, não estação).</p>
           <p>Unidades de conservação ficaram de fora: o serviço do MMA consultado trazia nomes trocados com os desenhos.</p>
           <p>Projeto de extensão · UERR.</p>
@@ -808,6 +811,15 @@ details.legal li { margin-bottom: 4px; }
 
   // ---------- load
   let D, hImg, tImg, lcImg;
+  // a small summary (a few KB) shows up first, while the 3D map and the big data file load
+  fetch('resumo.json').then(r => r.ok ? r.json() : null).then(S => {
+    if (!S || !$('ldSum') || $('loading').hidden) return;
+    const ago = m => m < 60 ? 'há ' + Math.max(1, Math.round(m)) + ' min' : m < 2880 ? 'há ' + Math.round(m / 60) + ' h' : 'há ' + Math.round(m / 1440) + ' dias';
+    const lf = (Date.now() - Date.parse(S.lastFire)) / 60000;
+    $('ldSum').innerHTML = '<p class="ld-big">🔥 <b>' + S.places24h.toLocaleString('pt-BR') + '</b> locais com fogo nas últimas 24 h</p>' +
+      (S.top && S.top.length ? '<p>Mais em ' + S.top.slice(0, 3).map(t => t[0] + ' (' + t[1] + ')').join(', ') + '.</p>' : '') +
+      '<p class="ld-small">Último fogo visto pelo satélite ' + ago(lf) + '.</p>';
+  }).catch(() => {});
   // extra layers: if one fails, the map still works and a short note says which one is missing
   const failed = [], getL = (f, name) => fetch(f).then(r => { if (!r.ok) throw 0; return r.json(); }).catch(() => { failed.push(name); return null; });
   const riosP = getL('rios.json', 'rios do mapa'), secaP = getL('seca.json', 'nível dos rios'), inpeP = getL('eventos_inpe.json', 'eventos de fogo do INPE'), roadsP = getL('estradas.json', 'estradas');
@@ -1099,6 +1111,8 @@ details.legal li { margin-bottom: 4px; }
   }
   const cells = [...cellFirst.values()].sort((a, b) => a.t - b.t);
   const cellTimes = Float64Array.from(cells, c => c.t);
+  // one rule for 'area with fire' everywhere: 375 m VIIRS squares (about 14 ha) with a detection in the period, each counted once
+  function areaHa(from, to, test) { const seen = new Set(); for (let i = firstAt(from), e = firstAt(to + 1); i < e; i++) { if (!F.v[i] || (test && !test(i))) continue; seen.add(Math.round(F.lat[i] / 0.003375) * 100000 + Math.round(F.lon[i] / 0.003375)); } return seen.size * 14.06; }
   const cellsUpTo = t => { let lo = 0, hi = cellTimes.length; while (lo < hi) { const m = (lo + hi) >> 1; if (cellTimes[m] <= t) lo = m + 1; else hi = m; } return lo; };
   const cellPx = Math.max(2, 0.375 * burnCanvas.width / WKM * 1.3);
   // scars: everything that burned in the 60 days before the current moment, fading with age
@@ -1251,7 +1265,7 @@ details.legal li { margin-bottom: 4px; }
     $('stPlacesLbl').textContent = 'locais com fogo ' + winTxt();
     $('stPlaces').title = fmt(idx.length) + ' detecções de satélite';
     st.nPlaces = places.size; renderPeek();
-    $('stArea').textContent = fmt((cellsUpTo(st.t) - cellsUpTo(period.from - 1)) * 0.1406, 0) + ' km²';
+    $('stArea').textContent = fmt(areaHa(period.from, st.t) / 100, 0) + ' km²';
     const h = Math.max(0, Math.min(NS - 1, Math.floor(st.t / STEP)));
     let r24 = 0; for (let k = 0; k < 8 && h - k >= 0; k++) r24 += prMean[h - k];
     $('stRain').textContent = fmt(r24, 1) + ' mm';
@@ -2258,7 +2272,7 @@ details.legal li { margin-bottom: 4px; }
       const li = document.createElement('li'), b = document.createElement('button'), e = x.e;
       b.innerHTML = '<span class="nm"></span><span class="km"></span><span class="dt"></span>';
       b.querySelector('.nm').textContent = x.mine ? D.muns[e.m] : e.mun;
-      b.querySelector('.km').textContent = '≈ ' + fmt(x.km2, 1) + ' km²';
+      b.querySelector('.km').textContent = '≈ ' + fmt(x.km2, 1) + ' km² ' + (x.mine ? '(estimativa)' : '(contorno INPE)');
       b.querySelector('.dt').textContent = x.mine ? fmtD(e.start) + ' a ' + fmtD(e.end) + ' · ' + fmt(e.n) + ' detecções VIIRS' : isoBr(e.d0) + ' a ' + isoBr(e.d1) + ' · ' + inpeName(e.tipo).toLowerCase() + ' (INPE)';
       b.onclick = () => {
         pause();
@@ -2603,6 +2617,16 @@ details.legal li { margin-bottom: 4px; }
   });
 
   // ---------- "could it be illegal?": what the satellite data can and cannot say
+  // a rough hint, never a verdict: a small one-pass fire on pasture or crop land looks like field burning; a fire that spreads or lasts looks like a wildfire
+  function fireKindTag(i, iev) {
+    if (iev && /inc[eê]ndio/i.test(iev.tipo)) return '<span class="tag hot" title="Classificação do INPE">parece incêndio</span>';
+    let n = 0, t0 = Infinity, t1 = -Infinity; for (let k = firstAt(F.t[i] - 1440), e = firstAt(F.t[i] + 1440); k < e; k++) if (fCell[k] === fCell[i]) { n++; t0 = Math.min(t0, F.t[k]); t1 = Math.max(t1, F.t[k]); }
+    const long = t1 - t0 > 720, farm = F.c[i] === 2 || F.c[i] === 3;
+    const tip = ' title="Estimativa pelo tamanho, pela duração e pelo tipo de terreno; só a vistoria confirma"';
+    if (n >= 8 || long) return '<span class="tag hot"' + tip + '>parece incêndio (fogo extenso ou que durou)</span>';
+    if (n <= 3 && farm) return '<span class="tag"' + tip + '>parece queima pequena (roça ou manejo)</span>';
+    return '';
+  }
   function legalHtml(o) {
     const items = [], dtRec = o.dt >= 0 ? DET[o.dt] : null;
     let level = 0; // 0 none, 1 attention, 2 strong
@@ -2832,7 +2856,7 @@ details.legal li { margin-bottom: 4px; }
         (F.car && F.car[i] >= 0 ? '<span class="tag" title="O CAR é declarado pelo dono; fogo no imóvel não quer dizer culpa do dono">Imóvel no CAR · não indica culpa</span>' : '');
       const ie = IN.ev.length ? inpeAt(F.lon[i], F.lat[i], dayOf(F.t[i]), true) : -1, iev = ie >= 0 ? IN.ev[ie] : null;
       const push = w.sp < 3 ? 'Vento fraco: o fogo se espalha devagar.' : 'Vento de ' + dirName(w.from) + ' (' + fmt(w.sp) + ' km/h) empurra o fogo para o ' + dirName(w.to) + '.' + (w.rh < 40 ? ' Ar seco.' : '');
-      showCard('<h3>' + esc(D.muns[F.m[i]]) + '</h3><p class="when">Visto pelo satélite em ' + fmtT(F.t[i]) + ' · <b>' + agoTxt(F.t[i]) + '</b></p>' + whereTxt(F.lon[i], F.lat[i]) + tags + (iev ? '<span class="tag">INPE: ' + esc(iev.tipo.toLowerCase()) + '</span>' : '') + '<div class="wind">' + push + '</div>' +
+      showCard('<h3>' + esc(D.muns[F.m[i]]) + '</h3><p class="when">Visto pelo satélite em ' + fmtT(F.t[i]) + ' · <b>' + agoTxt(F.t[i]) + '</b></p>' + whereTxt(F.lon[i], F.lat[i]) + tags + fireKindTag(i, iev) + (iev ? '<span class="tag">INPE: ' + esc(iev.tipo.toLowerCase()) + '</span>' : '') + '<div class="wind">' + push + '</div>' +
         legalHtml({ lc: F.c[i], ti: F.ti[i], dt: F.dt ? F.dt[i] : -1, car: F.car ? F.car[i] : -1, inpe: iev }) +
         '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([
           ['Satélite', D.sats[F.s[i]] + (geoSat.has(F.s[i]) ? ' (pixel ~2 km, repete a cada 10 min)' : F.v[i] ? ' (pixel 375 m)' : '')],
@@ -3133,6 +3157,10 @@ details.legal li { margin-bottom: 4px; }
   renderLoss();
   if (reduce) stepWind(st.t / STEP);
   $('loading').hidden = true;
+  // offline: the service worker keeps the last page and data; say so when there is no connection
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === '127.0.0.1')) navigator.serviceWorker.register('sw.js').catch(() => {});
+  const offNote = () => { if (!navigator.onLine) showToast('Sem internet: mostrando os últimos dados guardados no aparelho (último fogo visto ' + agoTxt(D.meta.lastFire) + ').', 9000); };
+  offNote(); window.addEventListener('offline', offNote);
   // arrival like a plane: from the whole state, glide toward the most important fire, upwind so the smoke goes away from the eye
   if (!st.pin) setTimeout(() => {
     if (fly || st.sel) return; let bi = -1, bs = 54; for (const i of windowIdx()) { const s = fireScore(i, st.t); if (s > bs) { bs = s; bi = i; } }

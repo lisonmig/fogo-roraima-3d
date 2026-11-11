@@ -398,5 +398,14 @@ json.dump({'meta': meta, 'sats': sats, 'muns': muns, 'fires': {k: v for k, v in 
            'events': events, 'weather': weather, 'rr': rr_ring,
            'munis': MUNIS, 'tis': TIS, 'ucs': UCS, 'car': CARS, 'deter': DETER, 'lc': LC_GROUPS, 'lcColors': ['#%02x%02x%02x' % c for c in LC_COLORS]},
           open(os.path.join(OUT, 'roraima3d.json'), 'w', encoding='utf-8'), separators=(',', ':'), ensure_ascii=False)
+# small summary for the first screen (shown while the 3D map loads): places with fire in the last 24 h and where
+_t1 = F['t'][-1]; _cells, _bym = set(), {}
+for _i in range(len(F['t']) - 1, -1, -1):
+    if F['t'][_i] < _t1 - 1440: break
+    _c = (round(F['lat'][_i] / 0.018), round(F['lon'][_i] / 0.018))
+    if _c in _cells: continue
+    _cells.add(_c); _bym[muns[F['m'][_i]]] = _bym.get(muns[F['m'][_i]], 0) + 1
+json.dump({'generated': meta['generated'], 'lastFire': (T0 + dt.timedelta(minutes=_t1)).strftime('%Y-%m-%dT%H:%M:00Z'), 'places24h': len(_cells),
+           'top': sorted(_bym.items(), key=lambda kv: -kv[1])[:5]}, open(os.path.join(OUT, 'resumo.json'), 'w', encoding='utf-8'), ensure_ascii=False)
 for n in sorted(os.listdir(OUT)):
     print(n, os.path.getsize(os.path.join(OUT, n)))
