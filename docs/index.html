@@ -108,6 +108,10 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .dg-exact { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 0; font-size: 13px; cursor: pointer; }
 .dg-exact input { margin-top: 2px; width: 16px; height: 16px; flex: none; }
 .dg-hint { margin: 2px 0 0 24px; font-size: 11.5px; opacity: .8; }
+.aware { margin: 8px 0 4px; padding: 8px 10px; border-left: 3px solid #2b6cb0; background: rgba(43,108,176,.10); border-radius: 6px; font-size: 13px; line-height: 1.45; }
+.mystatus .aware { background: rgba(255,255,255,.14); border-left-color: #fff; }
+.lawt { width: 100%; border-collapse: collapse; font-size: 13px; margin: 4px 0 6px; } .lawt th { text-align: left; font-weight: 600; border-bottom: 1px solid var(--line); padding: 4px 0; }
+.lawt td { padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; } .lawt td:last-child { text-align: right; white-space: nowrap; font-weight: 600; padding-left: 8px; } .lawt small { opacity: .75; }
 .dg-todo { margin: 8px 0 4px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.14); font-size: 13.5px; line-height: 1.4; }
 .dg-todo ol { margin: 4px 0 0; padding-left: 0; list-style: none; } .dg-todo li { margin: 3px 0; }
 .dg-ask { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.95); color: #1b1917; font-size: 13px; }
@@ -710,7 +714,7 @@ details.legal li { margin-bottom: 4px; }
       <!-- DADOS -->
       <div class="pane" id="pane-dados" role="tabpanel" aria-labelledby="tab-dados" hidden>
         <section class="sec">
-          <h2>Multas possíveis em 2026 (teto legal)</h2>
+          <h2>O que a lei prevê (referência)</h2>
           <div id="loss"></div>
         </section>
         <section class="sec">
@@ -1207,7 +1211,7 @@ details.legal li { margin-bottom: 4px; }
   function setPin(lon, lat, label) {
     st.pin = { lon, lat, label: label || 'Ponto marcado' };
     pinEl.textContent = st.pin.label; pinEl.hidden = false;
-    $('pinClear').hidden = false; $('fineBox').hidden = false;
+    $('pinClear').hidden = false;
     ['fineHa', 'fineType', 'fineTi'].forEach(id => delete $(id).dataset.user); // new place: fill the simulator again
     drawCircle(); renderNear(); saveLocal(); renderMyStatus();
   }
@@ -1565,11 +1569,9 @@ details.legal li { margin-bottom: 4px; }
     if (r.places > 1) h += '<p class="dg-sub">' + r.places + ' locais com fogo a até 10 km.</p>';
     if (r.prop) {
       h += '<div class="dg-prop"><b>Imóvel rural neste local (CAR):</b> ' + esc(CAR_TIPO[r.prop.tipo] || 'Imóvel rural') + ', ' + fmt(r.prop.area, 0) + ' ha' + (r.prop.mun ? ', ' + esc(r.prop.mun) : '') + '.';
-      if (r.loss) h += '<br>' + r.loss.parts.filter(x => x.ha >= 0.5).map(x => fmt(x.ha, 0) + ' ha de ' + esc(D.lc[x.k].toLowerCase())).join(', ') + '.' + (r.loss.total ? '<br><b>Prejuízo possível se o fogo queimar toda a área: até ' + brlShort(r.loss.total) + '</b>' + (r.loss.total >= 2000 ? ' (metade: ' + brlShort(r.loss.total / 2) + ')' : '') + '.' : '');
+      if (r.loss) h += '<br>' + r.loss.parts.filter(x => x.ha >= 0.5).map(x => fmt(x.ha, 0) + ' ha de ' + esc(D.lc[x.k].toLowerCase())).join(', ') + '.';
       h += '</div>';
-      if (full && r.loss) h += '<details class="more"><summary>Ajustar os valores do prejuízo</summary><div class="dg-vals">' +
-        Object.keys(VAL_DEF).map(k => '<label class="fl">' + VAL_TXT[k] + ', R$ por hectare<input type="number" min="0" step="100" data-val="' + k + '" value="' + VAL[k] + '"></label>').join('') +
-        '<p class="note" style="margin:0">Valores de referência aproximados, sem fonte oficial: troque pelos da sua realidade. A área por tipo vem do mapa de vegetação (pixels de 500 m) e o CAR é declarado pelo dono.</p></div></details>';
+      h += '<div class="aware"><b>Fogo no imóvel não quer dizer culpa do dono.</b> Pode ser queima autorizada de pasto ou roça, manejo, fogo que veio de fora, acidente ou incêndio. O satélite não sabe quem acendeu nem se havia autorização. O CAR é declarado pelo próprio dono e não prova posse nem autoria.</div>';
     } else if (CT.loading && !CT.ok && !CT.done) h += '<p class="dg-sub">Procurando a propriedade no CAR…</p>';
     else if (CT.done && !CT.ok) h += '<p class="dg-sub">Não foi possível carregar os imóveis do CAR agora.</p>';
     else if (CT.ok) h += '<p class="dg-sub">O local marcado não fica dentro de um imóvel do CAR.</p>';
@@ -1705,11 +1707,12 @@ details.legal li { margin-bottom: 4px; }
   }
   const brl = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
   // Decreto 6.514/2008 with Decreto 12.189/2024: per hectare or fraction; doubled when it affects an indigenous land (art. 60, II)
-  const FINE_TYPES = [[3000, 'Queimada em pasto ou roça sem autorização · R$ 3.000/ha (art. 58)'],
-    [10000, 'Incêndio em floresta ou vegetação nativa · R$ 10.000/ha (art. 58-A)'], [5000, 'Incêndio em floresta plantada · R$ 5.000/ha (art. 58-B)']];
+  const FINE_TYPES = [[3000, 'Fogo em pasto ou roça sem autorização · R$ 3.000/ha (art. 58)'],
+    [10000, 'Incêndio em floresta ou vegetação nativa · R$ 10.000/ha (art. 58-A)'], [5000, 'Incêndio em floresta plantada · R$ 5.000/ha (art. 58-B)'],
+    [1000, 'Desmatar a corte raso fora da reserva legal · R$ 1.000/ha (art. 52)'], [5001, 'Desmatar dentro da reserva legal · R$ 5.000/ha (art. 51)']];
   const nativeLc = lc => lc === 0 || lc === 1 || lc === 4; // floresta, lavrado/savana, área alagável
   function calcFine(haEl, typeEl, tiEl, outEl) {
-    const haCount = Math.ceil(Math.max(0, +haEl.value || 0)), rate = +typeEl.value, mult = tiEl.checked ? 2 : 1;
+    const haCount = Math.ceil(Math.max(0, +haEl.value || 0)), rate = +typeEl.value === 5001 ? 5000 : +typeEl.value, mult = tiEl.checked ? 2 : 1;
     outEl.innerHTML = '<b>' + brl(haCount * rate * mult) + '</b><span>' + fmt(haCount) + ' ha × ' + brl(rate) + (mult > 1 ? ' × 2 (Terra Indígena)' : '') + '</span>';
   }
   function updateFine(burn) {
@@ -2347,8 +2350,7 @@ details.legal li { margin-bottom: 4px; }
       legalHtml({ lc: -1, ti: tiHit, dt: -1, car: carAt(e.c[0], e.c[1]), inpe: e }) +
       '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([['Classificação', e.tipo], ['Situação no INPE', e.atual ? e.status : 'encerrado'], ['Código do evento', String(e.id)], ['Área estimada', fmt(e.ha, 1) + ' ha'], ['Município', e.mun]]) +
       '<p style="margin-top:6px">Contorno e classificação do Programa Queimadas, que junta os focos de vários satélites em eventos de fogo. <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">Ver no INPE</a></p></div></details>' +
-      fineBlock(e.ha, rate, tiHit >= 0));
-    bindFineBlock();
+      lawLink());
   }
   $('lyWind').onchange = e => windLines.visible = e.target.checked;
   $('lyLbl').onchange = e => $('labels').hidden = !e.target.checked;
@@ -2512,8 +2514,8 @@ details.legal li { margin-bottom: 4px; }
     }
     if (o.lc === 0) { level = Math.max(level, 1); items.push('<b>Floresta:</b> queimar vegetação nativa exige autorização; incêndio em floresta pode ser enquadrado no art. 58-A.'); }
     else if (o.lc === 1 || o.lc === 4) items.push('<b>Lavrado ou área alagável:</b> é vegetação nativa; qualquer queima precisa de autorização.');
-    else if (o.lc >= 0) items.push('<b>' + esc(D.lc[o.lc]) + ':</b> queima de manejo é permitida só com autorização do órgão ambiental.');
-    if (o.ti >= 0) items.push('<b>Terra Indígena ' + esc(D.tis[o.ti].nome) + ':</b> o uso tradicional do fogo pelos povos indígenas é permitido por lei; fogo de terceiros na TI dobra a multa.');
+    else if (o.lc >= 0) items.push('<b>' + esc(D.lc[o.lc]) + ':</b> a queima de manejo é permitida com autorização; em Roraima, a FEMARH abre e suspende os períodos de autorização por portaria.');
+    if (o.ti >= 0) items.push('<b>Terra Indígena ' + esc(D.tis[o.ti].nome) + ':</b> o uso tradicional do fogo é permitido por lei (Lei 14.944/2024); infração de terceiros que afete a TI tem multa em dobro (art. 60).');
     if (o.car >= 0 && CAR[o.car]) items.push('<b>Imóvel no CAR</b> (' + esc(CAR_TIPO[CAR[o.car].tipo] || CAR[o.car].tipo) + ', ' + fmt(CAR[o.car].area, 0) + ' ha): o responsável precisa de autorização de queima e deve manter ações de prevenção (art. 58-C).');
     const verdict = level === 2 ? '<span class="verdict strong">pede verificação</span>' : level === 1 ? '<span class="verdict warn">atenção</span>' : '<span class="verdict">nada a destacar</span>';
     return '<details class="more legal"><summary>O que diz a lei sobre fogo aqui ' + verdict + '</summary><div><ul>' + items.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
@@ -2549,14 +2551,15 @@ details.legal li { margin-bottom: 4px; }
     }
     return best;
   }
-  function fineBlock(ha, rate, ti) {
-    return '<details class="more fine"><summary>Simular multa</summary><div>' +
-      '<label class="fl" for="evHa">Área queimada (hectares)<input id="evHa" type="number" min="0" step="1" inputmode="decimal" value="' + Math.round(ha) + '"></label>' +
-      '<label class="fl" for="evType">Tipo de infração<select id="evType">' + FINE_TYPES.map(([v, txt]) => '<option value="' + v + '"' + (v === rate ? ' selected' : '') + '>' + txt + '</option>').join('') + '</select></label>' +
-      '<label class="ckline"><input type="checkbox" id="evTi"' + (ti ? ' checked' : '') + '> Atingiu Terra Indígena (multa em dobro)</label>' +
+  function fineBlock() {
+    return '<details class="more fine"><summary>Calculadora educativa da lei</summary><div>' +
+      '<label class="fl" for="evHa">Área (hectares) – digite um valor<input id="evHa" type="number" min="0" step="1" inputmode="decimal" placeholder="ex.: 10"></label>' +
+      '<label class="fl" for="evType">Situação prevista na lei<select id="evType">' + FINE_TYPES.map(([v, txt]) => '<option value="' + v + '">' + txt + '</option>').join('') + '</select></label>' +
+      '<label class="ckline"><input type="checkbox" id="evTi"> Afeta Terra Indígena (multa em dobro, art. 60)</label>' +
       '<div class="fineOut" id="evOut"></div>' +
-      '<p class="note" style="margin:0">Simulação educativa pelo Decreto 6.514/2008 (redação de 2024), não é parecer jurídico. A multa real depende de fiscalização, autorização de queima e de quem provocou o fogo.</p></div></details>';
+      '<p class="note" style="margin:0">Só para entender a lei (Decreto 6.514/2008, redação de 2024). Não é multa aplicada nem parecer jurídico: a multa real depende de investigação, de quem provocou o fogo e de haver ou não autorização.</p></div></details>';
   }
+  const lawLink = () => '<p class="note" style="margin:8px 0 0"><a href="#" onclick="document.getElementById(\'tab-dados\').click();return false">Quanto a lei prevê por hectare →</a></p>';
   function bindFineBlock() {
     const upd = () => calcFine($('evHa'), $('evType'), $('evTi'), $('evOut'));
     ['evHa', 'evType', 'evTi'].forEach(id => $(id).addEventListener(id === 'evHa' ? 'input' : 'change', upd));
@@ -2579,39 +2582,37 @@ details.legal li { margin-bottom: 4px; }
       '<span class="tag">' + fmt(c.area, 0) + ' ha declarados</span><span class="tag' + (ha > 0 ? ' hot' : '') + '">≈ ' + fmt(ha, 0) + ' ha com fogo em 2026</span>' +
       (lcIdx >= 0 ? '<span class="tag">' + esc(D.lc[lcIdx]) + '</span>' : '') +
       '<p class="note" style="margin:2px 0 4px">De 01/01 até ' + fmtD(TLAST) + ' (focos VIIRS de 375 m). No período escolhido (' + period.name.toLowerCase() + '): ≈ ' + fmt(haPer, 0) + ' ha.</p>' +
+      '<div class="aware"><b>Fogo no imóvel não quer dizer culpa do dono.</b> Pode ser queima autorizada de pasto ou roça, manejo, fogo que veio de fora, acidente ou incêndio. O satélite não sabe quem acendeu nem se havia autorização. O CAR é declarado pelo próprio dono e não prova posse nem autoria.</div>' +
       legalHtml({ lc: lcIdx, ti: tiHit, dt: -1, dtAny, car: k }) +
       '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([['Município', c.mun || '–'], ['Situação no CAR', (c.cond || '–')], ['Área declarada', fmt(c.area, 1) + ' ha']]) +
-      '<p style="margin-top:6px">Dados públicos do SICAR. O CAR é declarado pelo próprio dono e pode ter sobreposições; não comprova posse nem autoria do fogo.</p></div></details>' +
-      fineBlock(ha, rate, tiHit >= 0));
-    bindFineBlock();
+      '<p style="margin-top:6px">Dados públicos do SICAR. O CAR é declarado pelo próprio dono e pode ter sobreposições; não comprova posse nem autoria do fogo.</p></div></details>' + lawLink());
   }
 
   // ---------- estimate for 2026: possible fines for fire without authorization
   function renderLoss() {
+    // area with fire in 2026 by type (VIIRS cells of 375 m, each counted once); no money total: the satellite does not know who, why or with what permit
     const y0 = minOf(2026, 1, 1), seen = new Map();
     for (let i = firstAt(y0), e = firstAt(TLAST + 1); i < e; i++) {
       if (!F.v[i]) continue;
       const key = Math.round(F.lat[i] / 0.003375) * 100000 + Math.round(F.lon[i] / 0.003375);
-      if (!seen.has(key)) seen.set(key, { lc: F.c[i], ti: F.ti[i] >= 0, dt: F.dt[i] >= 0, car: F.car[i] });
+      if (!seen.has(key)) seen.set(key, F.c[i]);
     }
-    let ha = 0, top = 0, ind = 0, haInd = 0, haNat = 0, haTi = 0, haCar = 0; const props = new Set(), byLc = new Map();
-    seen.forEach(c => {
-      const a = 14.06, rate = nativeLc(c.lc) ? 10000 : 3000, v = a * rate * (c.ti ? 2 : 1);
-      ha += a; top += v; byLc.set(c.lc, (byLc.get(c.lc) || 0) + a);
-      if (nativeLc(c.lc)) haNat += a; if (c.ti) haTi += a; if (c.car >= 0) { haCar += a; props.add(c.car); }
-      if (c.dt || c.lc === 0) { ind += v; haInd += a; }
-    });
-    const short = v => v >= 1e9 ? fmt(v / 1e9, 1) + (v < 2e9 ? ' bilhão' : ' bilhões') : fmt(v / 1e6, 0) + (v < 2e6 ? ' milhão' : ' milhões');
-    $('loss').innerHTML = '<div class="loss"><p><b class="big">R$ ' + short(ind) + '</b>em multas possíveis pela lei, se não houvesse autorização, nas áreas com fogo em floresta ou com alerta de desmatamento em 2026, até ' + fmtD(TLAST) + '. Não é prejuízo e não é multa aplicada: o satélite não sabe se havia autorização.</p>' +
-      '<p>Teto, se todo o fogo do ano fosse sem autorização: <b>R$ ' + short(top) + '</b>.</p>' +
-      '<details class="more"><summary>Detalhes e como foi calculado</summary><div>' +
-      '<div class="rows"><span>Área com fogo em 2026</span><span>' + fmt(ha, 0) + ' ha</span>' +
-      [...byLc].sort((a, b) => b[1] - a[1]).map(([k, v]) => '<span>· ' + esc(D.lc[k]) + '</span><span>' + fmt(v, 0) + ' ha</span>').join('') +
-      '<span>Em floresta ou com alerta DETER</span><span>' + fmt(haInd, 0) + ' ha</span><span>Dentro de Terras Indígenas</span><span>' + fmt(haTi, 0) + ' ha</span>' +
-      '<span>Dentro de imóveis do CAR</span><span>' + fmt(haCar, 0) + ' ha · ' + fmt(props.size) + ' imóveis</span></div>' +
-      '<p style="margin-top:8px">Área: quadrados de 375 m (14 ha) com foco VIIRS de 01/01/2026 até hoje. Valor: R$ 10.000/ha em vegetação nativa (art. 58-A) e R$ 3.000/ha nas demais (art. 58), em dobro em Terra Indígena (Decreto 6.514/2008, redação de 2024).</p>' +
-      '<p>É uma estimativa de <b>multas possíveis</b>, não do prejuízo econômico total: não inclui perda de pasto, cercas, gado, madeira, saúde ou carbono, nem a multa do art. 58-C. Parte do fogo é legal (queima autorizada, uso tradicional indígena) e parte é acidental; o satélite não distingue. Os números servem para dar ordem de grandeza.</p>' +
-      '</div></details></div>';
+    const byLc = new Map(); seen.forEach(lc => byLc.set(lc, (byLc.get(lc) || 0) + 14.06));
+    const rows = [['Fogo em pasto, roça ou lavoura sem autorização', 'R$ 3.000 por hectare', 'art. 58'],
+      ['Incêndio em floresta ou outra vegetação nativa (inclui o lavrado)', 'R$ 10.000 por hectare', 'art. 58-A'],
+      ['Incêndio em floresta plantada', 'R$ 5.000 por hectare', 'art. 58-B'],
+      ['Desmatar vegetação nativa a corte raso, fora da reserva legal, sem autorização', 'R$ 1.000 por hectare', 'art. 52'],
+      ['Desmatar dentro da reserva legal', 'R$ 5.000 por hectare', 'art. 51'],
+      ['Responsável pelo imóvel que não faz a prevenção de incêndios', 'R$ 5.000 a R$ 10 milhões (total)', 'art. 58-C']];
+    $('loss').innerHTML = '<p style="margin:0 0 8px">Valores que a lei prevê <b>quando uma infração é comprovada</b>. Servem de referência: <b>não são multas aplicadas</b> e <b>não apontam culpados</b>.</p>' +
+      '<table class="lawt"><tr><th>Situação</th><th>Valor previsto</th></tr>' + rows.map(([a, b, c]) => '<tr><td>' + a + ' <small>(' + c + ')</small></td><td>' + b + '</td></tr>').join('') + '</table>' +
+      '<p class="note">A multa vai <b>em dobro</b> quando a infração afeta Terra Indígena, ou quando o desmatamento é feito com fogo (art. 60). Decreto federal 6.514/2008, com a redação do Decreto 12.189/2024; em Roraima, o Código Ambiental do Estado (LC 374/2026) manda aplicar essa mesma tabela.</p>' +
+      '<div class="aware"><b>Por que o mapa não calcula a multa de ninguém:</b> o satélite vê o calor do fogo, mas não sabe quem acendeu, se havia autorização da FEMARH, se o fogo veio de fora ou se foi acidente. Para haver multa, o órgão ambiental precisa investigar e provar a ligação entre a pessoa e o dano (Código Florestal, art. 38; Lei 14.944/2024, art. 45).</div>' +
+      '<details class="more"><summary>Área com fogo em 2026 por tipo de vegetação</summary><div><div class="rows">' +
+      [...byLc].sort((a, b) => b[1] - a[1]).map(([k, v]) => '<span>' + esc(D.lc[k]) + '</span><span>' + fmt(v, 0) + ' ha</span>').join('') + '</div>' +
+      '<p style="margin-top:6px">Quadrados de 375 m (cerca de 14 ha) com foco VIIRS de 01/01/2026 até ' + fmtD(TLAST) + ', cada um contado uma vez. É uma estimativa: pode ser maior ou menor que a área queimada de verdade.</p></div></details>' +
+      fineBlock();
+    bindFineBlock();
   }
 
   // ---------- drought: Rio Branco level against every year since 1967, rain and days without rain
@@ -2727,7 +2728,7 @@ details.legal li { margin-bottom: 4px; }
       const i = s.i, w = wxAt(F.lon[i], F.lat[i], F.t[i]), ti = F.ti[i] >= 0 ? D.tis[F.ti[i]] : null;
       const force = F.f[i] < 0 ? null : (F.f[i] < 10 ? 'fogo fraco' : F.f[i] < 50 ? 'fogo médio' : F.f[i] < 200 ? 'fogo forte' : 'fogo muito forte');
       const tags = (force ? '<span class="tag' + (F.f[i] >= 50 ? ' hot' : '') + '">' + force + '</span>' : '') + '<span class="tag">' + esc(D.lc[F.c[i]]) + '</span>' + (ti ? '<span class="tag">TI ' + esc(ti.nome) + '</span>' : '') +
-        (F.car && F.car[i] >= 0 ? '<span class="tag">Imóvel no CAR</span>' : '');
+        (F.car && F.car[i] >= 0 ? '<span class="tag" title="O CAR é declarado pelo dono; fogo no imóvel não quer dizer culpa do dono">Imóvel no CAR · não indica culpa</span>' : '');
       const ie = IN.ev.length ? inpeAt(F.lon[i], F.lat[i], dayOf(F.t[i]), true) : -1, iev = ie >= 0 ? IN.ev[ie] : null;
       const push = w.sp < 3 ? 'Vento fraco: o fogo se espalha devagar.' : 'Vento de ' + dirName(w.from) + ' (' + fmt(w.sp) + ' km/h) empurra o fogo para o ' + dirName(w.to) + '.' + (w.rh < 40 ? ' Ar seco.' : '');
       showCard('<h3>' + esc(D.muns[F.m[i]]) + '</h3><p class="when">Visto pelo satélite em ' + fmtT(F.t[i]) + ' · <b>' + agoTxt(F.t[i]) + '</b></p>' + whereTxt(F.lon[i], F.lat[i]) + tags + (iev ? '<span class="tag">INPE: ' + esc(iev.tipo.toLowerCase()) + '</span>' : '') + '<div class="wind">' + push + '</div>' +
@@ -2753,8 +2754,7 @@ details.legal li { margin-bottom: 4px; }
           ['Maior intensidade', ev.frpMax >= 0 ? fmt(ev.frpMax, 1) + ' MW' : 'não informada'],
           ['Território', ti ? 'TI ' + ti.nome + (ti.etnia ? ' (' + ti.etnia + ')' : '') : 'fora de Terra Indígena']]) +
         '<p style="margin-top:6px">Área aproximada a partir dos focos de 375 m; não substitui mapeamento oficial.</p></div></details>' +
-        fineBlock(ev.area * 100, rate, !!ti));
-      bindFineBlock();
+        lawLink());
     }
   }
 
