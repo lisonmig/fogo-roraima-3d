@@ -2,8 +2,8 @@
 // Página e dados: primeiro a rede (sempre o mais novo); sem internet, a última cópia guardada.
 // Arquivos que quase não mudam (biblioteca 3D, letras, ícones, relevo, imagem): primeiro a cópia guardada.
 // Outros sites (imagem nítida da EOX, previsão do tempo) não passam por aqui.
-const CACHE = 'fogo-rr-v1';
-const SHELL = ['./', 'index.html', 'termos.html', 'sobre.html', 'fonts.css', 'vendor/three.min.js', 'vendor/OrbitControls.js', 'manifest.webmanifest', 'icone-192.png', 'icone.svg', 'favicon.ico'];
+const CACHE = 'fogo-rr-v2';
+const SHELL = ['./', 'index.html', 'termos.html', 'sobre.html', 'fonts.css', 'vendor/three.min.js', 'vendor/OrbitControls.js', 'manifest.webmanifest', 'icone-192.png', 'icone.svg', 'favicon.ico', 'relevo.png', 'imagem.webp', 'cobertura.png'];
 const STATIC = /\.(js|css|woff2|png|webp|jpg|svg|ico|webmanifest)$/;
 
 self.addEventListener('install', e => {
