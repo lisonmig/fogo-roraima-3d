@@ -278,8 +278,27 @@ label.fl select, label.fl input[type=range] { width: 100%; }
 .ar p { margin: 6px 0 0; font-size: 14px; }
 .ar .ar-num b { font: 600 22px var(--f-display); }
 .avlist { display: flex; flex-direction: column; gap: 8px; }
-.av { border: 1px solid var(--line); border-left: 4px solid #c62828; border-radius: 8px; padding: 9px 11px; background: var(--bg); font-size: 13.5px; }
-.av.auto { border-left-color: #ef6c00; }
+.avlist { gap: 6px; }
+.av { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font-size: 13.5px; }
+.av > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+.av > summary::-webkit-details-marker { display: none; }
+.av > summary::after { content: "▸"; margin-left: auto; color: var(--muted); transition: transform .15s; }
+.av[open] > summary::after { transform: rotate(90deg); }
+.av > summary b { font-weight: 600; line-height: 1.3; }
+.av > div { padding: 0 10px 9px 26px; }
+.av-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.inst { position: fixed; z-index: 70; left: 50%; transform: translateX(-50%); bottom: 16px; width: min(440px, calc(100vw - 24px)); display: flex; align-items: center; gap: 10px;
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 10px 10px 10px 12px; box-shadow: 0 8px 28px rgba(0,0,0,.3); }
+.inst img { width: 40px; height: 40px; border-radius: 9px; flex: none; }
+.inst-tx { flex: 1; min-width: 0; font-size: 13px; line-height: 1.35; }
+.inst-tx > b { display: block; font-size: 14px; }
+.inst .btn.main { background: var(--accent); border-color: var(--accent); color: #fff; flex: none; }
+.inst-x { flex: none; width: 30px; height: 30px; border: 0; border-radius: 50%; background: var(--chip); color: var(--ink); cursor: pointer; font-size: 16px; line-height: 1; }
+@media (max-width: 880px) { .inst { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); } }
+.linkbtn { border: 0; background: none; color: var(--accent); font: 600 13px var(--f-body); text-decoration: underline; cursor: pointer; padding: 6px 0 0; text-align: left; }
+.mrank.in { margin: 4px 0 8px; }
+.rf-mun li.rf-grp { display: block; margin: 8px 0 0; font-size: 13.5px; line-height: 1.45; }
+.rf-grp i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 .av p { margin: 4px 0; }
 .av a { color: inherit; font-weight: 600; }
 .av-org { font: 600 11.5px var(--f-body); background: var(--chip); border-radius: 999px; padding: 1px 7px; margin-left: 4px; white-space: nowrap; }
@@ -540,6 +559,12 @@ details.legal li { margin-bottom: 4px; }
       <button class="x" id="popX" aria-label="Fechar">×</button>
       <div id="popBody"></div>
     </div>
+    <div class="inst" id="inst" hidden role="dialog" aria-label="Instalar o app">
+      <img src="icone-192.png" alt="">
+      <div class="inst-tx"><b>Instale o Fogo RR no celular</b><span id="instMsg">Abre direto da tela inicial, como um app, e funciona com internet fraca.</span></div>
+      <button class="btn main" id="instYes">Instalar</button>
+      <button class="inst-x" id="instNo" aria-label="Agora não">×</button>
+    </div>
     <div class="loading" id="loading"><div class="ld"><div id="ldSum"></div><p class="ld-wait">Carregando o mapa 3D de Roraima…</p><p class="ld-sos">Emergência: <a href="tel:193">193 Bombeiros</a> · <a href="tel:199">199 Defesa Civil</a></p></div></div>
   </main>
 
@@ -588,10 +613,6 @@ details.legal li { margin-bottom: 4px; }
       <!-- RESUMO -->
       <div class="pane" id="pane-resumo" role="tabpanel" aria-labelledby="tab-resumo">
         <div class="mystatus" id="myStatus" hidden></div>
-        <section class="sec" id="avSec" hidden>
-          <h2>Avisos</h2>
-          <div class="avlist" id="avList"></div>
-        </section>
         <section class="sec" aria-live="polite">
           <div class="summary" id="summary"></div>
           <button class="secamini" id="secaMini" hidden></button>
@@ -599,35 +620,33 @@ details.legal li { margin-bottom: 4px; }
           <span hidden><b id="stPlaces"></b><span id="stPlacesLbl"></span></span>
           <p class="psub" id="pSub"></p>
         </section>
-        <section class="sec" id="arSec" hidden>
-          <h2>Qualidade do ar</h2>
-          <div class="ar" id="arBox"></div>
+        <section class="sec" id="avSec" hidden>
+          <h2>Avisos oficiais</h2>
+          <div class="avlist" id="avList"></div>
+        </section>
+        <section class="sec dc" aria-label="Emergência e alertas oficiais">
+          <h2>Emergência</h2>
+          <div class="dc-row"><a class="btn main" href="tel:193">🚒 Bombeiros 193</a><a class="btn" href="tel:199">Defesa Civil 199</a><a class="btn" href="tel:192">SAMU 192</a></div>
+          <p class="note">Alertas da Defesa Civil no celular, de graça: SMS com o <b>CEP</b> para <b>40199</b>. <a href="sms:40199">Abrir SMS</a></p>
         </section>
         <section class="sec" id="rfSec" hidden>
           <h2>Risco de fogo · previsão do INPE</h2>
           <div class="rf-days" id="rfDays" role="group" aria-label="Dia da previsão"></div>
           <p class="rf-pin" id="rfPin" hidden></p>
           <ul class="rf-mun" id="rfMun"></ul>
-          <div class="legend" id="rfLegend" style="margin-top:8px"></div>
-          <p class="note" id="rfNote"></p>
+          <button type="button" class="linkbtn" id="rfAll" hidden></button>
+          <details class="more" style="margin-top:6px"><summary>Saiba mais</summary><div>
+            <div class="legend" id="rfLegend" style="margin-bottom:6px"></div>
+            <p id="rfNote"></p>
+          </div></details>
         </section>
-        <section class="sec dc" aria-label="Emergência e alertas oficiais">
-          <h2>Emergência e alertas oficiais</h2>
-          <div class="dc-row"><a class="btn main" href="tel:193">🚒 Bombeiros 193</a><a class="btn" href="tel:199">Defesa Civil 199</a><a class="btn" href="tel:192">SAMU 192</a></div>
-          <p class="note">Receba de graça os alertas da Defesa Civil no celular: mande um SMS com o <b>CEP</b> da sua casa para o número <b>40199</b>. <a href="sms:40199">Abrir SMS</a></p>
+        <section class="sec" id="arSec" hidden>
+          <h2>Qualidade do ar</h2>
+          <div class="ar" id="arBox"></div>
         </section>
         <section class="sec">
           <h2 id="evTitle">Maiores incêndios</h2>
           <ul class="events" id="events"></ul>
-        </section>
-        <section class="sec" id="munSec" hidden>
-          <h2 id="munTitle">Municípios com mais fogo</h2>
-          <ul class="mrank" id="munRank"></ul>
-          <p class="note">Locais com fogo (quadrados de 375 m), cada um contado uma vez.</p>
-        </section>
-        <section class="sec hist" id="histSec" hidden>
-          <h2>Este ano comparado com a média</h2>
-          <div id="histBox"></div>
         </section>
       </div>
 
@@ -798,6 +817,15 @@ details.legal li { margin-bottom: 4px; }
 
       <!-- DADOS -->
       <div class="pane" id="pane-dados" role="tabpanel" aria-labelledby="tab-dados" hidden>
+        <section class="sec hist" id="histSec" hidden>
+          <h2>Este ano comparado com a média</h2>
+          <div id="histBox"></div>
+        </section>
+        <section class="sec">
+          <h2>Usar como app</h2>
+          <p class="note" style="margin:0 0 8px">Coloque o mapa na tela inicial do celular, para abrir com um toque.</p>
+          <div class="row"><button class="btn" id="instOpen" type="button">📲 Instalar como app</button></div>
+        </section>
         <section class="sec">
           <h2>O que a lei prevê (referência)</h2>
           <div id="loss"></div>
@@ -1393,7 +1421,6 @@ details.legal li { margin-bottom: 4px; }
       byLc.set(F.c[i], (byLc.get(F.c[i]) || 0) + 1);
       if (F.ti[i] >= 0) { inTi++; byTi.set(F.ti[i], (byTi.get(F.ti[i]) || 0) + 1); }
     }
-    renderMunRank(byMun);
     const n = places.size, wasOpen = el.querySelector('details[open]') !== null;
     const head = '<p><b class="big">' + fmt(n) + '</b> locais com fogo ' + winTxt() + '</p>';
     const clima = 'Em Boa Vista: vento de ' + dirName(w.from) + ' a ' + fmt(w.sp) + ' km/h, umidade ' + fmt(w.rh) + '%, ' + rainTxt(w.rain) + ' em 24 h.' + (w.rh < 40 ? ' Ar seco favorece o fogo.' : '');
@@ -1403,18 +1430,16 @@ details.legal li { margin-bottom: 4px; }
     const tiTop = [...byTi].sort((a, b) => b[1] - a[1])[0];
     el.innerHTML = head + '<p>Mais em ' + top.slice(0, 2).join(' e ') + '.</p>' +
       '<details class="more"' + (wasOpen ? ' open' : '') + '><summary>Ver mais</summary><div>' +
-      (top[2] ? '<p>Depois: ' + top[2] + '.</p>' : '') +
+      munRankHtml(byMun) +
       '<p>' + Math.round(inTi / n * 100) + '% em Terras Indígenas' + (tiTop ? ', principalmente ' + D.tis[tiTop[0]].nome : '') + '.</p>' +
       '<p>Vegetação: ' + lcTop.join(' e ') + '.</p><p>' + clima + '</p></div></details>';
   }
 
   // ---------- municipalities with most fire in the period (bars)
-  function renderMunRank(byMun) {
-    const list = [...byMun].sort((a, b) => b[1] - a[1]).slice(0, 5);
-    $('munSec').hidden = !list.length; if (!list.length) return;
-    $('munTitle').textContent = 'Municípios com mais fogo · ' + period.name.toLowerCase();
+  function munRankHtml(byMun) {
+    const list = [...byMun].sort((a, b) => b[1] - a[1]).slice(0, 5); if (!list.length) return '';
     const mx = list[0][1];
-    $('munRank').innerHTML = list.map(([m, c]) => '<li><span class="mn">' + esc(D.muns[m]) + '</span><span class="mb"><i style="width:' + Math.max(4, Math.round(c / mx * 100)) + '%"></i></span><span class="mc">' + fmt(c) + '</span></li>').join('');
+    return '<p style="margin:0">Municípios com mais locais com fogo:</p><ul class="mrank in">' + list.map(([m, c]) => '<li><span class="mn">' + esc(D.muns[m]) + '</span><span class="mb"><i style="width:' + Math.max(4, Math.round(c / mx * 100)) + '%"></i></span><span class="mc">' + fmt(c) + '</span></li>').join('') + '</ul>';
   }
 
   // ---------- air quality: model estimate on a ~44 km grid (computed on the server; the cell is picked here, so no location leaves the device)
@@ -1456,12 +1481,12 @@ details.legal li { margin-bottom: 4px; }
       const tip = sm.lv === 2 ? 'Feche janelas e portas, evite esforço ao ar livre e, se precisar sair, use máscara PFF2 (N95). Crianças, idosos, gestantes e quem tem asma ou problema no coração devem ficar em casa. Com falta de ar, ligue 192 (SAMU).'
         : 'Se sentir cheiro de fumaça ou ardência nos olhos, feche as janelas e evite esforço ao ar livre. Crianças, idosos e quem tem asma devem ter mais cuidado.';
       $('arBox').innerHTML = '<div class="ar-head ' + (sm.lv === 2 ? 'ar-4' : 'ar-3') + '"><span>' + (sm.lv === 2 ? 'Fumaça forte provável' : 'Pode haver fumaça') + '</span><span class="ar-where">' + where + '</span></div>' +
-        '<p>' + why + ' Perto de incêndio, o ar costuma ficar bem pior do que o modelo regional mostra.</p><p>' + tip + '</p>' +
-        '<p class="note">Aviso calculado pela distância do fogo e pelo vento, não por medidor. Modelo regional: ' + fmt(pm, 0) + ' µg/m³ (' + L[1].toLowerCase() + ') na média de 24 h. ' + src + '</p>';
+        '<p>' + why + '</p><p>' + tip + '</p>' +
+        '<details class="more"><summary>Saiba mais</summary><div><p>Perto de incêndio, o ar costuma ficar bem pior do que o modelo regional mostra. Aviso calculado pela distância do fogo e pelo vento, não por medidor. Modelo regional: ' + fmt(pm, 0) + ' µg/m³ (' + L[1].toLowerCase() + ') na média de 24 h. ' + src + '</p></div></details>';
     } else {
       $('arBox').innerHTML = '<div class="ar-head ' + L[2] + '"><span>' + L[1] + '</span><span class="ar-where">' + where + '</span></div>' +
         '<p class="ar-num">' + model + '</p><p>' + L[3] + '</p>' +
-        '<p class="note">' + trend + 'Nenhum fogo visto nas últimas 24 h perto ' + (p ? 'do ponto' : 'da cidade') + '. ' + src + (p ? '' : ' Marque um ponto no mapa para ver o ar no seu local.') + '</p>';
+        '<details class="more"><summary>Saiba mais</summary><div><p>' + trend + 'Nenhum fogo visto nas últimas 24 h perto ' + (p ? 'do ponto' : 'da cidade') + '. ' + src + (p ? '' : ' Marque um ponto no mapa para ver o ar no seu local.') + '</p></div></details>';
     }
     sec.hidden = false;
   }
@@ -1523,8 +1548,13 @@ details.legal li { margin-bottom: 4px; }
     if (p) { const v = ks.map(k => [k, rfAt(p.lon, p.lat, k)]).filter(x => x[1] >= 0); pe.hidden = !v.length;
       pe.innerHTML = '<b>No seu ponto:</b> ' + v.map(([k, c]) => rfDayName(k) + '<i class="rf-dot" style="background:' + RF_LV[c][1] + '"></i>' + RF_LV[c][0].toLowerCase()).join(' · '); }
     else pe.hidden = true;
-    const list = RF.mun.slice().sort((a, b) => b.lv[RF.day] - a.lv[RF.day] || b.hi[RF.day] - a.hi[RF.day]);
-    $('rfMun').innerHTML = list.map(m => '<li><span class="mn">' + esc(m.n) + '</span><span class="rf-cells"><i style="background:' + RF_LV[m.lv[RF.day]][1] + '"></i></span><span class="rf-lv" style="color:' + (m.lv[RF.day] >= 3 ? RF_LV[m.lv[RF.day]][1] : 'inherit') + '">' + RF_LV[m.lv[RF.day]][0] + '</span></li>').join('');
+    const sorted = RF.mun.slice().sort((a, b) => b.lv[RF.day] - a.lv[RF.day] || b.hi[RF.day] - a.hi[RF.day]);
+    const high = sorted.filter(m => m.lv[RF.day] >= 3), list = RF.all ? sorted : high, ab = $('rfAll');
+    ab.hidden = high.length === sorted.length; ab.textContent = RF.all ? 'Mostrar só alto e crítico' : (high.length ? 'Ver todos os ' + sorted.length + ' municípios' : 'Nenhum município em risco alto · ver todos');
+    ab.onclick = () => { RF.all = !RF.all; renderRisk(); };
+    if (!RF.all) {   // compact: one line per level (critical, high)
+      $('rfMun').innerHTML = [4, 3].map(c => { const ms = high.filter(m => m.lv[RF.day] === c); return ms.length ? '<li class="rf-grp"><i style="background:' + RF_LV[c][1] + '"></i><b>' + RF_LV[c][0] + ' (' + ms.length + '):</b> ' + ms.map(m => esc(m.n)).join(', ') + '</li>' : ''; }).join('');
+    } else $('rfMun').innerHTML = list.map(m => '<li><span class="mn">' + esc(m.n) + '</span><span class="rf-cells"><i style="background:' + RF_LV[m.lv[RF.day]][1] + '"></i></span><span class="rf-lv" style="color:' + (m.lv[RF.day] >= 3 ? RF_LV[m.lv[RF.day]][1] : 'inherit') + '">' + RF_LV[m.lv[RF.day]][0] + '</span></li>').join('');
     const leg = RF_LV.map(l => '<span><i class="sq" style="background:' + l[1] + '"></i>' + l[0].toLowerCase() + '</span>').join('');
     $('rfLegend').innerHTML = leg; $('legendRisco').innerHTML = leg;
     $('rfNote').innerHTML = 'Previsão feita pelo INPE em ' + isoBr(RF.J.d0) + ': leva em conta os dias sem chuva, a temperatura, a umidade do ar e o tipo de vegetação. O nível do município é o que vale para pelo menos um quarto da área dele. <b>Risco alto não quer dizer que vai pegar fogo</b>: quer dizer que, se alguém acender fogo, ele se espalha com facilidade. Veja no mapa: aba Mapa, "Fundo do mapa", "Risco de fogo". Fonte: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>.';
@@ -1535,7 +1565,7 @@ details.legal li { margin-bottom: 4px; }
   let AV = null;
   function renderAvisos() {
     const items = (AV && AV.avisos || []).slice();
-    if (RF.J && RF.mun.length) {
+    if (false) {
       const rel = rfRel(), parts = [];
       const crit = k => RF.mun.filter(m => m.lv[k] === 4).map(m => m.n), say = ms => ms.length === RF.mun.length ? 'todos os municípios' : ms.map(esc).join(', ');
       const ks = [rel, rel + 1].filter(k => k >= 0 && k <= 3), a = ks.length ? crit(ks[0]) : [], b = ks.length > 1 ? crit(ks[1]) : [];
@@ -1545,10 +1575,38 @@ details.legal li { margin-bottom: 4px; }
         html: parts.join(' ') + ' Evite queimar lixo, roça ou pasto e não deixe fogueira acesa.' });
     }
     const sec = $('avSec'); sec.hidden = !items.length; if (!items.length) return;
-    $('avList').innerHTML = items.map(a => '<div class="av' + (a.auto ? ' auto' : '') + '"><b>' + esc(a.titulo) + '</b><span class="av-org">' + esc(a.orgao || '') + '</span>' + (a.exemplo ? '<span class="av-org av-ex">EXEMPLO · só no teste</span>' : '') +
+    $('avList').innerHTML = items.map(a => '<details class="av"><summary><span class="av-dot"></span><b>' + esc(a.titulo) + '</b><span class="av-org">' + esc(a.orgao || '') + '</span></summary><div>' +
       '<p>' + (a.html || esc(a.texto || '')) + '</p>' + (a.link ? '<a href="' + esc(a.link) + '" target="_blank" rel="noopener">' + (a.auto ? 'Ver dados do INPE' : a.imprensa ? 'Ver notícia (' + esc(a.imprensa) + ')' : 'Ver aviso oficial') + '</a>' : '') +
-      (a.fim ? ' · <span class="note">válido até ' + isoBr(a.fim) + '</span>' : '') + (a.auto ? '<p class="note">Aviso automático, montado com a previsão de risco do INPE.</p>' : a.imprensa ? '<p class="note">Fonte: imprensa. O link do Diário Oficial será colocado quando for publicado ou encontrado.</p>' : '') + '</div>').join('');
+      (a.fim ? ' · <span class="note">válido até ' + isoBr(a.fim) + '</span>' : '') + (a.auto ? '<p class="note">Aviso automático, montado com a previsão de risco do INPE.</p>' : a.imprensa ? '<p class="note">Fonte: imprensa. O link do Diário Oficial será colocado quando for publicado ou encontrado.</p>' : '') + '</div></details>').join('');
   }
+
+  // ---------- "install as an app": the browser's own prompt when it offers one, otherwise short instructions
+  (() => {
+    const box = $('inst'), KEY = 'rr3d-inst', ua = navigator.userAgent;
+    const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    const snoozed = () => { try { return Date.now() < +(localStorage.getItem(KEY) || 0); } catch (e) { return false; } };
+    const snooze = d => { try { localStorage.setItem(KEY, String(Date.now() + d * 864e5)); } catch (e) {} };
+    let ev = null;
+    const help = /iphone|ipad|ipod/i.test(ua) ? 'No Safari, toque em <b>Compartilhar</b> (quadrado com seta) e depois em <b>"Adicionar à Tela de Início"</b>.'
+      : 'No menu do navegador (<b>⋮</b>), toque em <b>"Instalar app"</b> ou <b>"Adicionar à tela inicial"</b>.';
+    const open = force => {
+      if (standalone() || (!force && snoozed())) return;
+      if (!force && $('tour') && !$('tour').hidden) { setTimeout(() => open(false), 20000); return; }   // wait for the first-visit guide
+      $('instYes').textContent = ev ? 'Instalar' : 'Entendi';
+      $('instMsg').innerHTML = ev ? 'Abre direto da tela inicial, como um app, e funciona com internet fraca.' : help;
+      box.hidden = false;
+    };
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); ev = e; if (!box.hidden) open(true); });
+    window.addEventListener('appinstalled', () => { box.hidden = true; snooze(3650); });
+    $('instYes').onclick = () => {
+      if (!ev) { box.hidden = true; snooze(30); return; }
+      ev.prompt(); ev.userChoice.then(c => { box.hidden = true; if (c.outcome !== 'accepted') snooze(30); ev = null; }).catch(() => { box.hidden = true; });
+    };
+    $('instNo').onclick = () => { box.hidden = true; snooze(30); };
+    $('instOpen').onclick = () => { if (standalone()) { showToast('O mapa já está aberto como app.'); return; } open(true); };
+    // only on phones and tablets, a little after the map opens
+    if (matchMedia('(pointer: coarse)').matches) setTimeout(() => open(false), 25000);
+  })();
 
   // ---------- this year against the average of past years (INPE reference satellite, Roraima)
   function renderHist(J) {
