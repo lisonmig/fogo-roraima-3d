@@ -195,6 +195,8 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .secamini b { font-weight: 700; }
 .lbl.gauge { pointer-events: auto; cursor: pointer; border: 0; border-radius: 999px; padding: 2px 8px 3px; background: var(--c); color: #fff; text-shadow: none; font: 700 11px var(--f-body);
   transform: translate(-50%, calc(-100% - 6px)); box-shadow: 0 1px 6px rgba(0,0,0,.5); }
+.lbl.firetop { pointer-events: auto; cursor: pointer; border: 1.5px solid #fff; border-radius: 999px; padding: 2px 8px 3px; background: #b42318; color: #fff; text-shadow: none; font: 700 11.5px var(--f-body); transform: translate(-50%, calc(-100% - 10px)); }
+.lbl.firetop::after { display: none; }
 .lbl.gauge::after { width: 8px; height: 8px; margin-left: -4px; bottom: -11px; background: var(--c); border: 2px solid #fff; }
 .pop .gv { margin: 2px 0 2px; font-size: 14px; }
 .pop .gv b { font-family: var(--f-display); font-size: 22px; white-space: nowrap; }
@@ -931,43 +933,105 @@ details.legal li { margin-bottom: 4px; }
     fKind[i] = F.v[i] ? 0 : (F.s[i] === refSat ? 1 : 2); fGeo[i] = geoSat.has(F.s[i]) ? 1 : 0;
     fCell[i] = Math.round(F.lat[i] / 0.018) * 100000 + Math.round(F.lon[i] / 0.018);
   }
+  // importance of each detection, the part that does not depend on time (0–60): size of the fire around it (25),
+  // strength compared within its sensor (20) and closeness to people (15). Recency (0–40) is added in the shader.
+  const fImp = new Float32Array(NF), fSeed = new Float32Array(NF);
+  const pixK = i => fGeo[i] ? 8 : F.v[i] ? 1 : 3; // geostationary pixels are much bigger, so their FRP is not comparable
+  (() => {
+    const cnt = new Map(), key = i => fCell[i] * 64 + Math.floor(F.t[i] / 720) % 64;
+    for (let i = 0; i < NF; i++) { const k = key(i); cnt.set(k, (cnt.get(k) || 0) + 1); }
+    for (let i = 0; i < NF; i++) {
+      const size = Math.min(1, Math.log(cnt.get(key(i))) / Math.log(30));
+      const force = Math.min(1, Math.log(1 + Math.max(0, F.f[i]) / pixK(i)) / Math.log(51));
+      fImp[i] = 25 * size + 20 * force; fSeed[i] = (i * 0.618034) % 1;
+    }
+  })();
+  function addProximity(places) { // villages, communities and towns: +15 within 2 km, +8 within 5 km
+    const G = new Map(), gk = (lo, la) => Math.floor(lo / 0.05) * 10000 + Math.floor(la / 0.05);
+    places.forEach(p => { const k = gk(p.lon, p.lat); if (!G.has(k)) G.set(k, []); G.get(k).push(p); });
+    for (let i = 0; i < NF; i++) {
+      let best = 99; const bx = Math.floor(F.lon[i] / 0.05), by = Math.floor(F.lat[i] / 0.05);
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const l = G.get((bx + dx) * 10000 + by + dy); if (l) for (const p of l) best = Math.min(best, distKm(F.lon[i], F.lat[i], p.lon, p.lat)); }
+      fImp[i] = Math.min(60, (fImp[i] % 100) + (best < 2 ? 15 : best < 5 ? 8 : 0)) + 0; // keeps size+force, adds proximity
+    }
+    fireGeo.attributes.aImp.needsUpdate = true;
+  }
+  const fireScore = (i, t) => { const h = (t - F.t[i]) / 60; return fImp[i] + (h < 0 ? 0 : h < 3 ? 40 : h < 12 ? 25 : h < 24 ? 10 : 0); };
   const fireGeo = new THREE.BufferGeometry();
   fireGeo.setAttribute('position', new THREE.BufferAttribute(fPos, 3));
   fireGeo.setAttribute('aTime', new THREE.BufferAttribute(fTime, 1));
   fireGeo.setAttribute('aFrp', new THREE.BufferAttribute(fFrp, 1));
   fireGeo.setAttribute('aKind', new THREE.BufferAttribute(fKind, 1));
   fireGeo.setAttribute('aGeo', new THREE.BufferAttribute(fGeo, 1));
+  fireGeo.setAttribute('aImp', new THREE.BufferAttribute(fImp, 1));
+  fireGeo.setAttribute('aSeed', new THREE.BufferAttribute(fSeed, 1));
   function placeFires() {
     for (let i = 0; i < NF; i++) { fPos[i * 3] = toX(F.lon[i]); fPos[i * 3 + 1] = yAt(F.lon[i], F.lat[i]) + 0.5; fPos[i * 3 + 2] = toZ(F.lat[i]); }
     fireGeo.attributes.position.needsUpdate = true;
   }
   const fireMat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uWin: { value: 1440 }, uMode: { value: 0 }, uScale: { value: 1500 } },
-    vertexShader: `attribute float aTime; attribute float aFrp; attribute float aKind; attribute float aGeo;
-      uniform float uTime; uniform float uWin; uniform float uMode; uniform float uScale;
-      varying float vI; varying vec3 vC; varying float vG;
+    uniforms: { uTime: { value: 0 }, uWin: { value: 1440 }, uMode: { value: 0 }, uScale: { value: 1500 }, uClock: { value: 0 }, uLive: { value: LIGHT ? 0 : 1 } },
+    vertexShader: `attribute float aTime; attribute float aFrp; attribute float aKind; attribute float aGeo; attribute float aImp; attribute float aSeed;
+      uniform float uTime; uniform float uWin; uniform float uMode; uniform float uScale; uniform float uClock; uniform float uLive;
+      varying float vStage; varying float vScore; varying float vSeed; varying float vPulse;
       void main(){
         float age = uTime - aTime;
         bool vis = age >= 0.0 && age <= uWin;
         if (uMode > 0.5 && uMode < 1.5 && aKind > 0.5) vis = false;
         if (uMode > 1.5 && abs(aKind - 1.0) > 0.5) vis = false;
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        if (!vis) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vI = 0.0; vC = vec3(0.0); vG = 0.0; return; }
+        if (!vis) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vStage = 0.0; vScore = 0.0; vSeed = 0.0; vPulse = 0.0; return; }
         gl_Position = projectionMatrix * mv;
-        vI = 1.0 - age / uWin; vG = aGeo;
-        float f = max(aFrp, 1.0);
-        vC = f < 10.0 ? vec3(1.0, 0.30, 0.12) : f < 50.0 ? vec3(1.0, 0.55, 0.10) : f < 200.0 ? vec3(1.0, 0.82, 0.25) : vec3(1.0, 0.95, 0.69);
-        float fresh = smoothstep(0.0, 1.0, vI);
-        gl_PointSize = clamp((3.0 + 2.2 * log(f)) * (0.4 + 0.6 * fresh) * (1.0 - 0.35 * aGeo) * uScale / -mv.z, 4.0, 22.0);
+        float h = age / 60.0;
+        // stage: 0 flame (0–6 h), 1 ember (6–24 h), 2 charcoal (1–7 days, then the scar painted on the ground)
+        vStage = h < 6.0 ? 0.0 : h < 24.0 ? 1.0 : 2.0;
+        float rec = h < 3.0 ? 40.0 : h < 12.0 ? 25.0 : h < 24.0 ? 10.0 : 0.0;
+        vScore = clamp(aImp + rec, 0.0, 100.0); vSeed = aSeed;
+        vPulse = 0.5 + 0.5 * sin(uClock * 3.1416 + aSeed * 6.2832);
+        float px = vStage < 0.5 ? mix(9.0, 30.0, vScore / 100.0) : vStage < 1.5 ? mix(6.0, 14.0, vScore / 100.0) : 5.0;
+        if (vStage < 0.5 && vScore > 70.0) px *= 1.35; // room for the smoke
+        float persp = clamp(uScale / -mv.z / 18.0, 0.55, 1.6);
+        gl_PointSize = px * persp * (1.0 - 0.3 * aGeo) * (1.0 + 0.12 * uLive * sin(uClock * (25.0 + 15.0 * aSeed) + aSeed * 40.0) * step(vStage, 0.5));
       }`,
-    fragmentShader: `varying float vI; varying vec3 vC; varying float vG;
+    fragmentShader: `uniform float uClock; uniform float uLive;
+      varying float vStage; varying float vScore; varying float vSeed; varying float vPulse;
       void main(){
-        float d = length(gl_PointCoord - 0.5) * 2.0; if (d > 1.0) discard;
-        float core = smoothstep(0.34, 0.0, d); float glow = pow(1.0 - d, 2.0);
-        vec3 col = vC * glow + vec3(1.0, 0.96, 0.85) * core * 0.9;
-        gl_FragColor = vec4(col, (glow * 0.9 + core) * (0.35 + 0.65 * vI) * (1.0 - 0.45 * vG));
+        vec2 q = vec2(gl_PointCoord.x - 0.5, 0.62 - gl_PointCoord.y); // y up, base low in the sprite
+        vec3 rim = vec3(0.10, 0.04, 0.02);
+        if (vStage > 1.5) { // charcoal: small dark dot with a rim
+          float d = length(gl_PointCoord - 0.5) * 2.0; if (d > 1.0) discard;
+          gl_FragColor = vec4(mix(vec3(0.48, 0.16, 0.07), rim, smoothstep(0.55, 0.95, d)), 0.85); return;
+        }
+        if (vStage > 0.5) { // ember: red-orange, slow glow
+          float d = length(gl_PointCoord - 0.5) * 2.0; if (d > 1.0) discard;
+          vec3 c = mix(vec3(0.88, 0.29, 0.07), vec3(0.54, 0.11, 0.04), smoothstep(0.0, 0.8, d));
+          c = mix(c, rim, smoothstep(0.78, 1.0, d));
+          gl_FragColor = vec4(c * (0.85 + 0.25 * vPulse * uLive), 0.92); return;
+        }
+        // flame: a teardrop that flickers; hot core, orange body, red edge, dark rim (readable on any background)
+        float big = step(70.0, vScore);
+        vec2 f = q * (1.0 + 0.35 * big);
+        f.x += uLive * 0.035 * sin(uClock * 7.0 + vSeed * 30.0 + f.y * 14.0) * max(f.y, 0.0) * 3.0;
+        float d = length(vec2(f.x * (1.0 + 2.4 * max(f.y, 0.0) / 0.42), f.y * 0.95)) / 0.33;
+        vec4 col = vec4(0.0);
+        if (d < 1.0) {
+          vec3 c = mix(vec3(1.0, 0.957, 0.761), vec3(1.0, 0.541, 0.122), smoothstep(0.15, 0.55, d));
+          c = mix(c, vec3(0.839, 0.165, 0.039), smoothstep(0.55, 0.88, d));
+          c = mix(c, rim, smoothstep(0.88, 1.0, d));
+          col = vec4(c, 1.0);
+        } else {
+          float g = clamp(1.0 - (d - 1.0) / 0.9, 0.0, 1.0); // soft glow around the flame
+          col = vec4(1.0, 0.45, 0.10, 0.28 * g * g);
+          if (big > 0.5) { // smoke drifting up from the strongest recent fires
+            float s = length(vec2(q.x - 0.06 * sin(uClock * 0.8 + vSeed * 9.0), q.y - 0.36 - 0.06 * fract(uClock * 0.25 + vSeed))) / 0.2;
+            float a = 0.32 * clamp(1.0 - s, 0.0, 1.0) * uLive;
+            col = vec4(mix(col.rgb, vec3(0.54, 0.52, 0.50), a / max(col.a + a, 0.001)), max(col.a, a));
+          }
+          if (col.a < 0.01) discard;
+        }
+        gl_FragColor = col;
       }`,
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+    transparent: true, depthWrite: false, blending: THREE.NormalBlending
   });
   const firePts = new THREE.Points(fireGeo, fireMat); firePts.frustumCulled = false; scene.add(firePts);
 
@@ -1144,7 +1208,19 @@ details.legal li { margin-bottom: 4px; }
     const now = performance.now();
     if (force || now - lastUi > 120) { lastUi = now; updateUi(); }
   }
+  // the most important fires right now get a label (5 at most, one per place)
+  const topEls = [...Array(5)].map(() => { const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl firetop'; el.hidden = true; $('labels').appendChild(el); return el; });
+  let topList = [];
+  function updateTopFires() {
+    const cand = []; for (const i of windowIdx()) { const s = fireScore(i, st.t); if (s >= 55) cand.push([s, i]); }
+    cand.sort((a, b) => b[0] - a[0]); const used = new Set(); topList = [];
+    for (const [s, i] of cand) { const k = Math.round(F.lat[i] / 0.08) * 1000 + Math.round(F.lon[i] / 0.08); if (used.has(k)) continue; used.add(k); topList.push(i); if (topList.length === 5) break; }
+    topEls.forEach((el, k) => { const i = topList[k]; if (i == null) { el.hidden = true; el.dataset.on = ''; return; }
+      el.dataset.on = '1'; el.textContent = '🔥 ' + D.muns[F.m[i]] + ' · ' + (atEnd() ? agoTxt(F.t[i]) : fmtH(F.t[i]));
+      el.onclick = () => { st.sel = { kind: 'fire', i }; showDetail(); }; });
+  }
   function updateUi() {
+    updateTopFires();
     const d = loc(st.t);
     $('clock').innerHTML = two(d.getUTCDate()) + ' ' + MESES[d.getUTCMonth()] + ' ' + d.getUTCFullYear() + ' · ' + two(d.getUTCHours()) + 'h<small>horário de Roraima</small>';
     $('mClock').innerHTML = '<b>' + two(d.getUTCDate()) + ' ' + MESES[d.getUTCMonth()] + '</b><small>' + two(d.getUTCHours()) + 'h</small>';
@@ -1278,7 +1354,7 @@ details.legal li { margin-bottom: 4px; }
     GAUGES = (J && J.stations) || [];
     gaugeEls = GAUGES.map((g, k) => {
       const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl gauge';
-      el.style.setProperty('--c', g.noData ? '#888' : RISK[g.risk][1]);
+      el.style.setProperty('--c', g.noData ? '#8a8f96' : g.risk === 'critico' ? '#1e4e8c' : '#2b6cb0');
       el.innerHTML = '<span class="gd">💧</span><span class="gt"></span>';
       el.querySelector('.gt').textContent = g.noData ? ' sem dado' : ' ' + cmTxt(g.last.cm);
       el.title = g.river + ' em ' + g.name + (g.noData ? (g.lastDay ? ': sem transmitir desde ' + g.lastDay.split('-').reverse().join('/') : ': sem leitura recente') : ': ' + RISK[g.risk][0].toLowerCase()) + '. Clique para ver.';
@@ -1784,6 +1860,7 @@ details.legal li { margin-bottom: 4px; }
       return { c: w[0], n: w[1], m: w[2], pts };
     });
     RD.places = J.places.map(p => ({ name: p[0], kind: p[1], lon: ox + p[2] / q, lat: oy + p[3] / q, m: p[4] }));
+    addProximity(RD.places.filter(p => p.kind >= 2 && p.kind !== 5).concat(PLACES.filter(p => !p[3]).map(p => ({ lon: p[2], lat: p[1] })))); updateTopFires();
     RD.labels = J.labels.map(a => ({ n: a[0], m: a[1], c: a[2], lon: ox + a[3] / q, lat: oy + a[4] / q }));
     // road segments on a 0.05 degree grid, for "nearest road"
     const G = 0.05, idx = new Map();
@@ -2247,7 +2324,7 @@ details.legal li { margin-bottom: 4px; }
   }
   $('lyCar').onchange = e => showCarLayer(e.target.checked);
   $('lyDeter').onchange = e => {
-    if (e.target.checked && !deterLayer) { deterFill = makeFill(DET.flatMap(d => d.r.map(flatToRing)), 0xff3d6e, 0.38, 0.28); deterLayer = makeDraped(DET.flatMap(d => d.r.map(flatToRing)), 0xff5c7a, 0.9, 0.34, 3); }
+    if (e.target.checked && !deterLayer) { deterFill = makeFill(DET.flatMap(d => d.r.map(flatToRing)), 0x8e5cc8, 0.32, 0.28); deterLayer = makeDraped(DET.flatMap(d => d.r.map(flatToRing)), 0xc39af0, 0.95, 0.34, 3); }
     if (deterLayer) deterLayer.obj.visible = deterFill.obj.visible = e.target.checked;
     if (!e.target.checked && st.sel && st.sel.kind === 'deter') { st.sel = null; showDetail(); }
   };
@@ -2473,7 +2550,7 @@ details.legal li { margin-bottom: 4px; }
     st.sel = c >= 0 ? { kind: 'car', k: c } : null; showDetail();
   }
   let downAt = null;
-  renderer.domElement.addEventListener('pointerdown', e => downAt = [e.clientX, e.clientY]);
+  renderer.domElement.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; if (fly && fly.intro) fly = null; });
   // double tap / double click on the map marks (or moves) the point; double tap on the pin (or double right click) removes it, with undo
   let lastTap = null, undoEl = null;
   function showToast(text, ms) { const el = document.createElement('div'); el.className = 'undo'; el.setAttribute('role', 'status'); el.innerHTML = '<span></span><button aria-label="Fechar">✕</button>'; el.querySelector('span').textContent = text;
@@ -2933,7 +3010,7 @@ details.legal li { margin-bottom: 4px; }
     const dt = Math.min(0.1, (now - prev) / 1000); prev = now;
     if (st.playing) { const nt = st.t + dt * st.speed * 60; if (nt >= period.to) { setTime(period.to, true); pause(); } else setTime(nt); }
     if (fly) {
-      const k = Math.min(1, (now - fly.t0) / 1400), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      const k = Math.min(1, (now - fly.t0) / (fly.dur || 1400)), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
       camera.position.lerpVectors(fly.p0, fly.p1, e); controls.target.lerpVectors(fly.q0, fly.q1, e);
       if (k >= 1) fly = null;
     }
@@ -2952,6 +3029,8 @@ details.legal li { margin-bottom: 4px; }
     if (!$('labels').hidden) PLACES.forEach((p, k) => place(lblEls[k], p[2], p[1], 0.8, r));
     if (st.pin) place(pinEl, st.pin.lon, st.pin.lat, 0.8, r);
     if (st.me) place(meEl, st.me.lon, st.me.lat, 0.4, r);
+    topList.forEach((i, k) => place(topEls[k], F.lon[i], F.lat[i], 1.2, r));
+    fireMat.uniforms.uClock.value = now / 1000;
     if (st.risk) place(riskEl, st.risk.lon, st.risk.lat, 1.0, r);
     if (!$('labels').hidden) { GAUGES.forEach((g, k) => place(gaugeEls[k], g.lon, g.lat, 0.6, r)); hideGaugeOverlaps(); }
     const nearZ = camera.position.distanceTo(controls.target) < 120; if (nearZ !== labelsNear) { labelsNear = nearZ; $('labels').classList.toggle('near', nearZ); }
@@ -2978,6 +3057,12 @@ details.legal li { margin-bottom: 4px; }
   renderLoss();
   if (reduce) stepWind(st.t / STEP);
   $('loading').hidden = true;
+  // arrival like a plane: from the whole state, glide toward the most important fire, upwind so the smoke goes away from the eye
+  if (!st.pin) setTimeout(() => {
+    if (fly || st.sel) return; let bi = -1, bs = 54; for (const i of windowIdx()) { const s = fireScore(i, st.t); if (s > bs) { bs = s; bi = i; } }
+    if (bi < 0) return; const w = wxAt(F.lon[bi], F.lat[bi], F.t[bi]), az = -(w.sp >= 3 ? w.to : 180) * Math.PI / 180;
+    flyTo(orbitPose(toX(F.lon[bi]), toZ(F.lat[bi]), 80, az, 0.98)); fly.intro = true; fly.dur = 2600;
+  }, 1400);
   Promise.all([riosP, secaP, inpeP, roadsP]).then(() => { if (failed.length) showToast('Não foi possível carregar agora: ' + failed.join(', ') + '. O resto do mapa funciona.', 8000); });
   // new data on the server: check every 5 min (and when the tab comes back) and offer to reload
   let dataTag = null;
