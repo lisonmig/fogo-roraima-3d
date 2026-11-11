@@ -648,7 +648,8 @@ details.legal li { margin-bottom: 4px; }
         <section class="sec">
           <h2>Camadas</h2>
           <label class="fl" for="base">Fundo do mapa
-            <select id="base"><option value="sat">Imagem de satélite (2025, sem nuvens)</option><option value="lc">Tipo de vegetação (MODIS 2023)</option><option value="none">Só relevo</option></select></label>
+            <select id="base"><option value="sat">Imagem de satélite (2025, sem nuvens)</option><option value="lc">Tipo de vegetação (MODIS 2023)</option><option value="nasa">Imagem de ontem (NASA, com nuvens)</option><option value="none">Só relevo</option></select></label>
+          <p class="note" id="nasaNote" hidden></p>
           <div class="checks" style="margin-top:10px">
             <label><input type="checkbox" id="lyFire" checked> Focos</label>
             <label><input type="checkbox" id="lyPer" checked> Contornos</label>
@@ -761,7 +762,7 @@ details.legal li { margin-bottom: 4px; }
           <summary>Fontes</summary>
           <div class="src" style="border:0;padding:0">
           <p class="note" style="margin:0 0 8px">📘 <a href="sobre.html">Sobre o projeto e como os números são calculados</a> · 📄 <a href="termos.html">Termos, privacidade e correções</a></p>
-          <p><b>Fontes.</b> Focos: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>. Terras Indígenas: <a href="https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas" target="_blank" rel="noopener">FUNAI</a>. Municípios e limite estadual: IBGE. Imóveis rurais: <a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">SICAR</a> (CAR, dados públicos, sem nome de dono). Desmatamento, área queimada e degradação: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE DETER</a> (alertas dos últimos 12 meses, não confirmação). Eventos de fogo oficiais (contorno, tipo e uso da terra): <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">INPE, Evento de Fogo</a>; o INPE lista só os eventos ativos ou em observação, então o mapa guarda cada atualização para formar o histórico a partir de 30/09/2026. Estradas, rios, vilas e fazendas: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© colaboradores do OpenStreetMap</a> (ODbL); o mapa colaborativo pode ter falhas ou estradas faltando. Vegetação: MODIS Land Cover (IGBP) 2023, NASA GIBS. Relevo: Terrarium/Mapzen (SRTM). Imagem: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2025 by EOX IT Services GmbH</a> (dados Copernicus Sentinel modificados, CC BY-NC-SA 4.0). Vento, umidade, temperatura e chuva: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (modelo, não estação).</p>
+          <p><b>Fontes.</b> Focos: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>. Terras Indígenas: <a href="https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas" target="_blank" rel="noopener">FUNAI</a>. Municípios e limite estadual: IBGE. Imóveis rurais: <a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">SICAR</a> (CAR, dados públicos, sem nome de dono). Desmatamento, área queimada e degradação: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE DETER</a> (alertas dos últimos 12 meses, não confirmação). Eventos de fogo oficiais (contorno, tipo e uso da terra): <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">INPE, Evento de Fogo</a>; o INPE lista só os eventos ativos ou em observação, então o mapa guarda cada atualização para formar o histórico a partir de 30/09/2026. Estradas, rios, vilas e fazendas: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© colaboradores do OpenStreetMap</a> (ODbL); o mapa colaborativo pode ter falhas ou estradas faltando. Vegetação: MODIS Land Cover (IGBP) 2023, NASA GIBS. Relevo: Terrarium/Mapzen (SRTM). Imagem: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2025 by EOX IT Services GmbH</a> (dados Copernicus Sentinel modificados, CC BY-NC-SA 4.0). Imagem de ontem: <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">NASA GIBS/Worldview</a> (satélites VIIRS, dados públicos; mostra nuvens e fumaça). Vento, umidade, temperatura e chuva: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (modelo, não estação).</p>
           <p>Unidades de conservação ficaram de fora: o serviço do MMA consultado trazia nomes trocados com os desenhos.</p>
           <p>Projeto de extensão · UERR.</p>
           </div>
@@ -2350,11 +2351,43 @@ details.legal li { margin-bottom: 4px; }
   matchMedia('(max-width: 880px)').addEventListener('change', e => { if (e.matches) { setTimeline(false, true); setDState(dMin); } });
   $('win').onchange = e => { st.win = +e.target.value; fireMat.uniforms.uWin.value = st.win; updateUi(); };
   $('mode').onchange = e => { st.mode = +e.target.value; fireMat.uniforms.uMode.value = st.mode; rebin(); updateUi(); };
-  $('base').onchange = e => {
-    const v = e.target.value; terrainMat.uniforms.uMapOn.value = v === 'none' ? 0 : 1; terrainMat.uniforms.uMap.value = v === 'lc' ? texLc : texImg;
+  // "Imagem de ontem": daily true-colour photo from NASA GIBS (VIIRS), downloaded only when chosen
+  const nasa = { tex: null, day: '', busy: false };
+  const nasaDay = back => new Date(Date.now() - 4 * 3600e3 - back * 864e5).toISOString().slice(0, 10);
+  function nasaFail() {
+    nasa.busy = false;
+    if ($('base').value === 'nasa') { $('base').value = 'sat'; applyBase('sat'); }
+    $('nasaNote').hidden = false; $('nasaNote').textContent = 'Não foi possível baixar a imagem da NASA agora (sem internet ou serviço fora do ar). O mapa voltou à imagem de 2025.';
+  }
+  function loadNasa(back) {
+    if (back > 4) { nasaFail(); return; }
+    const day = nasaDay(back), H = LIGHT ? 1000 : 2000, Wd = Math.round(H * (E - W) / (N - S)), img = new Image();
+    let done = false; const tmo = setTimeout(() => { if (!done) { done = true; nasaFail(); } }, 30000);
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (done) return; done = true; clearTimeout(tmo);
+      let dark = 0;
+      try { const c = document.createElement('canvas'); c.width = c.height = 48; const x = c.getContext('2d'); x.drawImage(img, 0, 0, 48, 48); const p = x.getImageData(0, 0, 48, 48).data; for (let i = 0; i < p.length; i += 4) if (p[i] + p[i + 1] + p[i + 2] < 30) dark++; } catch (e) {}
+      if (dark > 48 * 48 * 0.4) { loadNasa(back + 1); return; }  // no photo for that day yet (black image): try the day before
+      nasa.tex = mkTex(img); nasa.day = day; nasa.busy = false;
+      if ($('base').value === 'nasa') applyBase('nasa');
+    };
+    img.onerror = () => { if (done) return; done = true; clearTimeout(tmo); nasaFail(); };
+    img.src = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&CRS=EPSG:4326&FORMAT=image/jpeg' +
+      '&LAYERS=VIIRS_SNPP_CorrectedReflectance_TrueColor,VIIRS_NOAA20_CorrectedReflectance_TrueColor&BBOX=' + [S, W, N, E].join(',') + '&WIDTH=' + Wd + '&HEIGHT=' + H + '&TIME=' + day;
+  }
+  function applyBase(v) {
+    const useNasa = v === 'nasa' && nasa.tex;
+    terrainMat.uniforms.uMapOn.value = v === 'none' ? 0 : 1; terrainMat.uniforms.uMap.value = v === 'lc' ? texLc : useNasa ? nasa.tex : texImg;
     sharp.base = v === 'sat'; if (!sharp.base) terrainMat.uniforms.uDetOn.value = 0; else if (sharp.tex) terrainMat.uniforms.uDetOn.value = 1;
     $('legendLc').hidden = v !== 'lc';
-  };
+    const nt = $('nasaNote');
+    if (v !== 'nasa') { nt.hidden = true; return; }
+    nt.hidden = false;
+    if (useNasa) nt.innerHTML = 'Foto de <b>' + nasa.day.split('-').reverse().join('/') + '</b> dos satélites VIIRS (NASA), com detalhe de cerca de 250 m. Nuvens e fumaça aparecem como manchas brancas ou cinzentas e podem esconder o chão. Fonte: <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">NASA GIBS/Worldview</a>.';
+    else { nt.textContent = 'Baixando a imagem de ontem da NASA…'; if (!nasa.busy) { nasa.busy = true; loadNasa(1); } }
+  }
+  $('base').onchange = e => applyBase(e.target.value);
   $('legendLc').innerHTML = D.lc.map((n, k) => '<span><i class="sq" style="background:' + D.lcColors[k] + '"></i>' + n + '</span>').join('');
   $('lyScar').onchange = e => terrainMat.uniforms.uBurnOn.value = e.target.checked ? 1 : 0;
   $('lyFire').onchange = e => firePts.visible = e.target.checked;
