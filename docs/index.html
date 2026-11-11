@@ -138,6 +138,11 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .perfnote { position: fixed; z-index: 60; top: 84px; left: 50%; transform: translateX(-50%); width: min(520px, calc(100vw - 32px)); background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-left: 4px solid #d97706; border-radius: 8px; padding: 10px 12px; font-size: 13.5px; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
 .perfnote p { margin: 0 0 8px; }
 .undo { position: fixed; z-index: 60; top: 84px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; white-space: nowrap; background: rgba(20,20,20,.88); color: #fff; border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 12.5px; box-shadow: 0 3px 12px rgba(0,0,0,.3); }
+.medot { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: #2b7cff; border: 3px solid #fff; box-shadow: 0 0 0 0 rgba(43,124,255,.6); animation: mepulse 1.8s infinite; pointer-events: none; z-index: 3; }
+@keyframes mepulse { 0% { box-shadow: 0 0 0 0 rgba(43,124,255,.55); } 70% { box-shadow: 0 0 0 16px rgba(43,124,255,0); } 100% { box-shadow: 0 0 0 0 rgba(43,124,255,0); } }
+@media (prefers-reduced-motion: reduce) { .medot { animation: none; } }
+#whereBtn[aria-pressed="true"] { background: #2b7cff; }
+.undo { white-space: normal; max-width: calc(100vw - 32px); }
 .undo button { border: 0; border-radius: 999px; background: rgba(255,255,255,.18); color: #fff; font: 600 12px var(--f-body); padding: 4px 10px; cursor: pointer; }
 .perfnote .row { display: flex; gap: 8px; flex-wrap: wrap; }
 .dg-msg { margin: 6px 0 0; font-size: 12.5px; font-weight: 600; }
@@ -460,6 +465,7 @@ details.legal li { margin-bottom: 4px; }
       <button class="compass" id="compass" title="Virar para o norte"><span id="needle">N</span></button>
       <button class="vbtn" id="home">Estado todo</button>
       <button class="vbtn" id="topView">Vista de cima</button>
+      <button class="vbtn" id="whereBtn" hidden title="Mostrar onde você está (GPS)" aria-pressed="false">◎ Onde estou</button>
       <button class="vbtn" id="sitBtn" title="Mostrar ou esconder incêndios queimando, em observação ou apagados">🔥 Filtro</button>
     </div>
     <div class="sit" id="sit" role="group" aria-label="Situação dos incêndios do INPE: clique para mostrar ou esconder"></div>
@@ -509,7 +515,7 @@ details.legal li { margin-bottom: 4px; }
 
       <nav class="tabs" role="tablist" aria-label="Seções do painel">
         <button role="tab" id="tab-resumo" aria-controls="pane-resumo" aria-selected="true">Resumo</button>
-        <button role="tab" id="tab-local" aria-controls="pane-local" aria-selected="false">Meu local</button>
+        <button role="tab" id="tab-local" aria-controls="pane-local" aria-selected="false">Ponto marcado</button>
         <button role="tab" id="tab-seca" aria-controls="pane-seca" aria-selected="false">Seca</button>
         <button role="tab" id="tab-mapa" aria-controls="pane-mapa" aria-selected="false">Mapa</button>
         <button role="tab" id="tab-dados" aria-controls="pane-dados" aria-selected="false">Dados</button>
@@ -541,10 +547,10 @@ details.legal li { margin-bottom: 4px; }
         <section class="sec">
           <h2>Minha propriedade ou local</h2>
           <div class="mystatus" id="danger" hidden style="margin-bottom:10px"></div>
-          <p class="note" style="margin:0 0 8px">Marque no mapa, use o GPS ou digite as coordenadas na busca do mapa. O local fica salvo <b>só neste aparelho</b> e o mapa avisa ao abrir se há fogo perto. A única exceção acontece só se você aceitar: ao tocar em “Ver chuva ao vivo aqui”, o aparelho envia o ponto arredondado (cerca de 10 km) e o endereço de internet (IP) ao Open-Meteo. Para remover o local: <b>dois toques seguidos no mapa</b> (no computador, dois cliques com o botão direito).</p>
+          <p class="note" style="margin:0 0 8px">Marque no mapa, use o GPS ou digite as coordenadas na busca do mapa. O local fica salvo <b>só neste aparelho</b> e o mapa avisa ao abrir se há fogo perto. A única exceção acontece só se você aceitar: ao tocar em “Ver chuva ao vivo aqui”, o aparelho envia o ponto arredondado (cerca de 10 km) e o endereço de internet (IP) ao Open-Meteo. <b>Para marcar:</b> dois toques (ou dois cliques) no lugar do mapa. <b>Para remover:</b> dois toques em cima do alfinete (no computador, também dois cliques com o botão direito).</p>
           <div class="row">
             <button class="btn" id="pickBtn" aria-pressed="false">Marcar no mapa</button>
-            <button class="btn" id="gpsBtn" hidden>Usar meu GPS</button>
+            <button class="btn" id="gpsBtn" hidden>Marcar onde estou (GPS)</button>
             <select id="radius" aria-label="Raio"><option value="1">1 km</option><option value="2">2 km</option><option value="5">5 km</option><option value="10" selected>10 km</option><option value="20">20 km</option><option value="50">50 km</option></select>
             <button class="btn" id="pinClear" hidden>Remover local</button>
           </div>
@@ -729,7 +735,7 @@ details.legal li { margin-bottom: 4px; }
     <button class="mclock" id="mClock" aria-controls="timeline" aria-expanded="false" title="Abrir a linha do tempo e o gráfico">–</button>
     <div class="mtabs">
       <button type="button" data-tab="resumo" aria-pressed="true"><span>🔥</span>Resumo</button>
-      <button type="button" data-tab="local" aria-pressed="false"><span>📍</span>Meu local</button>
+      <button type="button" data-tab="local" aria-pressed="false"><span>📍</span>Ponto</button>
       <button type="button" data-tab="seca" aria-pressed="false"><span>💧</span>Seca</button>
       <button type="button" data-tab="mapa" aria-pressed="false"><span>🗺️</span>Mapa</button>
       <button type="button" data-tab="dados" aria-pressed="false"><span>ℹ️</span>Dados</button>
@@ -767,10 +773,9 @@ details.legal li { margin-bottom: 4px; }
 
   // ---------- load
   let D, hImg, tImg, lcImg;
-  const riosP = fetch('rios.json').then(r => r.ok ? r.json() : null).catch(() => null);
-  const secaP = fetch('seca.json').then(r => r.ok ? r.json() : null).catch(() => null);
-  const inpeP = fetch('eventos_inpe.json').then(r => r.ok ? r.json() : null).catch(() => null);
-  const roadsP = fetch('estradas.json').then(r => r.ok ? r.json() : null).catch(() => null);
+  // extra layers: if one fails, the map still works and a short note says which one is missing
+  const failed = [], getL = (f, name) => fetch(f).then(r => { if (!r.ok) throw 0; return r.json(); }).catch(() => { failed.push(name); return null; });
+  const riosP = getL('rios.json', 'rios do mapa'), secaP = getL('seca.json', 'nível dos rios'), inpeP = getL('eventos_inpe.json', 'eventos de fogo do INPE'), roadsP = getL('estradas.json', 'estradas');
   try {
     const load = src => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error(src)); i.src = src; });
     [D, hImg, tImg, lcImg] = await Promise.all([fetch('roraima3d.json').then(r => { if (!r.ok) throw new Error('dados'); return r.json(); }), load('relevo.png'), load('imagem.webp').catch(() => load('imagem.jpg')), load('cobertura.png')]);
@@ -1192,7 +1197,7 @@ details.legal li { margin-bottom: 4px; }
   // the marked place is "my place": kept only in this browser, so the map can warn about fire near it when it opens
   const saveLocal = () => { try { localStorage.setItem('rr3d-local', JSON.stringify(st.pin ? { lon: st.pin.lon, lat: st.pin.lat, label: st.pin.label, R: +$('radius').value } : null)); } catch (e) {} };
   function setPin(lon, lat, label) {
-    st.pin = { lon, lat, label: label || 'Meu local' };
+    st.pin = { lon, lat, label: label || 'Ponto marcado' };
     pinEl.textContent = st.pin.label; pinEl.hidden = false;
     $('pinClear').hidden = false; $('fineBox').hidden = false;
     ['fineHa', 'fineType', 'fineTi'].forEach(id => delete $(id).dataset.user); // new place: fill the simulator again
@@ -1906,6 +1911,21 @@ details.legal li { margin-bottom: 4px; }
   }
   const pp = document.permissionsPolicy || document.featurePolicy;
   $('gpsBtn').hidden = !('geolocation' in navigator && window.isSecureContext && (!pp || pp.allowsFeature('geolocation')));
+  // ◎ Onde estou: a blue dot from the GPS, separate from the marked point (red pin)
+  const meEl = document.createElement('div'); meEl.className = 'medot'; meEl.hidden = true; $('labels').appendChild(meEl);
+  let meWatch = null, meFirst = true;
+  $('whereBtn').hidden = $('gpsBtn').hidden;
+  $('whereBtn').onclick = () => {
+    if (meWatch != null) { navigator.geolocation.clearWatch(meWatch); meWatch = null; st.me = null; meEl.hidden = true; $('whereBtn').setAttribute('aria-pressed', 'false'); return; }
+    meFirst = true; $('whereBtn').setAttribute('aria-pressed', 'true');
+    meWatch = navigator.geolocation.watchPosition(p => {
+      const la = p.coords.latitude, lo = p.coords.longitude;
+      if (lo < W || lo > E || la < S || la > N) { showToast('Você está fora da área do mapa (Roraima).'); $('whereBtn').click(); return; }
+      st.me = { lon: lo, lat: la }; meEl.hidden = false;
+      if (meFirst) { meFirst = false; if (isPhone()) setDrawer(false); flyTo(orbitPose(toX(lo), toZ(la), 30, 0.15, 0.8)); showToast('Você está aqui. Dois toques no mapa marcam um ponto para ver o perigo.'); }
+    }, err => { showToast('Não foi possível usar o GPS' + (err.code === 1 ? ' (permissão negada)' : '') + '.'); if (meWatch != null) $('whereBtn').click(); },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+  };
   $('gpsBtn').onclick = () => {
     const msg = $('gpsMsg'); msg.hidden = false; msg.textContent = 'Procurando sua localização…';
     navigator.geolocation.getCurrentPosition(p => {
@@ -2443,8 +2463,10 @@ details.legal li { margin-bottom: 4px; }
   }
   let downAt = null;
   renderer.domElement.addEventListener('pointerdown', e => downAt = [e.clientX, e.clientY]);
-  // double tap (touch) or double right click (mouse) on the map removes the marked place; a small note lets the person undo it
+  // double tap / double click on the map marks (or moves) the point; double tap on the pin (or double right click) removes it, with undo
   let lastTap = null, undoEl = null;
+  function showToast(text, ms) { const el = document.createElement('div'); el.className = 'undo'; el.setAttribute('role', 'status'); el.innerHTML = '<span></span><button aria-label="Fechar">✕</button>'; el.querySelector('span').textContent = text;
+    const close = () => el.remove(); el.querySelector('button').onclick = close; document.body.appendChild(el); setTimeout(close, ms || 5000); }
   function removePinUndo() {
     const p = st.pin; if (!p) return; const was = { lon: p.lon, lat: p.lat, label: p.label };
     clearPin(); if (undoEl) undoEl.remove();
@@ -2459,7 +2481,12 @@ details.legal li { margin-bottom: 4px; }
     const kind = e.pointerType === 'mouse' ? (e.button === 2 ? 'r' : 'l') : 't', now = performance.now();
     const dbl = lastTap && lastTap.kind === kind && now - lastTap.t < 450 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40;
     lastTap = dbl ? null : { kind, t: now, x: e.clientX, y: e.clientY };
-    if (dbl && kind !== 'l' && st.pin && !st.picking) { removePinUndo(); return; }
+    if (dbl && !st.picking) {
+      const onPin = st.pin && (() => { const r = renderer.domElement.getBoundingClientRect(); tmpV.set(toX(st.pin.lon), yAt(st.pin.lon, st.pin.lat) + 0.8, toZ(st.pin.lat)).project(camera);
+        return tmpV.z < 1 && Math.hypot(r.left + (tmpV.x + 1) / 2 * r.width - e.clientX, r.top + (1 - tmpV.y) / 2 * r.height - e.clientY) < 40; })();
+      if (st.pin && (onPin || kind === 'r')) { removePinUndo(); return; }
+      if (kind !== 'r') { const g = groundAt(e.clientX, e.clientY); if (g) { st.sel = null; showDetail(); setPin(g.lon, g.lat, 'Ponto marcado'); return; } }
+    }
     if (kind === 'r') return;
     pick(e.clientX, e.clientY);
   });
@@ -2769,7 +2796,7 @@ details.legal li { margin-bottom: 4px; }
   function buildReport() {
     const v = $('repScope').value, p = st.pin, R = +$('radius').value; let scope, test;
     if (v === 'local') {
-      if (!p) return { err: 'Marque primeiro o seu local na aba “Meu local”.' };
+      if (!p) return { err: 'Marque primeiro um ponto: dois toques no mapa.' };
       const kx = 111.32 * Math.cos(p.lat * Math.PI / 180);
       scope = 'Até ' + R + ' km de ' + (/^Coordenada/.test(p.label) ? 'um local marcado' : p.label); test = i => Math.hypot((F.lon[i] - p.lon) * kx, (F.lat[i] - p.lat) * 110.57) <= R;
     } else if (v[0] === 'm') { const k = +v.slice(1); scope = 'Município de ' + D.muns[k]; test = i => F.m[i] === k; }
@@ -2892,6 +2919,7 @@ details.legal li { margin-bottom: 4px; }
     const r = renderer.domElement.getBoundingClientRect();
     if (!$('labels').hidden) PLACES.forEach((p, k) => place(lblEls[k], p[2], p[1], 0.8, r));
     if (st.pin) place(pinEl, st.pin.lon, st.pin.lat, 0.8, r);
+    if (st.me) place(meEl, st.me.lon, st.me.lat, 0.4, r);
     if (st.risk) place(riskEl, st.risk.lon, st.risk.lat, 1.0, r);
     if (!$('labels').hidden) { GAUGES.forEach((g, k) => place(gaugeEls[k], g.lon, g.lat, 0.6, r)); hideGaugeOverlaps(); }
     const nearZ = camera.position.distanceTo(controls.target) < 120; if (nearZ !== labelsNear) { labelsNear = nearZ; $('labels').classList.toggle('near', nearZ); }
@@ -2912,12 +2940,21 @@ details.legal li { margin-bottom: 4px; }
     const v = JSON.parse(localStorage.getItem('rr3d-local') || 'null');
     if (v && isFinite(v.lon) && isFinite(v.lat) && v.lon >= W && v.lon <= E && v.lat >= S && v.lat <= N) {
       if (v.R && [...$('radius').options].some(o => +o.value === +v.R)) $('radius').value = String(v.R);
-      setPin(+v.lon, +v.lat, String(v.label || 'Meu local').slice(0, 80));
+      setPin(+v.lon, +v.lat, String(v.label || 'Ponto marcado').slice(0, 80));
     }
   } catch (e) {}
   renderLoss();
   if (reduce) stepWind(st.t / STEP);
   $('loading').hidden = true;
+  Promise.all([riosP, secaP, inpeP, roadsP]).then(() => { if (failed.length) showToast('Não foi possível carregar agora: ' + failed.join(', ') + '. O resto do mapa funciona.', 8000); });
+  // new data on the server: check every 5 min (and when the tab comes back) and offer to reload
+  let dataTag = null;
+  const tagOf = () => fetch('roraima3d.json', { method: 'HEAD', cache: 'no-store' }).then(r => r.headers.get('etag') || r.headers.get('last-modified')).catch(() => null);
+  tagOf().then(t => dataTag = t);
+  const checkNew = async () => { if (document.hidden || !dataTag || $('newData')) return; const t = await tagOf(); if (!t || t === dataTag) return;
+    const el = document.createElement('div'); el.id = 'newData'; el.className = 'undo'; el.setAttribute('role', 'status'); el.innerHTML = '<span>Há dados novos do satélite</span><button>Atualizar</button>';
+    el.querySelector('button').onclick = () => location.reload(); document.body.appendChild(el); };
+  setInterval(checkNew, 5 * 60000); document.addEventListener('visibilitychange', () => { if (!document.hidden) checkNew(); });
   if (SOFT_LIGHT) showPerf('soft');
   roadsP.then(initRoads);
   inpeP.then(initInpe);
