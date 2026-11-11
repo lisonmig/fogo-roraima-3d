@@ -108,6 +108,11 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .dg-exact { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 0; font-size: 13px; cursor: pointer; }
 .dg-exact input { margin-top: 2px; width: 16px; height: 16px; flex: none; }
 .dg-hint { margin: 2px 0 0 24px; font-size: 11.5px; opacity: .8; }
+.dg-todo { margin: 8px 0 4px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.14); font-size: 13.5px; line-height: 1.4; }
+.dg-todo ol { margin: 4px 0 0; padding-left: 0; list-style: none; } .dg-todo li { margin: 3px 0; }
+.dg-ask { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.95); color: #1b1917; font-size: 13px; }
+.dg-ask p { margin: 0 0 6px; } .dg-ask .row { display: flex; gap: 6px; flex-wrap: wrap; } .dg-ask .btn { flex: 1; min-height: 40px; }
+#updated b { font-weight: 700; }
 #report { position: fixed; inset: 0; z-index: 100; overflow: auto; background: rgba(0,0,0,.55); padding: 16px; -webkit-overflow-scrolling: touch; }
 .rep-page { max-width: 760px; margin: 0 auto; background: #fff; color: #1b1917; border-radius: 10px; padding: 22px 26px 26px; font: 14.5px/1.5 var(--f-body); }
 .rep-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; position: sticky; top: 0; background: #fff; padding: 4px 0 8px; }
@@ -1084,10 +1089,11 @@ details.legal li { margin-bottom: 4px; }
   const agoTxt = t => { const m = Math.max(0, agoMin(t)); return m < 60 ? 'há ' + Math.max(1, Math.round(m)) + ' min' : m < 48 * 60 ? 'há ' + Math.round(m / 60) + ' h' : 'há ' + Math.round(m / 1440) + ' dias'; };
   const GEN = D.meta.generated ? (Date.parse(D.meta.generated.replace('Z', ':00Z')) - T0) / 60000 : null;
   const renderUpdated = () => {
-    const el = $('updated'), old = GEN != null && agoMin(GEN) > 180;
-    el.textContent = (GEN != null ? 'Atualizado ' + fmtD(GEN) + ' às ' + fmtH(GEN) + ' (' + agoTxt(GEN) + ') · último foco visto ' + fmtD(D.meta.lastFire) + ' às ' + fmtH(D.meta.lastFire)
-      : 'Dados do INPE até ' + fmtD(D.meta.lastFire) + ' às ' + fmtH(D.meta.lastFire)) + ' · horário de Roraima' + (old ? ' · atualização atrasada' : '');
-    el.classList.toggle('stale', old);
+    const el = $('updated'), late = GEN != null && agoMin(GEN) > 60, fireOld = agoMin(D.meta.lastFire) > 360;
+    el.innerHTML = '<b>Último fogo visto pelo satélite: ' + agoTxt(D.meta.lastFire) + '</b> (' + fmtD(D.meta.lastFire) + ' às ' + fmtH(D.meta.lastFire) + ')' +
+      (fireOld ? ' · à noite e com nuvem o satélite vê menos' : '') + '<br>' +
+      (GEN != null ? 'Dados coletados ' + agoTxt(GEN) + (late ? ' · <b>atualização atrasada</b>' : '') : '') + ' · horário de Roraima';
+    el.classList.toggle('stale', late);
   };
   renderUpdated(); setInterval(renderUpdated, 60000);
   // recent periods end now and start at the end; seasons start at their busiest day
@@ -1153,7 +1159,7 @@ details.legal li { margin-bottom: 4px; }
       if (v != null) rio = ' · 💧 Rio Branco <b>' + cmTxt(v) + '</b>' + (now || p.last ? '' : ' em ' + fmtD(p.t));
       else if (!now) rio = ' · 💧 Rio Branco: sem leitura nesta data';
     }
-    $('peekTxt').innerHTML = '🔥 <b>' + fmt(n) + '</b> ' + (n === 1 ? 'local' : 'locais') + ' com fogo' + rio;
+    const dl = st.dLevel; $('peekTxt').innerHTML = (dl === 'alto' ? '🔴 <b>Perigo alto no local marcado</b> · ' : dl === 'atencao' ? '🟠 <b>Atenção no local marcado</b> · ' : '') + '🔥 <b>' + fmt(n) + '</b> ' + (n === 1 ? 'local' : 'locais') + ' com fogo' + rio;
   }
 
   // ---------- plain-language summary
@@ -1444,7 +1450,7 @@ details.legal li { margin-bottom: 4px; }
     const inside = (lon, lat) => prop ? prop.r.some(r => pointInRing(lon, lat, r)) : distKm(lon, lat, p.lon, p.lat) < 0.3;
     // fire points: satellite detections of the last 24 h, plus the outlines of INPE events burning today
     const pts = [];
-    for (let i = firstAt(TLAST - 1440), e = firstAt(TLAST + 1); i < e; i++) if (distKm(p.lon, p.lat, F.lon[i], F.lat[i]) < 45) pts.push({ lon: F.lon[i], lat: F.lat[i], t: F.t[i], src: 'foco' });
+    for (let i = firstAt(TLAST - 1440), e = firstAt(TLAST + 1); i < e; i++) if (distKm(p.lon, p.lat, F.lon[i], F.lat[i]) < 45) pts.push({ lon: F.lon[i], lat: F.lat[i], t: F.t[i], src: 'foco', sat: D.sats[F.s[i]] });
     const today = dayOf(TLAST);
     IN.ev.forEach(ev => { if (inpeSit(ev, today) !== 'burn' || distKm(p.lon, p.lat, ev.c[0], ev.c[1]) > 60) return; ev.r.forEach(r => { for (let j = 0; j < r.length; j += 4) pts.push({ lon: r[j], lat: r[j + 1], t: null, src: 'inpe', ev }); }); });
     let best = null, nearest = null, nPlaces = new Set(), insideHit = false;
@@ -1471,15 +1477,22 @@ details.legal li { margin-bottom: 4px; }
     }
     // distance alone counts only when no river is in the way
     const near2 = best && !best.riv && best.d <= 2, near8 = best && !best.riv && best.d <= 8;
-    const level = !best ? 'nenhum' : insideHit || near2 || best.tmin <= 6 ? 'alto' : near8 || best.tmin <= 24 ? 'atencao' : 'baixo';
+    let level = !best ? 'nenhum' : insideHit || near2 || best.tmin <= 6 ? 'alto' : near8 || best.tmin <= 24 ? 'atencao' : 'baixo';
+    // an old detection is not 'high danger' on its own: the fire may already be out (the satellite only shows when it saw it)
+    const ageH = best && best.f.t != null ? agoMin(best.f.t) / 60 : 0, stale = ageH > 24;
+    if (stale && level === 'alto') level = 'atencao'; if (ageH > 48 && level === 'atencao') level = 'baixo';
     let loss = null;
     if (prop) {
       const comp = composition(prop); let total = 0;
       const parts = comp.map(([k, ha]) => { const vk = valKey(k), v = vk ? ha * VAL[vk] : 0; total += v; return { k, ha, vk, v }; });
       loss = { parts, total };
     }
-    return { p, prop, best, nearest, level, places: nPlaces.size, insideHit, loss };
+    return { p, prop, best, nearest, level, places: nPlaces.size, insideHit, loss, stale };
   }
+  // how far off a detection can be, by sensor (the size of its pixel on the ground)
+  const satPix = s => !s ? null : /NPP|NOAA-2/.test(s) ? { km: 0.375, txt: '375 m', name: 'VIIRS' } : /AQUA|TERRA/.test(s) ? { km: 1, txt: '1 km', name: 'MODIS' } : /METOP/.test(s) ? { km: 1.1, txt: '1 km', name: 'AVHRR' } : /GOES/.test(s) ? { km: 2.5, txt: '2 a 3 km', name: 'GOES' } : /MSG/.test(s) ? { km: 4, txt: '3 a 5 km', name: 'MSG' } : null;
+  const TODO_STEPS = ['🚨 Vê fumaça ou fogo? Saia agora, para o lado contrário ao vento.', '📞 Ligue <b>193</b> (Bombeiros) ou <b>199</b> (Defesa Civil).',
+    '👨‍👩‍👧 Avise a família e os vizinhos; leve crianças, idosos e animais.', '🚫 Não tente apagar fogo grande sozinho e não volte para buscar coisas.', '🌫️ Fumaça forte: pano molhado no rosto e fique abaixado.'];
   const brlShort = v => v >= 1e6 ? 'R$ ' + fmt(v / 1e6, 1) + (v < 2e6 ? ' milhão' : ' milhões') : v >= 1e3 ? 'R$ ' + fmt(v / 1e3, 0) + ' mil' : brl(v);
   const windRel = b => b.w.sp < 3 ? 'vento fraco' : b.diff <= 45 ? 'vento soprando do fogo para cá' : b.diff <= 90 ? 'vento de lado' : 'vento soprando para longe daqui';
   function dangerHeadline(r) {
@@ -1517,19 +1530,23 @@ details.legal li { margin-bottom: 4px; }
       const a = arrivalTxt(r).replace(/<[^>]+>/g, ''); if (a) lines.push(a);
       const rn = riverNote(r); if (rn) lines.push(rn);
     }
-    if (r.level !== 'nenhum') lines.push('⚠️ ' + WARN);
-    if (r.prop) lines.push((exact ? 'Propriedade no CAR ' + r.prop.cod : 'Propriedade') + ' · ' + fmt(r.prop.area, 0) + ' ha' + (r.loss && r.loss.total ? ' · prejuízo possível se queimar toda: até ' + brlShort(r.loss.total) : '') + '.');
+    if (r.level === 'alto' || r.level === 'atencao') lines.push('', 'O QUE FAZER:', '1. Viu fumaça ou fogo? Saia para o lado contrário ao vento.', '2. Ligue 193 (Bombeiros) ou 199 (Defesa Civil).', '3. Avise a família e os vizinhos; leve crianças, idosos e animais.', '');
+    else if (r.level !== 'nenhum') lines.push('⚠️ ' + WARN);
+    if (r.prop) lines.push((exact ? 'Imóvel rural no CAR ' + r.prop.cod : 'Imóvel rural') + ' · ' + fmt(r.prop.area, 0) + ' ha.');
     lines.push(exact ? 'Mapa: https://www.google.com/maps?q=' + p.lat.toFixed(5) + ',' + p.lon.toFixed(5) : 'Mapa de fogo: https://fogororaima.com.br');
     lines.push('Emergência: Bombeiros 193 · Defesa Civil 199');
-    lines.push('Estimativa com dados de satélite do INPE (até ' + fmtT(D.meta.lastFire) + '); não substitui avaliação no local.');
+    lines.push('Último fogo visto pelo satélite ' + agoTxt(D.meta.lastFire) + '. Estimativa com dados do INPE; o satélite pode não ver fogo pequeno, sob nuvem ou à noite. Não substitui avaliação no local.');
     return lines.join('\n');
   }
   function dangerHtml(r, full) {
     const L = LEVELS[r.level], b = r.best;
     let h = '<div class="dg-head"><span class="dg-badge">' + L.icon + ' ' + L.name + '</span></div><p class="dg-main">' + esc(dangerHeadline(r)) + '</p>';
     const a = arrivalTxt(r); if (a) h += '<p class="dg-time">⏱ ' + a + '</p>';
-    if (r.level !== 'nenhum') h += '<p class="dg-warn">🚨 ' + WARN + '</p>';
-    if (r.insideHit) h += '<p class="dg-sub">' + (b.f.t == null && b.f.src === 'inpe' ? 'O contorno do INPE é aproximado: o fogo pode estar na borda ou já ter passado. Veja a situação do incêndio no mapa.' : 'Cada ponto do satélite cobre cerca de 375 m × 375 m; o fogo pode estar perto da divisa, não necessariamente dentro.') + '</p>';
+    if (r.stale) h += '<p class="dg-sub"><b>O satélite viu esse fogo há mais de 24 h. Ele pode já ter apagado ou ainda estar queimando: confira com quem está perto.</b></p>';
+    // what to do now: always open, right under the danger headline (text reviewed by the civil defence consultant)
+    if (r.level === 'alto' || r.level === 'atencao') h += '<div class="dg-todo"><b>O que fazer agora</b><ol>' + TODO_STEPS.map(s => '<li>' + s + '</li>').join('') + '</ol></div>';
+    if (r.level === 'baixo') h += '<p class="dg-warn">🚨 ' + WARN + '</p>';
+    if (r.insideHit) h += '<p class="dg-sub">' + (b.f.t == null && b.f.src === 'inpe' ? 'O contorno do INPE é aproximado: o fogo pode estar na borda ou já ter passado. Veja a situação do incêndio no mapa.' : (() => { const sp = satPix(b.f.sat); return sp ? 'Foco visto pelo ' + sp.name + ' (' + esc(b.f.sat) + '): a posição pode ter erro de cerca de ' + sp.txt + '. O fogo pode estar perto da divisa, não necessariamente dentro.' : 'A posição do satélite tem margem de erro; o fogo pode estar perto da divisa, não necessariamente dentro.'; })()) + '</p>';
     const rn = riverNote(r); if (rn) h += '<p class="dg-sub"><b>' + esc(rn) + '</b></p>';
     if (b) h += '<p class="dg-sub">Vento de ' + dirName(b.w.from) + ' a ' + fmt(b.w.sp) + ' km/h · umidade ' + fmt(b.w.rh) + '% · ' + rainTxt(b.w.rain) + ' em 24 h · no caminho: ' + esc(D.lc[b.lcPath].toLowerCase()) + (b.f.t != null ? ' · fogo visto ' + fmtT(b.f.t) : b.f.src === 'inpe' ? ' · borda de incêndio ativo (INPE)' : '') + '</p>';
     if (r.places > 1) h += '<p class="dg-sub">' + r.places + ' locais com fogo a até 10 km.</p>';
@@ -1543,27 +1560,33 @@ details.legal li { margin-bottom: 4px; }
     } else if (CT.loading && !CT.ok && !CT.done) h += '<p class="dg-sub">Procurando a propriedade no CAR…</p>';
     else if (CT.done && !CT.ok) h += '<p class="dg-sub">Não foi possível carregar os imóveis do CAR agora.</p>';
     else if (CT.ok) h += '<p class="dg-sub">O local marcado não fica dentro de um imóvel do CAR.</p>';
-    if (r.level === 'alto' || r.level === 'atencao') h += '<details class="more"><summary>O que fazer agora</summary><div><p>Avise vizinhos e a família. Em perigo, ligue <b>193</b> (Bombeiros) ou <b>199</b> (Defesa Civil).</p><p>Tire pessoas e animais do caminho do fogo, para o lado contrário ao vento. Se houver tempo e segurança, faça aceiro (faixa sem capim) em volta da casa e dos currais. Não tente apagar fogo grande sozinho.</p></div></details>';
+
     if (b && !r.insideHit) h += '<button class="btn dg-risk" data-act="risk">➜ Ver de onde vem o risco</button>';
-    h += '<label class="dg-exact"><input type="checkbox" data-act="exact"' + (shareExact ? ' checked' : '') + '><span>Incluir a localização exata (ponto no mapa e código do CAR)</span></label>' + '<p class="dg-hint">Quem receber verá onde fica o seu local. Em grupos grandes ou com desconhecidos, desmarque.</p>';
     h += '<div class="row dg-share"><button class="btn dg-sharebtn" data-act="share">📤 Compartilhar alerta</button><a class="btn" target="_blank" rel="noopener" data-act="wa">WhatsApp</a><button class="btn" data-act="copy">Copiar</button></div>';
     if (!full) h += '<div class="row"><button class="btn" data-act="go">Ver no mapa</button><button class="btn" data-act="details">Detalhes</button><button class="btn" data-act="forget">Esquecer local</button></div>';
     h += '<p class="dg-note">Estimativa com dados de satélite e previsão do tempo; o fogo real pode ser mais rápido ou mais lento. Não substitui avaliação no local.</p>';
     return h;
   }
   function bindDanger(el, r) {
-    let txt = shareText(r, shareExact); const msg = m => { let n = el.querySelector('.dg-msg'); if (!n) { n = document.createElement('p'); n.className = 'dg-msg'; el.querySelector('.dg-share').after(n); } n.textContent = m; };
+    let txt = shareText(r, true); const msg = m => { let n = el.querySelector('.dg-msg'); if (!n) { n = document.createElement('p'); n.className = 'dg-msg'; el.querySelector('.dg-share').after(n); } n.textContent = m; };
     const copy = async () => { try { await navigator.clipboard.writeText(txt); msg('Texto copiado. Cole no WhatsApp, SMS ou e-mail.'); } catch (e) {
       const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e2) {} ta.remove();
       if (ok) { msg('Texto copiado.'); return; }
       msg('Selecione o texto abaixo e copie:'); // last resort: show the text to copy by hand
       let box = el.querySelector('.dg-text'); if (!box) { box = document.createElement('textarea'); box.className = 'dg-text'; box.readOnly = true; box.rows = 8; el.querySelector('.dg-msg').after(box); }
       box.value = txt; box.focus(); box.select(); } };
-    const setWa = () => { el.querySelector('[data-act=wa]').href = 'https://wa.me/?text=' + encodeURIComponent(txt); }; setWa();
-    const ex = el.querySelector('[data-act=exact]');
-    if (ex) ex.onchange = () => { shareExact = ex.checked; try { localStorage.setItem('rr3d-exact', shareExact ? '1' : '0'); } catch (e) {} txt = shareText(r, shareExact); setWa(); const box = el.querySelector('.dg-text'); if (box) box.value = txt; };
-    el.querySelector('[data-act=share]').onclick = async () => { if (navigator.share) { try { await navigator.share({ title: 'Alerta de fogo', text: txt }); return; } catch (e) { if (e && e.name === 'AbortError') return; } } copy(); };
-    el.querySelector('[data-act=copy]').onclick = copy;
+    // before sharing, ask each time whether to send the exact place (nothing pre-ticked)
+    const ask = then => {
+      let q = el.querySelector('.dg-ask'); if (q) q.remove();
+      q = document.createElement('div'); q.className = 'dg-ask';
+      q.innerHTML = '<p><b>Mandar a localização exata?</b> Quem receber verá o ponto no mapa' + (r.prop ? ' e o código do imóvel' : '') + '.</p><div class="row"><button class="btn" data-x="1">Sim, local exato</button><button class="btn" data-x="0">Não, só a região</button></div>';
+      el.querySelector('.dg-share').after(q);
+      q.onclick = e => { const x = e.target.dataset && e.target.dataset.x; if (x == null) return; txt = shareText(r, x === '1'); q.remove(); then(); };
+    };
+    const wa = el.querySelector('[data-act=wa]'); wa.removeAttribute('target'); wa.href = '#';
+    wa.onclick = e => { e.preventDefault(); ask(() => window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank', 'noopener')); };
+    el.querySelector('[data-act=share]').onclick = () => ask(async () => { if (navigator.share) { try { await navigator.share({ title: 'Alerta de fogo', text: txt }); return; } catch (e) { if (e && e.name === 'AbortError') return; } } copy(); });
+    el.querySelector('[data-act=copy]').onclick = () => ask(copy);
     const go = el.querySelector('[data-act=go]'); if (go) go.onclick = () => { if (isPhone()) setDrawer(false); flyTo(orbitPose(toX(r.p.lon), toZ(r.p.lat), Math.max(20, (r.best ? Math.min(r.best.d, 30) : 10) * 2.5), 0.15, 0.8)); };
     const det = el.querySelector('[data-act=details]'); if (det) det.onclick = () => setTab('local', true);
     const fg = el.querySelector('[data-act=forget]'); if (fg) fg.onclick = clearPin;
@@ -1642,9 +1665,9 @@ details.legal li { margin-bottom: 4px; }
   let myPropLine = null, myPropCod = null;
   function renderMyStatus() {
     const el = $('myStatus'), el2 = $('danger'), p = st.pin; renderRain();
-    if (!p) { el.hidden = true; el2.hidden = true; removeDraped(myPropLine); myPropLine = null; myPropCod = null; drawRiskArrow(null); return; }
+    if (!p) { if (st.dLevel) { st.dLevel = null; renderPeek(); } el.hidden = true; el2.hidden = true; removeDraped(myPropLine); myPropLine = null; myPropCod = null; drawRiskArrow(null); return; }
     if (!CT.ok && !CT.loading) loadCarTodos().finally(() => { if (st.pin) renderMyStatus(); });
-    const r = computeDanger(p), cls = 'mystatus ' + LEVELS[r.level].cls;
+    const r = computeDanger(p), cls = 'mystatus ' + LEVELS[r.level].cls; if (st.dLevel !== r.level) { st.dLevel = r.level; renderPeek(); }
     // outline of my property on the map
     if ((r.prop ? r.prop.cod : null) !== myPropCod) {
       removeDraped(myPropLine); myPropLine = null; myPropCod = r.prop ? r.prop.cod : null;
@@ -2286,7 +2309,8 @@ details.legal li { margin-bottom: 4px; }
   function inpeCard(k) {
     const e = IN.ev[k], day = dayOf(st.t), sit = inpeSit(e, day), burning = sit === 'burn', pct = v => fmt(v || 0, 0) + '%';
     const nd = Math.max(1, daysBetween(e.d1, day)), ago = nd === 1 ? '1 dia' : nd + ' dias';
-    const sitTag = burning ? 'queimando neste dia' : sit === 'obs' ? 'sem fogo há ' + ago + ' · em observação' : sit === 'done' ? 'apagado · sem fogo há ' + ago : 'ainda não começou';
+    let seen = null; for (let i = firstAt(TLAST - 1440), en = firstAt(TLAST + 1); i < en; i++) if (e.r.some(rr => pointInRing(F.lon[i], F.lat[i], rr))) seen = F.t[i];
+    const sitTag = burning || seen != null ? 'fogo visto pelo satélite ' + (seen != null ? agoTxt(seen) : 'neste dia') : sit === 'obs' ? 'sem fogo visto há ' + ago + ' · em observação' : sit === 'done' ? 'sem fogo visto há ' + ago : 'ainda não começou';
     const tiHit = D.tis.findIndex(t => t.r.some(r => pointInRing(e.c[0], e.c[1], r)));
     const rate = e.veg != null && e.veg >= 50 ? 10000 : 3000;
     showCard('<h3>' + esc(inpeName(e.tipo)) + ' · ' + esc(e.mun) + '</h3><p class="when">' + isoBr(e.d0) + ' a ' + isoBr(e.d1) + ' · ' + e.dias + (e.dias === 1 ? ' dia' : ' dias') + ' · evento oficial do INPE</p>' + whereTxt(e.c[0], e.c[1]) +
@@ -2598,7 +2622,7 @@ details.legal li { margin-bottom: 4px; }
     renderSecaNow();
     $('secaMini').innerHTML = '💧 Rio Branco em Boa Vista: <b>' + cmTxt(v) + '</b>' + (J.rank === 1 ? ', o mais baixo para a data desde ' + J.firstYear : J.rank <= 5 ? ', entre os mais baixos para a data' : '') + '. <u>Ver seca</u>';
     $('secaMini').hidden = false; $('secaMini').onclick = () => setTab('seca', true);
-    $('secaUpd').textContent = 'Atualizado em ' + isoDate(J.updated.slice(0, 10)) + '.';
+    { const u = (Date.parse(J.updated.replace('Z', ':00Z')) - T0) / 60000; $('secaUpd').textContent = isFinite(u) ? 'Atualizado em ' + fmtD(u) + ' às ' + fmtH(u) + ' (horário de Roraima).' : ''; }
     renderSecaRain(); drawSeca();
   }
   function renderSecaRain() {
