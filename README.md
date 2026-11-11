@@ -1,6 +1,6 @@
 # 🔥 Fogo em Roraima 3D
 
-Mapa 3D, gratuito e aberto, dos **focos de incêndio**, da **seca dos rios** e do **risco para propriedades rurais** em Roraima, com dados oficiais do INPE e da ANA, atualizado a cada 2 horas.
+Mapa 3D, gratuito e aberto, dos **focos de incêndio**, da **seca dos rios** e do **risco para propriedades rurais** em Roraima, com dados oficiais do INPE e da ANA, atualizado a cada 30 minutos.
 
 Projeto de extensão da **Universidade Estadual de Roraima (UERR)**. Sem anúncios e sem fins comerciais.
 
@@ -39,11 +39,11 @@ Abra o site (GitHub Pages) no navegador do computador ou do celular. No celular,
 | `scripts/prep_car_todos.py` | Todos os imóveis do CAR de Roraima, em arquivo leve → `car_todos.json`. |
 | `scripts/montar_site.py` | Copia o mapa de trabalho (`mapa-3d/`) para `docs/`, com o ícone e o manifesto do app. |
 | `dados-3d/` | Downloads guardados (só Roraima), para não baixar tudo de novo. |
-| `.github/workflows/atualizar.yml` | Atualização automática a cada 2 horas no próprio GitHub. |
+| `.github/workflows/atualizar.yml` | Atualização automática a cada 30 minutos (disparada pelo cron-job.org; o agendamento do GitHub fica de reserva). |
 
 ### Atualização automática
 
-O GitHub Actions roda os scripts a cada 2 horas e publica o site de novo. É gratuito em repositórios públicos e não depende de nenhum computador ligado. Para atualizar na hora: aba **Actions** → **Atualizar mapa** → **Run workflow**.
+O GitHub Actions roda os scripts a cada 30 minutos (disparado por um agendador externo gratuito, o cron-job.org) e publica o site de novo. É gratuito em repositórios públicos e não depende de nenhum computador ligado. Para atualizar na hora: aba **Actions** → **Atualizar mapa** → **Run workflow**.
 
 Para ativar na primeira vez: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 

@@ -2,11 +2,17 @@
 <html lang="pt-BR">
 <meta name="description" content="Mapa 3D dos focos de incêndio, da seca e do risco para propriedades rurais em Roraima, com dados do INPE e da ANA. Projeto de extensão da UERR.">
 <meta property="og:title" content="Fogo em Roraima 3D">
-<meta property="og:description" content="Focos de incêndio, seca dos rios e risco para a sua propriedade, atualizados a cada 2 horas.">
+<meta property="og:description" content="Focos de incêndio, seca dos rios e risco para o seu local, atualizados a cada 30 minutos.">
+<meta property="og:image" content="https://fogororaima.com.br/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Mapa de Roraima visto de cima com focos de incêndio">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#c2410c">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icone-192.png">
-<link rel="apple-touch-icon" href="icone-192.png">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="icone.svg">
+<link rel="apple-touch-icon" href="icone-180.png">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Fogo em Roraima 3D – mapa de focos de incêndio e seca</title>
@@ -627,7 +633,7 @@ details.legal li { margin-bottom: 4px; }
           <div class="defs">
             <p><i style="--c:#ff4a2a"></i><b>Queimando:</b> o satélite viu fogo no evento neste dia.</p>
             <p><i class="dash" style="--c:#ffb347"></i><b>Em observação:</b> o fogo parou há 1 a 7 dias. O INPE continua vigiando porque pode voltar; o satélite não vê fogo pequeno, sob nuvem ou brasa.</p>
-            <p><i style="--c:#c8c8c8"></i><b>Apagados:</b> sem fogo há mais de 7 dias. A área queimada continua marcada até 60 dias. Só uma vistoria confirma que o fogo acabou.</p>
+            <p><i style="--c:#c8c8c8"></i><b>Sem fogo visto:</b> o satélite não vê fogo há mais de 7 dias. A área queimada continua marcada até 60 dias. Só uma vistoria confirma que o fogo acabou.</p>
           </div>
           <p class="note sitnote">Os botões no canto do mapa mostram ou escondem cada situação.</p>
         </section>
@@ -1478,10 +1484,10 @@ details.legal li { margin-bottom: 4px; }
   const windRel = b => b.w.sp < 3 ? 'vento fraco' : b.diff <= 45 ? 'vento soprando do fogo para cá' : b.diff <= 90 ? 'vento de lado' : 'vento soprando para longe daqui';
   function dangerHeadline(r) {
     const b = r.best;
-    if (!b) return 'Nenhum foco a até 40 km nas últimas 24 h.';
-    if (r.insideHit) return b.f.t == null && b.f.src === 'inpe' ? 'Um incêndio ativo do INPE tem contorno sobre ' + (r.prop ? 'a sua propriedade' : 'o seu local') + '.'
-      : 'O satélite viu fogo dentro ' + (r.prop ? 'da sua propriedade' : 'do seu local') + (b.f.t != null ? ' ' + agoTxt(b.f.t) : '') + '.';
-    return 'Fogo a ' + kmTxt(b.d) + ' ' + aoDir(b.brg) + (r.prop ? ' da sua propriedade' : ' do seu local') + (b.f.t != null ? ', visto ' + agoTxt(b.f.t) : '') + (b.riv ? ', do outro lado do ' + b.riv.replace(/^Rio /, 'Rio ') : ', ' + windRel(b)) + '.';
+    if (!b) return 'Nenhum foco a até 40 km nas últimas 24 h. O satélite pode não ver fogo pequeno, sob nuvem ou à noite.';
+    if (r.insideHit) return b.f.t == null && b.f.src === 'inpe' ? 'Um incêndio ativo do INPE tem contorno sobre ' + (r.prop ? 'o imóvel rural marcado' : 'o local marcado') + '.'
+      : 'O satélite viu fogo no ' + (r.prop ? 'imóvel rural marcado ou perto da divisa' : 'local marcado') + (b.f.t != null ? ' ' + agoTxt(b.f.t) : '') + '.';
+    return 'Fogo a ' + kmTxt(b.d) + ' ' + aoDir(b.brg) + (r.prop ? ' do imóvel rural marcado' : ' do local marcado') + (b.f.t != null ? ', visto ' + agoTxt(b.f.t) : '') + (b.riv ? ', do outro lado do ' + b.riv.replace(/^Rio /, 'Rio ') : ', ' + windRel(b)) + '.';
   }
   // the closest fire is across a river (and is not the one that brings the danger)
   function riverNote(r) {
@@ -1528,7 +1534,7 @@ details.legal li { margin-bottom: 4px; }
     if (b) h += '<p class="dg-sub">Vento de ' + dirName(b.w.from) + ' a ' + fmt(b.w.sp) + ' km/h · umidade ' + fmt(b.w.rh) + '% · ' + rainTxt(b.w.rain) + ' em 24 h · no caminho: ' + esc(D.lc[b.lcPath].toLowerCase()) + (b.f.t != null ? ' · fogo visto ' + fmtT(b.f.t) : b.f.src === 'inpe' ? ' · borda de incêndio ativo (INPE)' : '') + '</p>';
     if (r.places > 1) h += '<p class="dg-sub">' + r.places + ' locais com fogo a até 10 km.</p>';
     if (r.prop) {
-      h += '<div class="dg-prop"><b>Sua propriedade (CAR):</b> ' + esc(CAR_TIPO[r.prop.tipo] || 'Imóvel rural') + ', ' + fmt(r.prop.area, 0) + ' ha' + (r.prop.mun ? ', ' + esc(r.prop.mun) : '') + '.';
+      h += '<div class="dg-prop"><b>Imóvel rural neste local (CAR):</b> ' + esc(CAR_TIPO[r.prop.tipo] || 'Imóvel rural') + ', ' + fmt(r.prop.area, 0) + ' ha' + (r.prop.mun ? ', ' + esc(r.prop.mun) : '') + '.';
       if (r.loss) h += '<br>' + r.loss.parts.filter(x => x.ha >= 0.5).map(x => fmt(x.ha, 0) + ' ha de ' + esc(D.lc[x.k].toLowerCase())).join(', ') + '.' + (r.loss.total ? '<br><b>Prejuízo possível se o fogo queimar toda a área: até ' + brlShort(r.loss.total) + '</b>' + (r.loss.total >= 2000 ? ' (metade: ' + brlShort(r.loss.total / 2) + ')' : '') + '.' : '');
       h += '</div>';
       if (full && r.loss) h += '<details class="more"><summary>Ajustar os valores do prejuízo</summary><div class="dg-vals">' +
@@ -1695,7 +1701,7 @@ details.legal li { margin-bottom: 4px; }
     const w = wxAt(lon, lat, st.t);
     let html, extra = '';
     if (!hits.length) {
-      html = '<p style="margin:0">Nenhum foco a até ' + R + ' km ' + winTxt() + '.</p>';
+      html = '<p style="margin:0">Nenhum foco a até ' + R + ' km ' + winTxt() + '. O satélite pode não ver fogo pequeno, sob nuvem ou à noite.</p>';
     } else {
       hits.sort((a, b) => a[1] - b[1]);
       const places = new Set(hits.map(h => fCell[h[0]])).size, [i0, d0] = hits[0];
@@ -2212,7 +2218,7 @@ details.legal li { margin-bottom: 4px; }
   const SIT = {
     burn: { name: 'Queimando', sub: 'fogo neste dia', color: 0xff4a2a, css: '#ff4a2a', op: 1 },
     obs: { name: 'Em observação', sub: 'sem fogo há 1–7 dias', color: 0xffb347, css: '#ffb347', op: 0.95, dash: 0.35 },
-    done: { name: 'Apagados', sub: 'sem fogo há 8–60 dias', color: 0xc8c8c8, css: '#c8c8c8', op: 0.55 }
+    done: { name: 'Sem fogo visto', sub: 'há mais de 7 dias (até 60)', color: 0xc8c8c8, css: '#c8c8c8', op: 0.55 }
   };
   const sitOn = { burn: true, obs: true, done: false };
   try { const v = JSON.parse(localStorage.getItem('rr3d-sit') || 'null'); if (v) Object.assign(sitOn, v); } catch (err) {}
@@ -2676,7 +2682,7 @@ details.legal li { margin-bottom: 4px; }
           ['Coordenadas', F.lat[i].toFixed(4) + ', ' + F.lon[i].toFixed(4)]]) + '</div></details>');
     } else {
       const ev = D.events[s.k], active = st.t - ev.end < 2880 && st.t >= ev.snaps[0].t;
-      const sit = st.t < ev.start ? 'ainda não começou' : active ? 'ativo' : 'apagado';
+      const sit = st.t < ev.start ? 'ainda não começou' : active ? 'ativo' : 'sem fogo visto';
       const hasLc = ev.lc !== undefined && ev.lc >= 0, ti = ev.ti >= 0 ? D.tis[ev.ti] : null;
       const rate = hasLc && nativeLc(ev.lc) ? 10000 : 3000;
       showCard('<h3>Incêndio · ' + esc(D.muns[ev.m]) + '</h3><p class="when">' + fmtD(ev.start) + ' a ' + fmtD(ev.end) + '</p>' + whereTxt(ev.lon, ev.lat) +
