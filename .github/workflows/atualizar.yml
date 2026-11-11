@@ -67,6 +67,9 @@ jobs:
       - name: Desmatamento medido (PRODES, baixa de novo só a cada 30 dias)
         run: python -I scripts/prep_prodes.py dados-3d docs || echo "::warning::falhou o PRODES; a camada fica indisponível"
 
+      - name: Qualidade do ar, histórico do INPE, risco de fogo e avisos (cada parte falha sozinha)
+        run: python -I scripts/prep_extras.py dados-3d docs || echo "::warning::falhou parte do resumo extra (ar, histórico, risco ou avisos)"
+
       - name: Salvar o histórico dos eventos do INPE (uma vez por dia)
         if: github.event_name != 'push'   # agendamento do GitHub ou agendador externo
         run: |

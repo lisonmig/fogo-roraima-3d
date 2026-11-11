@@ -272,6 +272,41 @@ label.fl select, label.fl input[type=range] { width: 100%; }
 .legend .sq { border-radius: 2px; box-shadow: none; }
 .legend .ln { width: 16px; height: 0; border-radius: 0; box-shadow: none; border-top: 2px solid; }
 
+.ar-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-radius: 8px; padding: 7px 12px; color: #fff; font-weight: 700; font-size: 14px; }
+.ar-1 { background: #2e7d32; } .ar-2 { background: #9a7400; } .ar-3 { background: #d84315; } .ar-4 { background: #c62828; } .ar-5 { background: #6a1b9a; }
+.ar-where { font-weight: 600; font-size: 13px; opacity: .95; text-align: right; }
+.ar p { margin: 6px 0 0; font-size: 14px; }
+.ar .ar-num b { font: 600 22px var(--f-display); }
+.avlist { display: flex; flex-direction: column; gap: 8px; }
+.av { border: 1px solid var(--line); border-left: 4px solid #c62828; border-radius: 8px; padding: 9px 11px; background: var(--bg); font-size: 13.5px; }
+.av.auto { border-left-color: #ef6c00; }
+.av p { margin: 4px 0; }
+.av a { color: inherit; font-weight: 600; }
+.av-org { font: 600 11.5px var(--f-body); background: var(--chip); border-radius: 999px; padding: 1px 7px; margin-left: 4px; white-space: nowrap; }
+.av-ex { background: #6a1b9a; color: #fff; }
+.rf-days { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.rf-days button { flex: 1 0 auto; border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 8px; padding: 5px 9px; cursor: pointer; text-align: left; font: 13px var(--f-body); }
+.rf-days button b { display: block; }
+.rf-days button span { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.rf-days button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.rf-pin { margin: 8px 0 0; font-size: 13.5px; }
+.rf-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 3px 0 4px; vertical-align: -1px; }
+.rf-mun { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.rf-mun li { display: grid; grid-template-columns: minmax(0, 1fr) auto 62px; gap: 8px; align-items: center; font-size: 13.5px; }
+.rf-mun .mn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-cells { display: flex; gap: 3px; }
+.rf-cells i { width: 14px; height: 14px; border-radius: 3px; display: block; }
+.rf-lv { font: 600 12.5px var(--f-body); text-align: right; }
+.mrank { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.mrank li { display: grid; grid-template-columns: minmax(84px, 36%) 1fr auto; gap: 8px; align-items: center; font-size: 14px; }
+.mrank .mn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mrank .mb { height: 10px; background: var(--chip); border-radius: 5px; overflow: hidden; }
+.mrank .mb i { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
+.mrank .mc { font: 500 13px var(--f-data); font-variant-numeric: tabular-nums; color: var(--muted); min-width: 2.5em; text-align: right; }
+.hist p { margin: 0 0 6px; font-size: 14px; }
+.hist svg { width: 100%; height: auto; display: block; margin: 4px 0 2px; }
+.hist .lg { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--muted); }
+.hist .lg i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 .events { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .events button { width: 100%; text-align: left; background: none; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; cursor: pointer; color: var(--ink);
   display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; font: inherit; }
@@ -553,12 +588,28 @@ details.legal li { margin-bottom: 4px; }
       <!-- RESUMO -->
       <div class="pane" id="pane-resumo" role="tabpanel" aria-labelledby="tab-resumo">
         <div class="mystatus" id="myStatus" hidden></div>
+        <section class="sec" id="avSec" hidden>
+          <h2>Avisos</h2>
+          <div class="avlist" id="avList"></div>
+        </section>
         <section class="sec" aria-live="polite">
           <div class="summary" id="summary"></div>
           <button class="secamini" id="secaMini" hidden></button>
           <p class="kpis"><span title="Quadrados de 375 m com foco no período, cada um contado uma vez"><b id="stArea">–</b> com fogo no período (estimativa)</span><span><b id="stRain">–</b> de chuva em 24 h</span></p>
           <span hidden><b id="stPlaces"></b><span id="stPlacesLbl"></span></span>
           <p class="psub" id="pSub"></p>
+        </section>
+        <section class="sec" id="arSec" hidden>
+          <h2>Qualidade do ar</h2>
+          <div class="ar" id="arBox"></div>
+        </section>
+        <section class="sec" id="rfSec" hidden>
+          <h2>Risco de fogo · previsão do INPE</h2>
+          <div class="rf-days" id="rfDays" role="group" aria-label="Dia da previsão"></div>
+          <p class="rf-pin" id="rfPin" hidden></p>
+          <ul class="rf-mun" id="rfMun"></ul>
+          <div class="legend" id="rfLegend" style="margin-top:8px"></div>
+          <p class="note" id="rfNote"></p>
         </section>
         <section class="sec dc" aria-label="Emergência e alertas oficiais">
           <h2>Emergência e alertas oficiais</h2>
@@ -568,6 +619,15 @@ details.legal li { margin-bottom: 4px; }
         <section class="sec">
           <h2 id="evTitle">Maiores incêndios</h2>
           <ul class="events" id="events"></ul>
+        </section>
+        <section class="sec" id="munSec" hidden>
+          <h2 id="munTitle">Municípios com mais fogo</h2>
+          <ul class="mrank" id="munRank"></ul>
+          <p class="note">Locais com fogo (quadrados de 375 m), cada um contado uma vez.</p>
+        </section>
+        <section class="sec hist" id="histSec" hidden>
+          <h2>Este ano comparado com a média</h2>
+          <div id="histBox"></div>
         </section>
       </div>
 
@@ -648,7 +708,7 @@ details.legal li { margin-bottom: 4px; }
         <section class="sec">
           <h2>Camadas</h2>
           <label class="fl" for="base">Fundo do mapa
-            <select id="base"><option value="sat">Imagem de satélite (2025, sem nuvens)</option><option value="lc">Tipo de vegetação (MODIS 2023)</option><option value="inpe">Floresta e desmatamento (INPE PRODES)</option><option value="nasa">Imagem de ontem (NASA, com nuvens)</option><option value="none">Só relevo</option></select></label>
+            <select id="base"><option value="sat">Imagem de satélite (2025, sem nuvens)</option><option value="lc">Tipo de vegetação (MODIS 2023)</option><option value="inpe">Floresta e desmatamento (INPE PRODES)</option><option value="risco">Risco de fogo (previsão do INPE)</option><option value="nasa">Imagem de ontem (NASA, com nuvens)</option><option value="none">Só relevo</option></select></label>
           <p class="note" id="nasaNote" hidden></p>
           <div class="checks" style="margin-top:10px">
             <label><input type="checkbox" id="lyFire" checked> Focos</label>
@@ -708,6 +768,7 @@ details.legal li { margin-bottom: 4px; }
             <span><i class="sq" style="background:#241a16"></i>queimou há até 60 dias (clareia com o tempo)</span>
           </div>
           <div class="legend" id="legendLc" hidden></div>
+          <div class="legend" id="legendRisco" hidden></div>
           <div class="legend" id="legendInpe" hidden><span><i class="sq" style="background:#265c34"></i>floresta</span><span><i class="sq" style="background:#b0a876"></i>vegetação natural sem floresta (lavrado, campinarana)</span><span><i class="sq" style="background:#c4c4c4"></i>desmatado até 2025 (PRODES)</span><span><i class="sq" style="background:#4682be"></i>água</span><span><i class="sq" style="background:#3c3e42"></i>fora de Roraima (sem dados)</span></div>
           <details class="more"><summary>O que é um foco?</summary><div>
             <p>Um <b>foco de calor</b> é um local mais quente que o normal visto por satélite. Quase sempre é fogo, mas não é um incêndio confirmado.</p>
@@ -829,6 +890,10 @@ details.legal li { margin-bottom: 4px; }
   }).catch(() => {});
   // extra layers: if one fails, the map still works and a short note says which one is missing
   const failed = [], getL = (f, name) => fetch(f).then(r => { if (!r.ok) throw 0; return r.json(); }).catch(() => { failed.push(name); return null; });
+  // optional blocks of the summary: if missing, the block just stays hidden
+  const quietJ = f => fetch(f).then(r => r.ok ? r.json() : null).catch(() => null);
+  const arP = quietJ('ar.json'), histP = quietJ('historico.json');
+  const rfP = quietJ('risco.json'), avP = quietJ('avisos.json');
   const riosP = getL('rios.json', 'rios do mapa'), secaP = getL('seca.json', 'nível dos rios'), inpeP = getL('eventos_inpe.json', 'eventos de fogo do INPE'), roadsP = getL('estradas.json', 'estradas');
   try {
     const load = src => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error(src)); i.src = src; });
@@ -1328,6 +1393,7 @@ details.legal li { margin-bottom: 4px; }
       byLc.set(F.c[i], (byLc.get(F.c[i]) || 0) + 1);
       if (F.ti[i] >= 0) { inTi++; byTi.set(F.ti[i], (byTi.get(F.ti[i]) || 0) + 1); }
     }
+    renderMunRank(byMun);
     const n = places.size, wasOpen = el.querySelector('details[open]') !== null;
     const head = '<p><b class="big">' + fmt(n) + '</b> locais com fogo ' + winTxt() + '</p>';
     const clima = 'Em Boa Vista: vento de ' + dirName(w.from) + ' a ' + fmt(w.sp) + ' km/h, umidade ' + fmt(w.rh) + '%, ' + rainTxt(w.rain) + ' em 24 h.' + (w.rh < 40 ? ' Ar seco favorece o fogo.' : '');
@@ -1340,6 +1406,180 @@ details.legal li { margin-bottom: 4px; }
       (top[2] ? '<p>Depois: ' + top[2] + '.</p>' : '') +
       '<p>' + Math.round(inTi / n * 100) + '% em Terras Indígenas' + (tiTop ? ', principalmente ' + D.tis[tiTop[0]].nome : '') + '.</p>' +
       '<p>Vegetação: ' + lcTop.join(' e ') + '.</p><p>' + clima + '</p></div></details>';
+  }
+
+  // ---------- municipalities with most fire in the period (bars)
+  function renderMunRank(byMun) {
+    const list = [...byMun].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    $('munSec').hidden = !list.length; if (!list.length) return;
+    $('munTitle').textContent = 'Municípios com mais fogo · ' + period.name.toLowerCase();
+    const mx = list[0][1];
+    $('munRank').innerHTML = list.map(([m, c]) => '<li><span class="mn">' + esc(D.muns[m]) + '</span><span class="mb"><i style="width:' + Math.max(4, Math.round(c / mx * 100)) + '%"></i></span><span class="mc">' + fmt(c) + '</span></li>').join('');
+  }
+
+  // ---------- air quality: model estimate on a ~44 km grid (computed on the server; the cell is picked here, so no location leaves the device)
+  let AR = null;
+  // PM2.5, 24 h mean, bands of the Brazilian air quality index (IQAr, MMA)
+  const AR_LV = [[25, 'Boa', 'ar-1', 'Pode fazer atividades ao ar livre normalmente.'],
+    [50, 'Moderada', 'ar-2', 'Crianças, idosos, gestantes e quem tem asma ou problema no coração podem sentir tosse ou cansaço. Evitem esforço forte ao ar livre.'],
+    [75, 'Ruim', 'ar-3', 'Todos podem sentir ardência nos olhos, tosse ou falta de ar. Evite esforço ao ar livre. Crianças, idosos e quem tem asma devem ficar em casa.'],
+    [125, 'Muito ruim', 'ar-4', 'Evite sair. Feche janelas e portas, beba água. Se precisar sair, use máscara PFF2 (N95).'],
+    [1e9, 'Péssima', 'ar-5', 'Fique em casa com janelas fechadas. Com falta de ar, procure atendimento ou ligue 192 (SAMU).']];
+  const arLevel = v => AR_LV.find(l => v <= l[0]);
+  const arCell = (lon, lat) => AR.grid.reduce((a, b) => distKm(lon, lat, b[1], b[0]) < distKm(lon, lat, a[1], a[0]) ? b : a);
+  const arSeat = (lon, lat) => AR.seats.reduce((a, b) => distKm(lon, lat, b[2], b[1]) < distKm(lon, lat, a[2], a[1]) ? b : a)[0];
+  // the model spreads smoke over ~44 km and misses it next to a fire: our own fire and wind data fill that gap
+  function smokeNear(lon, lat) {
+    const today = dayOf(TLAST); let best = null;
+    const look = (flon, flat, src) => {
+      const d = distKm(lon, lat, flon, flat); if (d > 30) return;
+      const w = wxAt(flon, flat, TLAST), to = bearing(flon, flat, lon, lat), diff = Math.abs(((w.to - to) + 540) % 360 - 180);
+      const down = w.sp >= 3 && diff <= 45;
+      const lv = d <= 5 || (down && d <= 15) ? 2 : d <= 15 || down ? 1 : 0;
+      if (lv && (!best || lv > best.lv || (lv === best.lv && d < best.d))) best = { lv, d, down, src };
+    };
+    for (let i = firstAt(TLAST - 1440), e = firstAt(TLAST + 1); i < e; i++) look(F.lon[i], F.lat[i], 'foco');
+    IN.ev.forEach(ev => { if (inpeSit(ev, today) === 'burn') ev.r.forEach(r => { for (let j = 0; j < r.length; j += 4) look(r[j], r[j + 1], 'inpe'); }); });
+    return best;
+  }
+  function renderAir() {
+    const sec = $('arSec');
+    if (!AR || !AR.grid || !AR.grid.length) { sec.hidden = true; return; }
+    const p = st.pin, lon = p ? p.lon : -60.6758, lat = p ? p.lat : 2.8235;
+    const c = arCell(lon, lat), pm = c[2], nxt = c[3], L = arLevel(pm), where = p ? 'Seu ponto marcado' : 'Boa Vista';
+    const sm = smokeNear(lon, lat);
+    const model = '<b>' + fmt(pm, 0) + '</b> µg/m³ de fumaça fina (PM2,5), média das últimas 24 h' + (c[4] > pm * 1.5 ? ', com pico de ' + fmt(c[4], 0) : '');
+    const trend = nxt == null ? '' : nxt > pm * 1.2 ? 'Tende a piorar nas próximas 24 h. ' : nxt < pm * 0.8 ? 'Tende a melhorar nas próximas 24 h. ' : 'Deve ficar parecido nas próximas 24 h. ';
+    const src = 'Estimativa de um modelo de computador (Copernicus CAMS, pelo Open-Meteo) para uma área de cerca de 40 km × 40 km, não é medição no local.';
+    if (sm) {
+      const why = 'Fogo visto pelo satélite a ' + (sm.d < 1 ? 'menos de 1 km' : fmt(sm.d, 0) + ' km') + (sm.down ? ', com o vento trazendo a fumaça para cá' : '') + '.';
+      const tip = sm.lv === 2 ? 'Feche janelas e portas, evite esforço ao ar livre e, se precisar sair, use máscara PFF2 (N95). Crianças, idosos, gestantes e quem tem asma ou problema no coração devem ficar em casa. Com falta de ar, ligue 192 (SAMU).'
+        : 'Se sentir cheiro de fumaça ou ardência nos olhos, feche as janelas e evite esforço ao ar livre. Crianças, idosos e quem tem asma devem ter mais cuidado.';
+      $('arBox').innerHTML = '<div class="ar-head ' + (sm.lv === 2 ? 'ar-4' : 'ar-3') + '"><span>' + (sm.lv === 2 ? 'Fumaça forte provável' : 'Pode haver fumaça') + '</span><span class="ar-where">' + where + '</span></div>' +
+        '<p>' + why + ' Perto de incêndio, o ar costuma ficar bem pior do que o modelo regional mostra.</p><p>' + tip + '</p>' +
+        '<p class="note">Aviso calculado pela distância do fogo e pelo vento, não por medidor. Modelo regional: ' + fmt(pm, 0) + ' µg/m³ (' + L[1].toLowerCase() + ') na média de 24 h. ' + src + '</p>';
+    } else {
+      $('arBox').innerHTML = '<div class="ar-head ' + L[2] + '"><span>' + L[1] + '</span><span class="ar-where">' + where + '</span></div>' +
+        '<p class="ar-num">' + model + '</p><p>' + L[3] + '</p>' +
+        '<p class="note">' + trend + 'Nenhum fogo visto nas últimas 24 h perto ' + (p ? 'do ponto' : 'da cidade') + '. ' + src + (p ? '' : ' Marque um ponto no mapa para ver o ar no seu local.') + '</p>';
+    }
+    sec.hidden = false;
+  }
+
+  // ---------- INPE fire risk forecast (the day the files were made and the next 3), 0.05 degree grid computed on the server
+  const RF = { J: null, day: 0, mun: [], tex: {} };
+  const RF_LV = [['Mínimo', '#2e7d32'], ['Baixo', '#8bc34a'], ['Médio', '#e6b800'], ['Alto', '#ef6c00'], ['Crítico', '#c62828']];
+  const WDAY = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const localToday = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  const rfRel = () => Math.round((Date.parse(localToday()) - Date.parse(RF.J.d0)) / 864e5); // which file is "today"
+  const rfDayName = k => { const d = k - rfRel(), dt = new Date(Date.parse(RF.J.d0) + k * 864e5);
+    return d === 0 ? 'Hoje' : d === 1 ? 'Amanhã' : WDAY[dt.getUTCDay()] + ' ' + dt.getUTCDate(); };
+  function rfAt(lon, lat, k) {
+    const J = RF.J, [W0, , , N0] = J.box, i = Math.floor((lon - W0) / J.passo), j = Math.floor((N0 - lat) / J.passo);
+    if (i < 0 || j < 0 || i >= J.nx || j >= J.ny) return -1;
+    const c = J.dias[k][j * J.nx + i]; return c === '.' ? -1 : +c;
+  }
+  // level of a municipality: the class reached by at least a quarter of its area
+  function rfInit() {
+    const J = RF.J, [W0, , , N0] = J.box;
+    RF.mun = D.munis.map(m => {
+      const bb = [1e9, 1e9, -1e9, -1e9]; m.r.forEach(r => { for (let q = 0; q < r.length; q += 2) { bb[0] = Math.min(bb[0], r[q]); bb[2] = Math.max(bb[2], r[q]); bb[1] = Math.min(bb[1], r[q + 1]); bb[3] = Math.max(bb[3], r[q + 1]); } });
+      const cnt = [0, 1, 2, 3].map(() => [0, 0, 0, 0, 0]);
+      for (let j = Math.max(0, Math.floor((N0 - bb[3]) / J.passo)); j <= Math.min(J.ny - 1, Math.floor((N0 - bb[1]) / J.passo)); j++)
+        for (let i = Math.max(0, Math.floor((bb[0] - W0) / J.passo)); i <= Math.min(J.nx - 1, Math.floor((bb[2] - W0) / J.passo)); i++) {
+          const lon = W0 + (i + 0.5) * J.passo, lat = N0 - (j + 0.5) * J.passo;
+          if (!m.r.some(r => pointInRing(lon, lat, r))) continue;
+          for (let k = 0; k < 4; k++) { const c = J.dias[k][j * J.nx + i]; if (c !== '.') cnt[k][+c]++; }
+        }
+      const lv = cnt.map(h => { const tot = h.reduce((a, b) => a + b, 0); let acc = 0; for (let c = 4; c >= 0; c--) { acc += h[c]; if (acc >= tot * 0.25) return c; } return 0; });
+      const hi = cnt.map(h => { const tot = h.reduce((a, b) => a + b, 0) || 1; return (h[3] + h[4]) / tot; });
+      return { n: m.nome, lv, hi };
+    });
+    RF.day = Math.min(3, Math.max(0, rfRel()));
+  }
+  function rfTex(k) {
+    if (RF.tex[k]) return RF.tex[k];
+    const J = RF.J, cw = Math.min(2048, tImg.width), ch = Math.round(cw * tImg.height / tImg.width);
+    const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch; const g = cv.getContext('2d');
+    g.drawImage(tImg, 0, 0, cw, ch); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, 0, cw, ch);
+    const [W0, , , N0] = J.box, sx = cw / (E - W), sy = ch / (N - S); g.globalAlpha = 0.62;
+    for (let j = 0; j < J.ny; j++) for (let i = 0; i < J.nx; i++) {
+      const c = J.dias[k][j * J.nx + i]; if (c === '.') continue;
+      g.fillStyle = RF_LV[+c][1];
+      const lon = W0 + i * J.passo, lat = N0 - j * J.passo;
+      g.fillRect(Math.floor((lon - W) * sx), Math.floor((N - lat) * sy), Math.ceil(J.passo * sx) + 1, Math.ceil(J.passo * sy) + 1);
+    }
+    return RF.tex[k] = mkTex(cv);
+  }
+  function renderRisk() {
+    const sec = $('rfSec'); if (!RF.J) { sec.hidden = true; return; }
+    const rel = rfRel(), ks = [0, 1, 2, 3].filter(k => k >= rel);
+    if (!ks.length) { sec.hidden = true; return; }
+    if (RF.day < ks[0]) RF.day = ks[0];
+    $('rfDays').innerHTML = ks.map(k => { const n = RF.mun.filter(m => m.lv[k] >= 3).length;
+      return '<button type="button" data-k="' + k + '" aria-pressed="' + (k === RF.day) + '"><b>' + rfDayName(k) + '</b><span>' + (n ? n + (n > 1 ? ' municípios' : ' município') + ' alto ou crítico' : 'sem risco alto') + '</span></button>'; }).join('');
+    $('rfDays').querySelectorAll('button').forEach(b => b.onclick = () => { RF.day = +b.dataset.k; renderRisk(); if ($('base').value === 'risco') applyBase('risco'); });
+    const p = st.pin, pe = $('rfPin');
+    if (p) { const v = ks.map(k => [k, rfAt(p.lon, p.lat, k)]).filter(x => x[1] >= 0); pe.hidden = !v.length;
+      pe.innerHTML = '<b>No seu ponto:</b> ' + v.map(([k, c]) => rfDayName(k) + '<i class="rf-dot" style="background:' + RF_LV[c][1] + '"></i>' + RF_LV[c][0].toLowerCase()).join(' · '); }
+    else pe.hidden = true;
+    const list = RF.mun.slice().sort((a, b) => b.lv[RF.day] - a.lv[RF.day] || b.hi[RF.day] - a.hi[RF.day]);
+    $('rfMun').innerHTML = list.map(m => '<li><span class="mn">' + esc(m.n) + '</span><span class="rf-cells"><i style="background:' + RF_LV[m.lv[RF.day]][1] + '"></i></span><span class="rf-lv" style="color:' + (m.lv[RF.day] >= 3 ? RF_LV[m.lv[RF.day]][1] : 'inherit') + '">' + RF_LV[m.lv[RF.day]][0] + '</span></li>').join('');
+    const leg = RF_LV.map(l => '<span><i class="sq" style="background:' + l[1] + '"></i>' + l[0].toLowerCase() + '</span>').join('');
+    $('rfLegend').innerHTML = leg; $('legendRisco').innerHTML = leg;
+    $('rfNote').innerHTML = 'Previsão feita pelo INPE em ' + isoBr(RF.J.d0) + ': leva em conta os dias sem chuva, a temperatura, a umidade do ar e o tipo de vegetação. O nível do município é o que vale para pelo menos um quarto da área dele. <b>Risco alto não quer dizer que vai pegar fogo</b>: quer dizer que, se alguém acender fogo, ele se espalha com facilidade. Veja no mapa: aba Mapa, "Fundo do mapa", "Risco de fogo". Fonte: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>.';
+    sec.hidden = false;
+  }
+
+  // ---------- notices: official ones typed by the team (always with the source link) and automatic ones from INPE data
+  let AV = null;
+  function renderAvisos() {
+    const items = (AV && AV.avisos || []).slice();
+    if (RF.J && RF.mun.length) {
+      const rel = rfRel(), parts = [];
+      const crit = k => RF.mun.filter(m => m.lv[k] === 4).map(m => m.n), say = ms => ms.length === RF.mun.length ? 'todos os municípios' : ms.map(esc).join(', ');
+      const ks = [rel, rel + 1].filter(k => k >= 0 && k <= 3), a = ks.length ? crit(ks[0]) : [], b = ks.length > 1 ? crit(ks[1]) : [];
+      if (a.length && b.length && a.join() === b.join()) parts.push('<b>Hoje e amanhã</b>: ' + say(a) + '.');
+      else { if (a.length) parts.push('<b>' + rfDayName(ks[0]) + '</b>: ' + say(a) + '.'); if (b.length) parts.push('<b>' + rfDayName(ks[1]) + '</b>: ' + say(b) + '.'); }
+      if (parts.length) items.push({ titulo: 'Risco crítico de fogo', orgao: 'INPE', auto: true, link: 'https://terrabrasilis.dpi.inpe.br/queimadas/portal/',
+        html: parts.join(' ') + ' Evite queimar lixo, roça ou pasto e não deixe fogueira acesa.' });
+    }
+    const sec = $('avSec'); sec.hidden = !items.length; if (!items.length) return;
+    $('avList').innerHTML = items.map(a => '<div class="av' + (a.auto ? ' auto' : '') + '"><b>' + esc(a.titulo) + '</b><span class="av-org">' + esc(a.orgao || '') + '</span>' + (a.exemplo ? '<span class="av-org av-ex">EXEMPLO · só no teste</span>' : '') +
+      '<p>' + (a.html || esc(a.texto || '')) + '</p>' + (a.link ? '<a href="' + esc(a.link) + '" target="_blank" rel="noopener">' + (a.auto ? 'Ver dados do INPE' : a.imprensa ? 'Ver notícia (' + esc(a.imprensa) + ')' : 'Ver aviso oficial') + '</a>' : '') +
+      (a.fim ? ' · <span class="note">válido até ' + isoBr(a.fim) + '</span>' : '') + (a.auto ? '<p class="note">Aviso automático, montado com a previsão de risco do INPE.</p>' : a.imprensa ? '<p class="note">Fonte: imprensa. O link do Diário Oficial será colocado quando for publicado ou encontrado.</p>' : '') + '</div>').join('');
+  }
+
+  // ---------- this year against the average of past years (INPE reference satellite, Roraima)
+  function renderHist(J) {
+    if (!J || !J.anos || !J.ate) return;
+    const y = J.ano, cur = J.anos[y], full = +J.ate.slice(5, 7) - 1; // complete months of this year
+    if (!cur || full < 1) return;
+    const past = Object.keys(J.anos).map(Number).filter(a => a >= 1999 && a < y);
+    if (past.length < 5) return;
+    const upTo = arr => arr.slice(0, full).reduce((a, b) => a + b, 0);
+    const curV = upTo(cur), vals = past.map(a => [a, upTo(J.anos[a])]);
+    const avg = vals.reduce((s, v) => s + v[1], 0) / vals.length;
+    const rank = vals.filter(v => v[1] > curV).length + 1, worst = vals.slice().sort((a, b) => b[1] - a[1])[0];
+    const pct = Math.round((curV / avg - 1) * 100);
+    const cmp = Math.abs(pct) < 5 ? 'perto da média' : '<b>' + Math.abs(pct) + '% ' + (pct > 0 ? 'acima' : 'abaixo') + '</b> da média';
+    const mName = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    const avgM = MESES.map((_, m) => past.reduce((s, a) => s + J.anos[a][m], 0) / past.length);
+    // bar chart: grey = average of past years, orange = this year (current month still open, lighter)
+    const Wd = 300, Hc = 92, top = Math.max(...avgM, ...cur.slice(0, full + 1), 1), bw = Wd / 12;
+    let bars = '';
+    MESES.forEach((m, k) => {
+      const x = k * bw, ha = avgM[k] / top * Hc, hc = (k <= full ? cur[k] : 0) / top * Hc;
+      bars += '<rect x="' + (x + 3).toFixed(1) + '" y="' + (Hc - ha).toFixed(1) + '" width="' + (bw / 2 - 3).toFixed(1) + '" height="' + ha.toFixed(1) + '" fill="var(--muted)" opacity=".45"/>';
+      if (k <= full) bars += '<rect x="' + (x + bw / 2).toFixed(1) + '" y="' + (Hc - hc).toFixed(1) + '" width="' + (bw / 2 - 3).toFixed(1) + '" height="' + hc.toFixed(1) + '" fill="var(--accent)"' + (k === full ? ' opacity=".45"' : '') + '/>';
+      bars += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (Hc + 13) + '" font-size="10" text-anchor="middle" fill="var(--muted)">' + m.charAt(0).toUpperCase() + '</text>';
+    });
+    const svg = '<svg viewBox="0 0 ' + Wd + ' ' + (Hc + 16) + '" role="img" aria-label="Focos por mês em ' + y + ' comparados com a média de ' + past[0] + ' a ' + past[past.length - 1] + '">' + bars + '</svg>';
+    $('histBox').innerHTML = '<p><b style="font:600 24px var(--f-display);color:var(--accent)">' + fmt(curV) + '</b> focos de janeiro a ' + mName[full - 1] + ' de ' + y + ': ' + cmp + ' (' + fmt(Math.round(avg)) + ').</p>' +
+      '<p>' + (rank <= 3 ? 'É o ' + rank + 'º maior desde ' + past[0] + '. ' : 'Na lista desde ' + past[0] + ', fica em ' + rank + 'º lugar. ') + 'O pior foi ' + worst[0] + ', com ' + fmt(worst[1]) + ' no mesmo período.</p>' + svg +
+      '<div class="lg"><span><i style="background:var(--accent)"></i>' + y + '</span><span><i style="background:var(--muted);opacity:.45"></i>média ' + past[0] + '–' + past[past.length - 1] + '</span><span>' + mName[full] + ' ainda em andamento</span></div>' +
+      '<p class="note">Em Roraima o fogo se concentra de janeiro a abril, no verão daqui. Contagem do INPE com um só satélite de referência, a mesma em todos os anos, para comparar; o mapa soma vários satélites, por isso mostra números maiores. Dados até ' + isoBr(J.ate) + '.</p>';
+    $('histSec').hidden = false;
   }
 
   // ---------- nearby tool
@@ -1818,7 +2058,7 @@ details.legal li { margin-bottom: 4px; }
   });
   let myPropLine = null, myPropCod = null;
   function renderMyStatus() {
-    const el = $('myStatus'), el2 = $('danger'), p = st.pin; renderRain();
+    const el = $('myStatus'), el2 = $('danger'), p = st.pin; renderRain(); renderAir(); renderRisk();
     if (!p) { if (st.dLevel) { st.dLevel = null; renderPeek(); } el.hidden = true; el2.hidden = true; removeDraped(myPropLine); myPropLine = null; myPropCod = null; drawRiskArrow(null); return; }
     if (!CT.ok && !CT.loading) loadCarTodos().finally(() => { if (st.pin) renderMyStatus(); });
     const r = computeDanger(p), cls = 'mystatus ' + LEVELS[r.level].cls; if (st.dLevel !== r.level) { st.dLevel = r.level; renderPeek(); }
@@ -2287,6 +2527,7 @@ details.legal li { margin-bottom: 4px; }
 
   // ---------- events list
   // biggest fires of the period: my own grouping before the INPE events start, the official INPE events after
+  const dayTxt = d => d === 1 ? '1 dia' : fmt(d) + ' dias';
   function renderEvents() {
     const cut = IN.cut ?? 1e12, isoMin = s => minOf(+s.slice(0, 4), +s.slice(5, 7), +s.slice(8, 10));
     const items = D.events.map((e, k) => ({ mine: true, k, km2: e.area, from: e.start, to: e.end, e })).filter(x => x.from < cut && x.to >= period.from && x.from < period.to);
@@ -2300,7 +2541,7 @@ details.legal li { margin-bottom: 4px; }
       b.innerHTML = '<span class="nm"></span><span class="km"></span><span class="dt"></span>';
       b.querySelector('.nm').textContent = x.mine ? D.muns[e.m] : e.mun;
       b.querySelector('.km').textContent = '≈ ' + fmt(x.km2, 1) + ' km² ' + (x.mine ? '(estimativa)' : '(contorno INPE)');
-      b.querySelector('.dt').textContent = x.mine ? fmtD(e.start) + ' a ' + fmtD(e.end) + ' · ' + fmt(e.n) + ' detecções VIIRS' : isoBr(e.d0) + ' a ' + isoBr(e.d1) + ' · ' + inpeName(e.tipo).toLowerCase() + ' (INPE)';
+      b.querySelector('.dt').textContent = x.mine ? fmtD(e.start) + ' a ' + fmtD(e.end) + ' · ' + dayTxt(Math.max(1, Math.round((e.end - e.start) / 1440))) + ' · ' + fmt(e.n) + ' detecções VIIRS' : isoBr(e.d0) + ' a ' + isoBr(e.d1) + ' · ' + dayTxt(Math.max(1, Math.round(e.dias || 1))) + ' · ' + inpeName(e.tipo).toLowerCase() + ' (INPE)';
       b.onclick = () => {
         pause();
         if (x.mine) { setTime(Math.min(period.to, e.end + 120), true); st.sel = { kind: 'event', k: x.k }; showDetail(); flyTo(orbitPose(toX(e.lon), toZ(e.lat), Math.max(25, Math.sqrt(e.area) * 9), 0.35, 0.85)); }
@@ -2405,9 +2646,9 @@ details.legal li { margin-bottom: 4px; }
   }
   function applyBase(v) {
     const useNasa = v === 'nasa' && nasa.tex, useInpe = v === 'inpe' && inpeVeg.tex;
-    terrainMat.uniforms.uMapOn.value = v === 'none' ? 0 : 1; terrainMat.uniforms.uMap.value = v === 'lc' ? texLc : useNasa ? nasa.tex : useInpe ? inpeVeg.tex : texImg;
+    terrainMat.uniforms.uMapOn.value = v === 'none' ? 0 : 1; terrainMat.uniforms.uMap.value = v === 'risco' && RF.J ? rfTex(RF.day) : v === 'lc' ? texLc : useNasa ? nasa.tex : useInpe ? inpeVeg.tex : texImg;
     sharp.base = v === 'sat'; if (!sharp.base) terrainMat.uniforms.uDetOn.value = 0; else if (sharp.tex) terrainMat.uniforms.uDetOn.value = 1;
-    $('legendLc').hidden = v !== 'lc'; $('legendInpe').hidden = v !== 'inpe';
+    $('legendLc').hidden = v !== 'lc'; $('legendInpe').hidden = v !== 'inpe'; $('legendRisco').hidden = v !== 'risco' || !RF.J;
     if (v === 'inpe' && !inpeVeg.tex && !inpeVeg.busy) loadInpeVeg();
     const nt = $('nasaNote');
     if (v !== 'nasa') { nt.hidden = true; return; }
@@ -3314,6 +3555,8 @@ details.legal li { margin-bottom: 4px; }
   if (SOFT_LIGHT) showPerf('soft');
   roadsP.then(initRoads);
   inpeP.then(initInpe);
+  Promise.all([rfP, avP]).then(([R, A]) => { AV = A; if (R && R.dias) { RF.J = R; rfInit(); } renderRisk(); renderAvisos(); if ($('base').value === 'risco') applyBase('risco'); });
+  arP.then(J => { AR = J; renderAir(); }); inpeP.then(() => setTimeout(renderAir, 0)); histP.then(renderHist);
   secaP.then(J => { SECA_HY0 = J && J.hy0; initSeca(J); initGauges(J); renderPeek(); drawChart(); });
   riosP.then(initRios);
   requestAnimationFrame(frame);

@@ -1,0 +1,26 @@
+{
+ "_como_usar": "Avisos oficiais mostrados no topo do Resumo. Cada aviso precisa de titulo e link da fonte. Campos: titulo, orgao, texto, link, fim (AAAA-MM-DD, some sozinho depois), imprensa (preencher só quando a fonte for notícia, com o nome do jornal e a data). Nunca colocar nome ou CPF de pessoas.",
+ "avisos": [
+  {
+   "titulo": "Queimadas suspensas em todo o estado",
+   "orgao": "FEMARH",
+   "texto": "A FEMARH suspendeu as autorizações de queima controlada em todos os municípios até 14/11 (Portaria nº 1.032, de 4/11, que prorroga a suspensão do 17º ciclo). Qualquer fogo nesse período é ilegal, com multa e embargo da área. Denúncias: Disque Queimadas (95) 98406-5439, ou 190 e 193.",
+   "link": "https://www.folhabv.com.br/cotidiano/focos-de-calor-superam-registros-de-novembro-de-2025-e-roraima-mantem-suspensao-de-queimadas/",
+   "imprensa": "Folha BV, 10/11",
+   "fim": "2026-11-14"
+  },
+  {
+   "titulo": "Cantá: emergência por estiagem reconhecida pelo governo federal",
+   "orgao": "Defesa Civil Nacional",
+   "texto": "Portaria nº 3.766, de 29/10/2026, publicada no Diário Oficial da União em 3/11. Com o reconhecimento, o município pode pedir ajuda federal (água, cestas, kits).",
+   "link": "https://www.in.gov.br/web/dou/-/portaria-n-3.766-de-29-de-outubro-de-2026-741199984"
+  },
+  {
+   "titulo": "Emergência por estiagem: estado e mais 3 municípios",
+   "orgao": "Governo de RR e prefeituras",
+   "texto": "Roraima está em situação de emergência por estiagem desde o início de setembro (decreto estadual de 180 dias). Alto Alegre, Normandia e Iracema também decretaram emergência; ainda sem reconhecimento federal.",
+   "link": "https://www.folhabv.com.br/cotidiano/roraima-registra-857-focos-de-incendio-em-seis-dias-e-defesa-civil-reforca-alerta/",
+   "imprensa": "Folha BV, 9/11"
+  }
+ ]
+}
