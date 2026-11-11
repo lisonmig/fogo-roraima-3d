@@ -375,6 +375,13 @@ label.fl select, label.fl input[type=range] { width: 100%; }
 .compass span { display: block; }
 .compass span::before { content: "▲"; display: block; font-size: 10px; color: #ff7a2f; line-height: 1; text-align: center; }
 .vbtn { border: 0; border-radius: 6px; background: rgba(12,12,12,.88); color: #fff; font: 600 12px var(--f-body); padding: 6px 9px; cursor: pointer; }
+.busy { position: absolute; left: 50%; transform: translateX(-50%); top: calc(max(10px, env(safe-area-inset-top, 0px)) + 52px); z-index: 4; display: flex; align-items: center; gap: 7px;
+  max-width: calc(100% - 24px); background: rgba(12,12,12,.78); color: #f4efe8; border-radius: 999px; padding: 4px 11px 4px 8px; font: 600 12px var(--f-body); pointer-events: none; white-space: nowrap; }
+.busy span { overflow: hidden; text-overflow: ellipsis; }
+.busy i { flex: none; width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); border-top-color: #ff9a57; animation: busySpin .8s linear infinite; }
+.busy.off { background: #7a3d00; } .busy.off i { animation: none; border: 0; background: #ffb066; width: 8px; height: 8px; }
+@keyframes busySpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .busy i { animation-duration: 2.4s; } }
 .pickhint { position: absolute; left: 50%; top: max(12px, env(safe-area-inset-top, 0px)); transform: translateX(-50%); background: var(--accent); color: #fff; font: 600 13px var(--f-body); padding: 6px 12px; border-radius: 999px; pointer-events: none; }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; font: 600 15px var(--f-body); color: var(--ink); background: linear-gradient(180deg, var(--sky-top), var(--sky-bot)); z-index: 5; text-align: center; padding: 16px; }
 .hint { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 10px; font: 11.5px var(--f-data); color: #f4efe8; background: rgba(12,12,12,.55); padding: 3px 8px; border-radius: 4px; pointer-events: none; }
@@ -552,6 +559,7 @@ details.legal li { margin-bottom: 4px; }
       <button class="vbtn" id="sitBtn" title="Mostrar ou esconder incêndios queimando, em observação ou apagados">🔥 Filtro</button>
     </div>
     <div class="sit" id="sit" role="group" aria-label="Situação dos incêndios do INPE: clique para mostrar ou esconder"></div>
+    <div class="busy" id="busy" hidden role="status" aria-live="polite"><i></i><span id="busyTx"></span></div>
     <div class="pickhint" id="pickHint" hidden>Clique no mapa para marcar o local</div>
     <div class="hint" id="hint">Clique num foco para ver detalhes</div>
     <button class="sidetab" id="sideTab" aria-controls="panel" aria-expanded="true" title="Ocultar painel">›</button>
@@ -905,6 +913,45 @@ details.legal li { margin-bottom: 4px; }
   if (SOFT_LIGHT) LIGHT = true;
   $('lyLight').checked = LIGHT;
 
+  // ---------- what is loading now: a small pill on the map, shown only while something takes longer than a moment
+  const BUSY = new Map(); let busyT = 0, flashing = false;
+  function busyShow() {
+    clearTimeout(busyT);
+    const el = $('busy'); if (!el || flashing) return;
+    if (!navigator.onLine) { el.classList.add('off'); $('busyTx').textContent = offTxt(); el.hidden = false; return; }
+    el.classList.remove('off');
+    const labels = [...BUSY.keys()];
+    if (!labels.length) { busyT = setTimeout(() => { if (!BUSY.size && navigator.onLine) el.hidden = true; }, 250); return; }
+    busyT = setTimeout(() => { if (!BUSY.size) return; $('busyTx').textContent = labels[labels.length - 1] + '…'; el.hidden = false; }, 400);
+  }
+  const busyStart = l => { BUSY.set(l, (BUSY.get(l) || 0) + 1); busyShow(); };
+  const busyEnd = l => { const n = (BUSY.get(l) || 1) - 1; if (n > 0) BUSY.set(l, n); else BUSY.delete(l); busyShow(); };
+  // a short message when something could not be loaded (e.g. an outside server is down or blocked)
+  let flashT = 0;
+  const busyFlash = t => { const el = $('busy'); if (!el || !navigator.onLine) return; clearTimeout(flashT); clearTimeout(busyT); flashing = true; el.classList.add('off'); $('busyTx').textContent = t; el.hidden = false;
+    flashT = setTimeout(() => { flashing = false; el.classList.remove('off'); if (BUSY.size) busyShow(); else el.hidden = true; }, 3000); };
+  const IMG_FAIL = { 'Carregando imagem mais nítida': 'Imagem mais nítida indisponível agora', 'Baixando a imagem de ontem (NASA)': 'Imagem da NASA indisponível agora', 'Carregando o mapa de floresta (INPE)': 'Mapa de floresta indisponível agora' };
+  const trackImg = (img, l) => { busyStart(l); let d = false; const end = ok => { if (d) return; d = true; busyEnd(l); if (!ok && IMG_FAIL[l]) busyFlash(IMG_FAIL[l]); };
+    img.addEventListener('load', () => end(true)); img.addEventListener('error', () => end(false)); setTimeout(() => end(true), 60000); };
+  // every download made with fetch gets a label from its address (quick checks for new data stay quiet)
+  const busyLabel = (u, o) => {
+    if (o && o.method === 'HEAD') return null;
+    u = String(u);
+    if (/roraima3d\.json/.test(u)) return 'Baixando os dados do satélite';
+    if (/car_todos/.test(u)) return 'Carregando os imóveis do CAR';
+    if (/prodes/.test(u)) return 'Carregando o desmatamento (PRODES)';
+    if (/open-meteo/.test(u)) return 'Buscando a chuva ao vivo';
+    if (/(rios|estradas|seca|eventos_inpe|risco|ar|avisos|historico)\.json/.test(u)) return 'Carregando dados do mapa';
+    return null;
+  };
+  const fetch0 = window.fetch.bind(window);
+  window.fetch = (u, o) => { const l = busyLabel(u, o); if (!l) return fetch0(u, o); busyStart(l); return fetch0(u, o).finally(() => busyEnd(l)); };
+  // no internet: say so, with the time of the data saved on the phone
+  let offAt = null;
+  const offTxt = () => 'Sem internet · dados' + (offAt ? ' de ' + offAt : ' salvos no aparelho');
+  window.addEventListener('offline', busyShow);
+  window.addEventListener('online', () => { $('busy').hidden = true; busyShow(); });
+
   // ---------- load
   let D, hImg, tImg, lcImg;
   // a small summary (a few KB) shows up first, while the 3D map and the big data file load
@@ -928,6 +975,8 @@ details.legal li { margin-bottom: 4px; }
     [D, hImg, tImg, lcImg] = await Promise.all([fetch('roraima3d.json').then(r => { if (!r.ok) throw new Error('dados'); return r.json(); }), load('relevo.png'), load('imagem.webp').catch(() => load('imagem.jpg')), load('cobertura.png')]);
   } catch (e) { $('loading').textContent = 'Não foi possível carregar os dados (' + e.message + '). Recarregue a página.'; return; }
 
+  try { offAt = new Date(D.meta.generated.replace('Z', ':00Z')).toLocaleString('pt-BR', { timeZone: 'America/Boa_Vista', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' às'); } catch (e) {}
+  if (!navigator.onLine) busyShow();
   const [W, S, E, N] = D.meta.bbox, [GW, GH] = D.meta.grid;
   const cLon = (W + E) / 2, cLat = (S + N) / 2;
   const KX = 111.32 * Math.cos(cLat * Math.PI / 180), KZ = 110.57;
@@ -2691,6 +2740,7 @@ details.legal li { margin-bottom: 4px; }
       if ($('base').value === 'nasa') applyBase('nasa');
     };
     img.onerror = () => { if (done) return; done = true; clearTimeout(tmo); nasaFail(); };
+    trackImg(img, 'Baixando a imagem de ontem (NASA)');
     img.src = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&CRS=EPSG:4326&FORMAT=image/jpeg' +
       '&LAYERS=VIIRS_SNPP_CorrectedReflectance_TrueColor,VIIRS_NOAA20_CorrectedReflectance_TrueColor&BBOX=' + [S, W, N, E].join(',') + '&WIDTH=' + Wd + '&HEIGHT=' + H + '&TIME=' + day;
   }
@@ -2700,6 +2750,7 @@ details.legal li { margin-bottom: 4px; }
     inpeVeg.busy = true; const img = new Image();
     img.onload = () => { inpeVeg.tex = mkTex(img); inpeVeg.tex.magFilter = THREE.NearestFilter; inpeVeg.busy = false; if ($('base').value === 'inpe') applyBase('inpe'); };
     img.onerror = () => { inpeVeg.busy = false; if ($('base').value === 'inpe') { $('base').value = 'sat'; applyBase('sat'); } };
+    trackImg(img, 'Carregando o mapa de floresta (INPE)');
     img.src = 'vegetacao_inpe.png';
   }
   function applyBase(v) {
@@ -3351,6 +3402,7 @@ details.legal li { margin-bottom: 4px; }
       if (sharp.tex) sharp.tex.dispose(); sharp.tex = t; sharp.key = key; sharp.want = '';
     };
     img.onerror = () => { if (token === sharp.token) { sharp.want = ''; sharp.retry = performance.now() + 15000; } };
+    trackImg(img, 'Carregando imagem mais nítida');
     img.src = 'https://tiles.maps.eox.at/wms?service=WMS&request=GetMap&version=1.1.1&layers=s2cloudless-2025&styles=&srs=EPSG:4326&format=image/jpeg&width=' + px + '&height=' + px +
       '&bbox=' + [lon - hx, lat - hz, lon + hx, lat + hz].map(v => v.toFixed(5)).join(',');
   }
@@ -3593,7 +3645,7 @@ details.legal li { margin-bottom: 4px; }
   $('loading').hidden = true;
   // offline: the service worker keeps the last page and data; say so when there is no connection
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === '127.0.0.1')) navigator.serviceWorker.register('sw.js').catch(() => {});
-  const offNote = () => { if (!navigator.onLine) showToast('Sem internet: mostrando os últimos dados guardados no aparelho (último fogo visto ' + agoTxt(D.meta.lastFire) + ').', 9000); };
+  const offNote = () => busyShow(); // the 'no internet' pill on the map stays while offline
   offNote(); window.addEventListener('offline', offNote);
   // arrival like a plane: from the whole state, glide toward the most important fire, upwind so the smoke goes away from the eye
   if (!st.pin) setTimeout(() => {
