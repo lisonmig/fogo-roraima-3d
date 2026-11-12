@@ -471,9 +471,14 @@ details.legal { margin: 6px 0 2px; }
 details.legal > summary { color: var(--ink); font-size: 13px; }
 details.legal ul { margin: 0; padding-left: 18px; color: var(--ink); font-size: 12.5px; }
 details.legal li { margin-bottom: 4px; }
-.verdict { font: 600 11.5px var(--f-body); padding: 2px 7px; border-radius: 999px; margin-left: 4px; background: var(--chip); color: var(--ink); }
+.verdict { display: inline-flex; align-items: center; gap: 6px; font: 600 12.5px/1 var(--f-display); letter-spacing: .07em; text-transform: uppercase; padding: 5px 10px 5px 8px; border-radius: 6px; background: var(--chip); color: var(--ink); white-space: nowrap; }
+.verdict::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .85; }
 .verdict.strong { background: #b42318; color: #fff; }
 .verdict.warn { background: var(--warn-bg); color: var(--warn-ink); }
+details.more.legal > summary { display: flex; flex-wrap: wrap; align-items: center; row-gap: 6px; }
+details.more.legal > summary .verdict { flex-basis: auto; margin-left: 14px; }
+details.more.legal > summary .vbreak { flex-basis: 100%; height: 0; }
+details.more.legal > summary .lt { flex: 1 1 0; min-width: 0; }
 .sub.stale { color: #b45309; font-weight: 600; }
 .dc { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
 .dc h2 { margin: 0 0 8px; }
@@ -645,7 +650,7 @@ body.measuring #labels > * { pointer-events: none; }
 #pop.pop:not(.mini) { container-type: inline-size; }
 @container (max-width: 250px) { #popBody h3 { margin-right: 0 !important; margin-top: calc(34px / var(--tz, 1)) !important; } }
 .pop-rs:hover, .pop-rs:focus-visible, #pop.pop.resizing .pop-rs { opacity: 1; background: var(--accent, #c2410c); color: #fff; }
-#pop.pop > #popBody { padding-bottom: 26px; }
+#pop.pop > #popBody { padding-bottom: 34px; }
 .pop-mt { display: none; }
 #pop.pop.mini { width: auto !important; max-width: min(70%, 320px); padding: 4px 70px 4px 10px; border-radius: 999px; }
 #pop.pop.mini #popBody, #pop.pop.mini .pop-grab, #pop.pop.mini .pop-rs { display: none; }
@@ -744,6 +749,9 @@ body.measuring #labels > * { pointer-events: none; }
       <button class="inst-x" id="instNo" aria-label="Agora não">×</button>
     </div>
     <div class="loading" id="loading"><div class="ld"><div id="ldSum"></div><p class="ld-wait">Carregando o mapa 3D de Roraima…</p><p class="ld-sos">Emergência: <a href="tel:193">193 Bombeiros</a> · <a href="tel:199">199 Defesa Civil</a></p></div></div>
+    <script>(function () { var c = navigator.connection, f = function () { var l = document.getElementById('loading'), w = l && l.querySelector('.ld-wait'); if (!w || l.hidden || document.getElementById('ldWeak')) return;
+      w.insertAdjacentHTML('afterend', '<p class="ld-small" id="ldWeak">📶 Conexão fraca: está demorando mais que o normal. Depois de carregar uma vez, o site abre mais rápido.</p>'); };
+      if (c && (/2g/.test(c.effectiveType || '') || c.rtt >= 1200)) f(); else setTimeout(f, 9000); })();</script>
   </main>
 
   <section class="timeline" id="timeline" aria-label="Linha do tempo">
@@ -964,6 +972,9 @@ body.measuring #labels > * { pointer-events: none; }
           <summary>Legenda</summary>
           <div>
           <div class="legend" id="legendFire">
+            <span style="color:#ff8c1a"><i style="background:radial-gradient(circle,#fff3c2 0 25%,#ff8a1f 45%,#d62a0a 70%,transparent 72%);box-shadow:0 0 0 2px rgba(255,200,90,.6)"></i>queimando (visto há menos de 6 h)</span>
+            <span style="color:#e0703a"><i style="background:radial-gradient(circle,#c7461a 0 45%,#4a1408 75%)"></i>apagando, brasa com fumaça (6 a 24 h)</span>
+            <span style="color:#c8c8c8"><i style="background:radial-gradient(circle,#383533 0 50%,#cbc9c5 60%)"></i>apagado, cinza (1 a 7 dias)</span>
             <span style="color:#ff4d1f"><i style="background:#ff4d1f"></i>fogo fraco</span>
             <span style="color:#ff8c1a"><i style="background:#ff8c1a"></i>médio</span>
             <span style="color:#ffd23f"><i style="background:#ffd23f"></i>forte</span>
@@ -1119,14 +1130,21 @@ body.measuring #labels > * { pointer-events: none; }
     el.classList.remove('off');
     const labels = [...BUSY.keys()];
     if (!labels.length) { busyT = setTimeout(() => { if (!BUSY.size && navigator.onLine) el.hidden = true; }, 250); return; }
-    busyT = setTimeout(() => { if (!BUSY.size) return; $('busyTx').textContent = labels[labels.length - 1] + '…'; el.hidden = false; }, 400);
+    busyT = setTimeout(() => { if (!BUSY.size) return; $('busyTx').textContent = labels[labels.length - 1] + '…' + (netWeak() ? ' Conexão fraca, pode demorar.' : ''); el.hidden = false; }, 400);
   }
+  // weak connection: the browser's own estimate (Android Chrome) or a download that takes too long
+  let slowAt = 0, weakToldAt = 0;
+  const netWeak = () => { const c = navigator.connection; if (Date.now() - slowAt < 180000) return true;
+    return !!c && (/2g/.test(c.effectiveType || '') || c.rtt >= 1200 || (c.downlink > 0 && c.downlink < 0.3)); };
+  const weakTell = () => { if (!navigator.onLine || !netWeak() || Date.now() - weakToldAt < 600000) return; weakToldAt = Date.now();
+    if (BUSY.size) busyShow(); else busyFlash('Conexão fraca: o mapa pode demorar a atualizar', 5000); };
+  try { navigator.connection && navigator.connection.addEventListener('change', weakTell); } catch (e) {}
   const busyStart = l => { BUSY.set(l, (BUSY.get(l) || 0) + 1); busyShow(); };
   const busyEnd = l => { const n = (BUSY.get(l) || 1) - 1; if (n > 0) BUSY.set(l, n); else BUSY.delete(l); busyShow(); };
   // a short message when something could not be loaded (e.g. an outside server is down or blocked)
   let flashT = 0;
-  const busyFlash = t => { const el = $('busy'); if (!el || !navigator.onLine) return; clearTimeout(flashT); clearTimeout(busyT); flashing = true; el.classList.add('off'); $('busyTx').textContent = t; el.hidden = false;
-    flashT = setTimeout(() => { flashing = false; el.classList.remove('off'); if (BUSY.size) busyShow(); else el.hidden = true; }, 3000); };
+  const busyFlash = (t, ms) => { const el = $('busy'); if (!el || !navigator.onLine) return; clearTimeout(flashT); clearTimeout(busyT); flashing = true; el.classList.add('off'); $('busyTx').textContent = t; el.hidden = false;
+    flashT = setTimeout(() => { flashing = false; el.classList.remove('off'); if (BUSY.size) busyShow(); else el.hidden = true; }, ms || 3000); };
   const IMG_FAIL = { 'Carregando imagem mais nítida': 'Imagem mais nítida indisponível agora', 'Baixando a imagem de ontem (NASA)': 'Imagem da NASA indisponível agora', 'Carregando o mapa de floresta (INPE)': 'Mapa de floresta indisponível agora' };
   const trackImg = (img, l) => { busyStart(l); let d = false; const end = ok => { if (d) return; d = true; busyEnd(l); if (!ok && IMG_FAIL[l]) busyFlash(IMG_FAIL[l]); };
     img.addEventListener('load', () => end(true)); img.addEventListener('error', () => end(false)); setTimeout(() => end(true), 60000); };
@@ -1142,7 +1160,9 @@ body.measuring #labels > * { pointer-events: none; }
     return null;
   };
   const fetch0 = window.fetch.bind(window);
-  window.fetch = (u, o) => { const l = busyLabel(u, o); if (!l) return fetch0(u, o); busyStart(l); return fetch0(u, o).finally(() => busyEnd(l)); };
+  window.fetch = (u, o) => { const l = busyLabel(u, o); if (!l) return fetch0(u, o); busyStart(l);
+    const slow = setTimeout(() => { slowAt = Date.now(); busyShow(); }, l === 'Baixando os dados do satélite' ? 15000 : 9000);
+    return fetch0(u, o).finally(() => { clearTimeout(slow); busyEnd(l); }); };
   // no internet: say so, with the time of the data saved on the phone
   let offAt = null;
   const offTxt = () => 'Sem internet · dados' + (offAt ? ' de ' + offAt : ' salvos no aparelho');
@@ -1372,45 +1392,64 @@ body.measuring #labels > * { pointer-events: none; }
     uniforms: { uTime: { value: 0 }, uWin: { value: 1440 }, uMode: { value: 0 }, uScale: { value: 1500 }, uClock: { value: 0 }, uLive: { value: (LIGHT || matchMedia('(prefers-reduced-motion: reduce)').matches) ? 0 : 1 } },
     vertexShader: `attribute float aTime; attribute float aFrp; attribute float aKind; attribute float aGeo; attribute float aImp; attribute float aSeed;
       uniform float uTime; uniform float uWin; uniform float uMode; uniform float uScale; uniform float uClock; uniform float uLive;
-      varying float vStage; varying float vScore; varying float vSeed; varying float vPulse;
+      varying float vStage; varying float vScore; varying float vSeed; varying float vPulse; varying float vH;
       void main(){
         float age = uTime - aTime;
         bool vis = age >= 0.0 && age <= uWin;
         if (uMode > 0.5 && uMode < 1.5 && aKind > 0.5) vis = false;
         if (uMode > 1.5 && abs(aKind - 1.0) > 0.5) vis = false;
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        if (!vis) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vStage = 0.0; vScore = 0.0; vSeed = 0.0; vPulse = 0.0; return; }
+        if (!vis) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vStage = 0.0; vScore = 0.0; vSeed = 0.0; vPulse = 0.0; vH = 0.0; return; }
         gl_Position = projectionMatrix * mv;
-        float h = age / 60.0;
+        float h = age / 60.0; vH = h;
         // stage: 0 flame (0–6 h), 1 ember (6–24 h), 2 charcoal (1–7 days, then the scar painted on the ground)
         vStage = h < 6.0 ? 0.0 : h < 24.0 ? 1.0 : 2.0;
         float rec = h < 3.0 ? 40.0 : h < 12.0 ? 25.0 : h < 24.0 ? 10.0 : 0.0;
         vScore = clamp(aImp + rec, 0.0, 100.0); vSeed = aSeed;
         vPulse = 0.5 + 0.5 * sin(uClock * 3.1416 + aSeed * 6.2832);
-        float px = vStage < 0.5 ? mix(12.0, 18.0, aImp / 100.0) : vStage < 1.5 ? 8.0 : 5.0;
-        if (vStage < 0.5 && aImp > 70.0) px *= 1.25; // room for the smoke
+        // burning: big, with room for the glow and the ring; going out: shrinks as it cools; out: small ash dot
+        float px = vStage < 0.5 ? mix(22.0, 30.0, aImp / 100.0) : vStage < 1.5 ? mix(15.0, 10.0, (h - 6.0) / 18.0) : 6.0;
         float persp = clamp(uScale / -mv.z / 18.0, 0.55, 1.6);
         gl_PointSize = px * persp * (1.0 - 0.3 * aGeo) * (1.0 + 0.08 * uLive * sin(uClock * (6.0 + 4.0 * aSeed) + aSeed * 40.0) * step(vStage, 0.5));
       }`,
     fragmentShader: `uniform float uClock; uniform float uLive;
-      varying float vStage; varying float vScore; varying float vSeed; varying float vPulse;
+      varying float vStage; varying float vScore; varying float vSeed; varying float vPulse; varying float vH;
       void main(){
         vec2 q = vec2(gl_PointCoord.x - 0.5, 0.62 - gl_PointCoord.y); // y up, base low in the sprite
         vec3 rim = vec3(0.10, 0.04, 0.02);
-        if (vStage > 1.5) { // charcoal: small dark dot with a rim
+        if (vStage > 1.5) { // out (1-7 days): grey ash dot with a light rim, no orange at all
           float d = length(gl_PointCoord - 0.5) * 2.0; if (d > 1.0) discard;
-          gl_FragColor = vec4(mix(vec3(0.48, 0.16, 0.07), rim, smoothstep(0.55, 0.95, d)), 0.85); return;
+          vec3 c = mix(vec3(0.22, 0.21, 0.20), vec3(0.80, 0.79, 0.77), smoothstep(0.55, 0.8, d));
+          gl_FragColor = vec4(mix(c, vec3(0.08), smoothstep(0.88, 1.0, d)), 0.9); return;
         }
-        if (vStage > 0.5) { // ember: red-orange, slow glow
-          float d = length(gl_PointCoord - 0.5) * 2.0; if (d > 1.0) discard;
-          vec3 c = mix(vec3(0.88, 0.29, 0.07), vec3(0.54, 0.11, 0.04), smoothstep(0.0, 0.8, d));
-          c = mix(c, rim, smoothstep(0.78, 1.0, d));
-          gl_FragColor = vec4(c * (0.85 + 0.25 * vPulse * uLive), 0.92); return;
+        if (vStage > 0.5) { // going out (6-24 h): a cooling coal low in the sprite, grey smoke rising, colour fades from orange to dark red
+          float k = clamp((vH - 6.0) / 18.0, 0.0, 1.0);
+          vec2 p = vec2(q.x, q.y + 0.22);
+          float d = length(p) / 0.26;
+          vec4 col = vec4(0.0);
+          if (d < 1.0) {
+            vec3 hot = mix(vec3(1.0, 0.62, 0.22), vec3(0.62, 0.14, 0.05), k);
+            vec3 c = mix(hot, mix(vec3(0.75, 0.2, 0.06), vec3(0.32, 0.08, 0.04), k), smoothstep(0.1, 0.75, d));
+            c = mix(c, rim, smoothstep(0.78, 1.0, d));
+            col = vec4(c * (0.9 + (0.3 - 0.2 * k) * vPulse * uLive), 1.0);
+          } else {
+            float g = clamp(1.0 - (d - 1.0) / 0.6, 0.0, 1.0);
+            col = vec4(1.0, 0.4, 0.1, (0.3 - 0.2 * k) * g * g);
+          }
+          // a thin smoke wisp: says 'it is going out'
+          float sy = q.y + 0.02 - 0.08 * fract(uClock * 0.2 * uLive + vSeed);
+          float sx = q.x - 0.05 * sin(uClock * 0.9 * uLive + vSeed * 9.0 + q.y * 9.0);
+          float s = length(vec2(sx * 1.6, (sy - 0.12) * 0.7)) / 0.2;
+          float a = (0.55 - 0.25 * k) * clamp(1.0 - s, 0.0, 1.0) * step(-0.05, q.y);
+          col = vec4(mix(col.rgb, vec3(0.70, 0.69, 0.67), a / max(col.a + a, 0.001)), max(col.a, a));
+          if (col.a < 0.01) discard;
+          gl_FragColor = col; return;
         }
         // flame: a teardrop that flickers; hot core, orange body, red edge, dark rim (readable on any background)
         float big = step(70.0, vScore);
         vec2 f = q * (1.0 + 0.35 * big);
         f.x += uLive * 0.035 * sin(uClock * 7.0 + vSeed * 30.0 + f.y * 14.0) * max(f.y, 0.0) * 3.0;
+        f *= 1.25; // the flame a bit bigger than before; the rest of the bigger sprite is room for the glow and the ring
         float d = length(vec2(f.x * (1.0 + 2.4 * max(f.y, 0.0) / 0.42), f.y * 0.95)) / 0.33;
         vec4 col = vec4(0.0);
         if (d < 1.0) {
@@ -1419,8 +1458,15 @@ body.measuring #labels > * { pointer-events: none; }
           c = mix(c, rim, smoothstep(0.88, 1.0, d));
           col = vec4(c, 1.0);
         } else {
-          float g = clamp(1.0 - (d - 1.0) / 0.9, 0.0, 1.0); // soft glow around the flame
-          col = vec4(1.0, 0.45, 0.10, 0.28 * g * g);
+          float g = clamp(1.0 - (d - 1.0) / 1.6, 0.0, 1.0); // strong glow around the flame
+          col = vec4(1.0, 0.42, 0.08, (0.5 + 0.12 * vPulse * uLive) * g * g);
+          // seen less than 3 h ago: a ring that grows and fades, like a beacon (a still ring when motion is off)
+          if (vH < 3.0) {
+            float rd = length(gl_PointCoord - 0.5) * 2.0;
+            float ph = uLive > 0.5 ? fract(uClock * 0.45 + vSeed) : 0.55;
+            float rr = mix(0.35, 0.98, ph), ring = (1.0 - smoothstep(0.0, 0.07, abs(rd - rr))) * (1.0 - ph) * 0.95;
+            col = vec4(mix(col.rgb, vec3(1.0, 0.78, 0.35), ring / max(col.a + ring, 0.001)), max(col.a, ring));
+          }
           if (big > 0.5) { // smoke drifting up from the strongest recent fires
             float s = length(vec2(q.x - 0.06 * sin(uClock * 0.8 + vSeed * 9.0), q.y - 0.36 - 0.06 * fract(uClock * 0.25 + vSeed))) / 0.2;
             float a = 0.32 * clamp(1.0 - s, 0.0, 1.0) * uLive;
@@ -3436,8 +3482,8 @@ body.measuring #labels > * { pointer-events: none; }
     else if (o.lc >= 0) items.push('<b>' + esc(D.lc[o.lc]) + ':</b> a queima de manejo é permitida com autorização; em Roraima, a FEMARH abre e suspende os períodos de autorização por portaria.');
     if (o.ti >= 0) items.push('<b>Terra Indígena ' + esc(D.tis[o.ti].nome) + ':</b> o uso tradicional do fogo é permitido por lei (Lei 14.944/2024); infração de terceiros que afete a TI tem multa em dobro (art. 60).');
     if (o.car >= 0 && CAR[o.car]) items.push('<b>Imóvel no CAR</b> (' + esc(CAR_TIPO[CAR[o.car].tipo] || CAR[o.car].tipo) + ', ' + fmt(CAR[o.car].area, 0) + ' ha): o responsável precisa de autorização de queima e deve manter ações de prevenção (art. 58-C).');
-    const verdict = level === 2 ? '<span class="verdict strong">pede verificação</span>' : level === 1 ? '<span class="verdict warn">atenção</span>' : '<span class="verdict">nada a destacar</span>';
-    return '<details class="more legal"><summary>O que diz a lei sobre fogo aqui ' + verdict + '</summary><div><ul>' + items.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
+    const verdict = level === 2 ? '<span class="verdict strong">Pede verificação</span>' : level === 1 ? '<span class="verdict warn">Atenção</span>' : '<span class="verdict">Nada a destacar</span>';
+    return '<details class="more legal"><summary><span class="lt">O que diz a lei sobre fogo aqui</span><span class="vbreak"></span>' + verdict + '</summary><div><ul>' + items.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
       '<p class="note" style="margin:4px 0 0">O satélite não mostra se havia autorização nem quem acendeu o fogo. Para confirmar é preciso consultar a autorização de queima (FEMARH ou Ibama), o período de proibição do estado e fazer vistoria. São indícios por satélite, não prova: isto não é acusação contra ninguém.</p></div></details>';
   }
   // deforestation alert under the click: inside a polygon (smallest first), else the closest one within tolKm
@@ -4031,7 +4077,7 @@ body.measuring #labels > * { pointer-events: none; }
   $('popBody').addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-area-rep]')) openAreaReport(); });
   // ---------- first visit: a short guide (4 cards, little text); the "?" button shows it again
   const TOUR = [
-    ['🛰️', 'Fogo visto do satélite', 'O satélite vê o calor, não a chama. Chama: visto há menos de 6 h; brasa: de 6 a 24 h; ponto escuro: de 1 a 7 dias. Quanto maior o ponto, mais forte o calor. A posição pode errar de 375 m a alguns quilômetros.'],
+    ['🛰️', 'Fogo visto do satélite', 'O satélite vê o calor, não a chama. Chama com brilho: visto há menos de 6 h (o anel pulsando marca o fogo das últimas 3 h); brasa com fumaça: de 6 a 24 h, apagando; ponto cinza: de 1 a 7 dias, apagado. Quanto maior o ponto, mais forte o calor. A posição pode errar de 375 m a alguns quilômetros.'],
     ['👆', 'Toque para saber mais', 'Um toque num fogo, num rio 💧 ou numa mancha abre os detalhes. Arraste para girar o mapa; use dois dedos para aproximar.'],
     ['📍', 'Marque o seu lugar', 'Dois toques no mapa marcam um ponto. O site diz se há fogo perto, para que lado o vento leva e o que fazer. Dois toques no alfinete removem.'],
     ['📞', 'Em perigo, ligue', '<b>193</b> Bombeiros · <b>199</b> Defesa Civil. O satélite pode não ver fogo pequeno, sob nuvem ou à noite: se vir fumaça, não espere o mapa.']
