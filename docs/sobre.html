@@ -6,6 +6,7 @@
 <title>Sobre o projeto e metodologia – Fogo em Roraima 3D</title>
 <meta name="description" content="Como o Fogo em Roraima 3D funciona: fontes de dados, satélites e margem de erro, nota de importância do fogo, área com fogo, tempo de chegada, nível dos rios, glossário e como citar.">
 <link rel="canonical" href="https://fogororaima.com.br/sobre.html">
+<link rel="stylesheet" href="fonts.css">
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="icone.svg">
 <style>
@@ -30,6 +31,10 @@ nav.idx { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 15px; }
 .sw { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 6px; border: 1px solid rgba(0,0,0,.4); }
 code { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: 14px; }
 small { color: var(--muted); }
+body { font-family: "Source Sans 3", "Segoe UI", system-ui, sans-serif; }
+h1, h2 { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-weight: 700; letter-spacing: .01em; }
+h1 { font-size: 34px; } h2 { font-size: 24px; }
+code { font-family: "IBM Plex Mono", ui-monospace, monospace; }
 </style>
 </head>
 <body>
@@ -47,7 +52,13 @@ small { color: var(--muted); }
 <tr><td>Alertas de desmatamento</td><td>INPE, DETER (TerraBrasilis)</td><td>a cada 30 min</td></tr>
 <tr><td>Área queimada e degradação (alertas)</td><td>INPE, DETER: classes cicatriz de queimada e degradação, desde dezembro de 2024</td><td>a cada 30 min</td></tr>
 <tr><td>Nível dos rios</td><td>ANA, réguas telemétricas e série histórica</td><td>a cada 30 min</td></tr>
-<tr><td>Vento, chuva, umidade</td><td>Open-Meteo (modelo de previsão)</td><td>a cada 30 min</td></tr>
+<tr><td>Tempo agora (medido)</td><td>Aeroporto de Boa Vista (boletim METAR, via NOAA Aviation Weather); chuva das estações telemétricas da ANA</td><td>a cada 30 min</td></tr>
+<tr><td>Previsão do tempo das sedes</td><td>CPTEC/INPE (15 municípios)</td><td>a cada 30 min</td></tr>
+<tr><td>Vento, chuva e umidade nos outros lugares</td><td>Open-Meteo (modelo de previsão, usado onde não há estação)</td><td>a cada 30 min</td></tr>
+<tr><td>Previsão de risco de fogo</td><td>INPE, Programa Queimadas</td><td>quando o INPE publica</td></tr>
+<tr><td>Qualidade do ar (fumaça)</td><td>Copernicus CAMS, pelo Open-Meteo Air Quality (modelo)</td><td>a cada 30 min</td></tr>
+<tr><td>Avisos oficiais</td><td>Diário Oficial do Estado de Roraima (lido automaticamente) e páginas do governo</td><td>a cada 30 min; somem no fim do prazo</td></tr>
+<tr><td>Notícias</td><td>Google Notícias e Ministério da Integração (só título, fonte, data e link)</td><td>a cada 30 min</td></tr>
 <tr><td>Imóveis rurais (CAR)</td><td>SICAR, dados públicos sem nome</td><td>a cada 30 a 60 dias</td></tr>
 <tr><td>Estradas, vilas, rios do mapa</td><td>OpenStreetMap</td><td>a cada 30 a 60 dias</td></tr>
 <tr><td>Terras Indígenas, municípios</td><td>FUNAI, IBGE</td><td>fixo</td></tr>
@@ -109,7 +120,7 @@ small { color: var(--muted); }
 <ul>
 <li>O satélite não vê fogo pequeno, sob nuvem ou fumaça, e passa poucas vezes à noite.</li>
 <li>O mapa não sabe quem acendeu o fogo nem se havia autorização: fogo num imóvel do CAR não quer dizer culpa do dono (veja os <a href="termos.html">termos de uso</a>).</li>
-<li>Chuva, vento e umidade vêm de modelo de previsão (quadrados de cerca de 11 km), não de estação.</li>
+<li>Há poucas estações em Roraima: o "Tempo agora" usa o aeroporto de Boa Vista e os pluviômetros da ANA quando estão perto; nos outros lugares, e no cálculo do perigo, chuva, vento e umidade vêm de modelo de previsão (quadrados de cerca de 11 km).</li>
 <li>A vegetação vem de um mapa de 500 m e pode errar em áreas pequenas.</li>
 </ul>
 
@@ -134,7 +145,8 @@ small { color: var(--muted); }
 <li><b>Orientação:</b> Prof.ª Dr.ª Tatiane Castro.</li>
 </ul>
 <p>O código é aberto em <a href="https://github.com/lisonmig/fogo-roraima-3d" target="_blank" rel="noopener">github.com/lisonmig/fogo-roraima-3d</a> (licença MIT). Sugestões e correções: veja <a href="termos.html#contestar">como pedir</a>.</p>
-<div class="box"><b>Como citar (ABNT):</b><br>VIEIRA, Warlison. <b>Fogo em Roraima 3D</b>: mapa de focos de incêndio e seca em Roraima. Boa Vista: Universidade Estadual de Roraima, 2026. Disponível em: https://fogororaima.com.br. Acesso em: <i>dia mês ano</i>.</div>
+<div class="box"><b>Como citar (ABNT):</b><br>VIEIRA, Warlison. <b>Fogo em Roraima 3D</b>: mapa de focos de incêndio e seca em Roraima. Boa Vista: Universidade Estadual de Roraima, 2026. Disponível em: https://fogororaima.com.br. Acesso em: <span id="acesso">dia mês ano</span>.</div>
+<script>(function(){var m=["jan.","fev.","mar.","abr.","maio","jun.","jul.","ago.","set.","out.","nov.","dez."],d=new Date(),e=document.getElementById("acesso");if(e)e.textContent=d.getDate()+" "+m[d.getMonth()]+" "+d.getFullYear();})();</script>
 <h2 id="ia">10. Declaração sobre o uso de inteligência artificial</h2>
 <p>Seguindo a prática de revistas científicas e as orientações de ética em publicação (como as do COPE), declaramos o uso de inteligência artificial generativa neste projeto.</p>
 <table>

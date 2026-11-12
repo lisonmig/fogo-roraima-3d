@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quanto o fogo e a seca custam a Roraima – Fogo em Roraima 3D</title>
+<meta name="description" content="As perdas econômicas do fogo e da seca em Roraima em 2026: pasto, floresta, lavouras, saúde e água. Estimativas com fontes, a partir dos dados de satélite do INPE e da ANA.">
+<link rel="canonical" href="https://fogororaima.com.br/impacto.html">
+<link rel="stylesheet" href="fonts.css">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="icone.svg">
+<meta property="og:title" content="Quanto o fogo e a seca custam a Roraima">
+<meta property="og:description" content="Estimativas das perdas econômicas do fogo e da seca em Roraima, com fontes.">
+<meta property="og:image" content="https://fogororaima.com.br/og.jpg">
+<style>
+:root { --bg: #f7f5f1; --ink: #1b1917; --muted: #5a534b; --line: #ded8ce; --accent: #c2410c; --card: #fff; --blue: #2b6cb0; }
+@media (prefers-color-scheme: dark) { :root { --bg: #121110; --ink: #ece7df; --muted: #b3aba0; --line: #34302b; --accent: #ff7a2f; --card: #1c1a18; --blue: #6aa5e6; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 780px; margin: 0 auto; padding: 24px 16px 48px; }
+a { color: var(--accent); }
+.top { display: inline-block; margin-bottom: 18px; font-weight: 600; text-decoration: none; }
+h1 { font-size: 30px; line-height: 1.15; margin: 0 0 8px; }
+.sub { color: var(--muted); margin: 0 0 18px; }
+h2 { font-size: 21px; margin: 34px 0 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+ul { padding-left: 20px; } li { margin: 5px 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 10px; margin: 16px 0; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.card b { display: block; font-size: 26px; line-height: 1.1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.card.blue b { color: var(--blue); }
+.card span { font-size: 14px; color: var(--muted); }
+.box { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; margin: 14px 0; }
+.box.blue { border-left-color: var(--blue); }
+table { width: 100%; border-collapse: collapse; font-size: 15px; margin: 8px 0; }
+td, th { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; } td.v { white-space: nowrap; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+tr.tot td { border-top: 2px solid var(--ink); font-weight: 700; }
+.bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin: 8px 0 4px; background: var(--line); }
+.bar i { display: block; height: 100%; }
+.leg { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13.5px; color: var(--muted); }
+.leg i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; }
+small, .note { color: var(--muted); font-size: 14px; }
+@media (max-width: 520px) { h1 { font-size: 25px; } table { font-size: 14px; } td.v { white-space: normal; } }
+body { font-family: "Source Sans 3", "Segoe UI", system-ui, sans-serif; }
+h1, h2 { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-weight: 700; letter-spacing: .01em; }
+h1 { font-size: 34px; } h2 { font-size: 24px; }
+code { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.refs li { margin: 8px 0; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main>
+<a class="top" href="./">← Voltar ao mapa</a>
+<h1>Quanto o fogo e a seca custam a Roraima</h1>
+<p class="sub">Fogo em Roraima 3D · projeto de extensão da UERR · números de <span id="ano">2026</span>, atualizados a cada 30 minutos com os dados do mapa. Estimativas com fonte; não apontam culpados.</p>
+
+<div class="cards">
+  <div class="card"><b id="cArea">–</b><span>hectares com fogo visto pelo satélite em <span class="yy">2026</span></span></div>
+  <div class="card"><b id="cFocos">–</b><span>focos de calor no ano (INPE)</span></div>
+  <div class="card blue"><b id="cRio">–</b><span id="cRioTx">Rio Branco em Boa Vista</span></div>
+  <div class="card"><b id="cPerda">–</b><span>perdas diretas que dá para contar (campo e lavoura)</span></div>
+</div>
+
+<h2>Um ano de seca e fogo</h2>
+<p>Roraima vive em <span class="yy">2026</span> um dos anos mais secos e com mais fogo da sua história recente. O fenômeno El Niño deixou as chuvas abaixo do normal, os rios baixaram cedo e a vegetação seca virou combustível. O estado e quatro municípios (Cantá, Alto Alegre, Normandia e Iracema) decretaram situação de emergência por estiagem; a de Cantá já foi reconhecida pelo governo federal.</p>
+<p id="pFocos">Os focos de calor contados pelo INPE estão bem acima da média dos últimos anos.</p>
+<p>Os cientistas mostram que o aquecimento do planeta deixa as secas na Amazônia mais quentes e mais longas, e aumenta os dias em que o tempo favorece o fogo. Quando um El Niño chega sobre esse clima já mais quente, como em 2024 e de novo em <span class="yy">2026</span>, o efeito em Roraima é maior: menos água, mais calor e mais fogo.</p>
+
+<h2>A falta de água</h2>
+<p id="pRio">O Rio Branco, em Boa Vista, está entre os níveis mais baixos já medidos para esta época do ano.</p>
+<ul>
+  <li><b>Água para beber e para os animais:</b> comunidades do interior dependem de caminhões-pipa, poços e cacimbas. O governo do estado contratou caminhões-pipa e perfura poços.</li>
+  <li><b>Lavouras:</b> a Associação dos Produtores de Soja (Aprosoja-RR) estima que a seca pode reduzir a safra de soja em até metade, com prejuízo direto de cerca de <b>R$ 500 milhões</b>, e perdas que podem passar de <b>R$ 2 bilhões</b> somando fretes, insumos, comércio e impostos. Pequenos agricultores relatam perda total do milho.</li>
+  <li><b>Transporte e energia:</b> rio baixo dificulta a navegação e o transporte de cargas e encarece o que chega de barco.</li>
+  <li><b>Fogo mais fácil:</b> com pouca água no solo e no capim, qualquer faísca vira incêndio, e apagar fica mais difícil.</li>
+</ul>
+
+<h2>O fogo</h2>
+<p id="pArea">O satélite viu fogo em centenas de milhares de hectares de Roraima neste ano.</p>
+<div class="bar" id="bar"></div>
+<div class="leg" id="leg"></div>
+<p id="pTi"></p>
+<ul>
+  <li><b>Pasto e roça:</b> o fogo queima o capim, cercas, cochos e às vezes casas e galpões. O gado perde peso ou morre, e o pasto leva meses para voltar.</li>
+  <li><b>Floresta:</b> a floresta amazônica não está adaptada ao fogo. Uma floresta queimada perde árvores grandes nos anos seguintes, fica mais seca e queima de novo com mais facilidade. O carbono guardado vai para o ar.</li>
+  <li><b>Lavrado:</b> o lavrado (savana de Roraima) tem fogo natural, mas fogo demais e fora de época mata buritis e matas de galeria e empobrece o solo.</li>
+  <li><b>Saúde:</b> a fumaça causa e piora doenças respiratórias, principalmente em crianças, idosos e quem tem asma. Na Amazônia, as internações por problemas respiratórios ligadas às queimadas custaram quase <b>R$ 1 bilhão</b> ao SUS entre 2010 e 2020, em cinco estados (Fiocruz e WWF-Brasil).</li>
+  <li><b>Combate:</b> o estado mantém bases avançadas dos Bombeiros e contratou brigadistas e caminhões-pipa. Esse dinheiro deixa de ir para outras áreas.</li>
+</ul>
+
+<h2>Estimativa das perdas econômicas em <span class="yy">2026</span></h2>
+<div class="box">Estas contas são uma <b>ordem de grandeza</b>, para mostrar o tamanho do problema. Não são laudo nem valor de indenização, e <b>não dizem quem causou o fogo</b>: boa parte das queimadas em pasto é manejo feito pelo próprio produtor, outras são acidentes ou vêm de fora. Fogo num imóvel não quer dizer culpa do dono.</div>
+<table>
+  <thead><tr><th>O que se perde</th><th>Base</th><th style="text-align:right">Valor</th></tr></thead>
+  <tbody id="tbl"></tbody>
+</table>
+<p class="note" id="tblNote"></p>
+<p><b>O que fica de fora</b> (não há dado confiável para Roraima): gado morto, cercas e casas queimadas, gastos com saúde e remédios, dias de trabalho e de aula perdidos, voos e estradas afetados pela fumaça, perda de turismo, de frutos e de caça para as comunidades indígenas e o custo do combate ao fogo. Por isso o prejuízo real é <b>maior</b> do que a soma acima.</p>
+
+<h2>O que cada um pode fazer</h2>
+<ul>
+  <li><b>Não use fogo</b> enquanto as queimadas estiverem suspensas pela FEMARH. Fora desse período, só com autorização.</li>
+  <li><b>Faça aceiros</b> (faixas sem capim) em volta de casas, currais e cercas.</li>
+  <li><b>Não queime lixo</b> e não jogue bitucas de cigarro no capim.</li>
+  <li><b>Viu fogo?</b> Bombeiros <a href="tel:193">193</a>, Defesa Civil <a href="tel:199">199</a>. Denúncia de queimada: Disque Queimadas (95) 98406-5439.</li>
+  <li><b>Com fumaça:</b> feche janelas, beba água, evite esforço ao ar livre e proteja crianças e idosos.</li>
+</ul>
+
+<h2>Como as contas foram feitas</h2>
+<ul class="note">
+  <li><b>Área com fogo:</b> quadrados de 375 m (cerca de 14 ha) em que o satélite VIIRS viu fogo desde 1º de janeiro, cada um contado uma vez, separados pelo tipo de terreno do mapa (MODIS). É uma estimativa: o fogo pode não ter queimado o quadrado inteiro.</li>
+  <li><b>Pasto e roça:</b> custo de recuperar um pasto, de R$ 630 a R$ 800 por hectare (Scot Consultoria, Brasil Central). Se o pasto precisar ser reformado do zero, o custo médio é de cerca de R$ 4.700 por hectare (IFAG, 2026); esse valor maior não entra na soma.</li>
+  <li><b>Floresta:</b> cerca de 18 toneladas de CO₂ por hectare de floresta queimada (conta feita com os números do IPAM para a Amazônia em 2024: 12,7 milhões de toneladas em 700 mil hectares) e custo social do carbono de US$ 190 por tonelada (EPA, Estados Unidos, 2023). É o custo para o clima do planeta, em dólares, e por isso aparece separado.</li>
+  <li><b>Lavouras:</b> estimativa da Aprosoja-RR para a soja na safra <span class="yy">2026</span>, divulgada pela imprensa. É uma projeção do setor, não um valor apurado.</li>
+  <li><b>Focos e rios:</b> INPE (Programa Queimadas, satélite de referência) e ANA (réguas da Rede Hidrometeorológica).</li>
+</ul>
+
+<h2>Referências</h2>
+<p class="note">Lista no padrão da ABNT (NBR 6023:2018), em ordem de uso no texto. Endereços conferidos em 12/11/2026.</p>
+<ul class="note refs">
+  <li>INSTITUTO NACIONAL DE PESQUISAS ESPACIAIS (INPE). <b>Programa Queimadas</b>: monitoramento de focos de calor e eventos de fogo. São José dos Campos: INPE, 2026. Disponível em: https://terrabrasilis.dpi.inpe.br/queimadas/portal/. Acesso em: 12 nov. 2026.</li>
+  <li>INSTITUTO NACIONAL DE PESQUISAS ESPACIAIS (INPE). <b>Estatísticas de focos de calor</b>: Roraima. São José dos Campos: INPE, 2026. Disponível em: https://data.inpe.br/queimadas/estatisticas/?tipo=estados&amp;item=roraima. Acesso em: 12 nov. 2026.</li>
+  <li>AGÊNCIA NACIONAL DE ÁGUAS E SANEAMENTO BÁSICO (ANA). <b>Telemetria</b>: dados hidrometeorológicos (nível e chuva). Brasília, DF: ANA, 2026. Disponível em: https://telemetriaws1.ana.gov.br/ServiceANA.asmx. Acesso em: 12 nov. 2026.</li>
+  <li>CENTRO DE PREVISÃO DE TEMPO E ESTUDOS CLIMÁTICOS (CPTEC/INPE). <b>Previsão do tempo para cidades</b>. Cachoeira Paulista: INPE, 2026. Disponível em: https://servicos.cptec.inpe.br/XML/. Acesso em: 12 nov. 2026.</li>
+  <li>NATIONAL OCEANIC AND ATMOSPHERIC ADMINISTRATION (NOAA). <b>Aviation Weather Center</b>: boletins METAR do aeroporto de Boa Vista (SBBV). Kansas City: NOAA, 2026. Disponível em: https://aviationweather.gov/. Acesso em: 12 nov. 2026.</li>
+  <li>OPEN-METEO. <b>Weather and Air Quality API</b>. [S. l.]: Open-Meteo, 2026. Disponível em: https://open-meteo.com/. Acesso em: 12 nov. 2026.</li>
+  <li>MOURÃO, Juliana. Roraima registra 857 focos de incêndio em seis dias e Defesa Civil reforça alerta. <b>Folha BV</b>, Boa Vista, 9 nov. 2026. Disponível em: https://www.folhabv.com.br/cotidiano/roraima-registra-857-focos-de-incendio-em-seis-dias-e-defesa-civil-reforca-alerta/. Acesso em: 12 nov. 2026.</li>
+  <li>FOCOS de calor superam registros de novembro de 2025 e Roraima mantém suspensão de queimadas. <b>Folha BV</b>, Boa Vista, 10 nov. 2026. Disponível em: https://www.folhabv.com.br/cotidiano/focos-de-calor-superam-registros-de-novembro-de-2025-e-roraima-mantem-suspensao-de-queimadas/. Acesso em: 12 nov. 2026.</li>
+  <li>ESTIAGEM deve reduzir em 50% produção de soja em Roraima e Aprosoja prevê prejuízo de R$ 500 milhões. <b>Folha BV</b>, Boa Vista, 2026. Disponível em: https://www.folhabv.com.br/agro/estiagem-deve-reduzir-em-50-producao-de-soja-em-roraima-e-aprosoja-preve-prejuizo-de-r-500-milhoes/. Acesso em: 12 nov. 2026.</li>
+  <li>FUNDAÇÃO OSWALDO CRUZ (Fiocruz). Queimadas na Amazônia aumentam problemas respiratórios. <b>Informe ENSP</b>, Rio de Janeiro, [s. d.]. Disponível em: https://informe.ensp.fiocruz.br/noticias/51306. Acesso em: 12 nov. 2026.</li>
+  <li>EMISSÃO de CO2 por queimadas na Amazônia cresce 60%. <b>IHU On-Line</b>, São Leopoldo, 17 set. 2024. Disponível em: https://www.ihu.unisinos.br/643716-emissao-de-co2-por-queimadas-na-amazonia-cresce-60. Acesso em: 12 nov. 2026.</li>
+  <li>UNITED STATES. Environmental Protection Agency. <b>Report on the social cost of greenhouse gases</b>: estimates incorporating recent scientific advances. Washington, DC: EPA, 2023.</li>
+  <li>SCOT CONSULTORIA. <b>Custos de reforma e recuperação de pastagem</b>. Bebedouro: Scot Consultoria, 2021. Publicado no portal Coeficiente Agro (Corteva).</li>
+  <li>VALORIZAÇÃO do boi favorece reforma de pastagens. <b>Agrolink</b>, Porto Alegre, 2026. Disponível em: https://www.agrolink.com.br/noticias/valorizacao-do-boi-favorece-reforma-de-pastagens_518959.html. Acesso em: 12 nov. 2026.</li>
+</ul>
+<p><small>Fogo em Roraima 3D, projeto de extensão da Universidade Estadual de Roraima (UERR). Veja também <a href="sobre.html">Sobre o projeto</a> e <a href="termos.html">Termos e privacidade</a>. Este texto não é parecer técnico nem jurídico.</small></p>
+</main>
+<script>
+(async () => {
+  const get = f => fetch(f).then(r => r.ok ? r.json() : null).catch(() => null);
+  const [I, H, S] = await Promise.all([get('impacto.json'), get('historico.json'), get('seca.json')]);
+  const $ = id => document.getElementById(id), n0 = v => Math.round(v).toLocaleString('pt-BR');
+  const mi = v => v >= 1e9 ? 'R$ ' + (v / 1e9).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + (v >= 2e9 ? ' bilhões' : ' bilhão') : 'R$ ' + n0(v / 1e6) + ' milhões';
+  const usd = v => 'US$ ' + n0(v / 1e6) + ' milhões';
+  if (I) document.querySelectorAll('.yy').forEach(e => e.textContent = I.ano);
+  if (I) {
+    const P = I.porTipo, pasto = (P['Campo ou pasto'] || 0) + (P['Agricultura'] || 0), flor = P['Floresta'] || 0, lav = P['Lavrado / savana'] || 0;
+    $('cArea').textContent = n0(I.totalHa);
+    $('pArea').innerHTML = 'Desde 1º de janeiro, o satélite viu fogo em cerca de <b>' + n0(I.totalHa) + ' hectares</b> de Roraima (' + n0(I.totalHa / 100) + ' km², cerca de ' + (I.totalHa / 22364400 * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '% da área do estado). Por tipo de terreno:';
+    const cols = { 'Campo ou pasto': '#d08a2e', 'Floresta': '#2f6b3a', 'Lavrado / savana': '#b9a45a', 'Agricultura': '#e0b84a' };
+    const parts = Object.entries(P).filter(([, v]) => v / I.totalHa >= 0.005);
+    $('bar').innerHTML = parts.map(([k, v]) => '<i style="width:' + (v / I.totalHa * 100).toFixed(1) + '%;background:' + (cols[k] || '#888') + '" title="' + k + '"></i>').join('');
+    $('leg').innerHTML = parts.map(([k, v]) => '<span><i style="background:' + (cols[k] || '#888') + '"></i>' + k + ': ' + n0(v) + ' ha (' + Math.round(v / I.totalHa * 100) + '%)</span>').join('');
+    $('pTi').innerHTML = 'Cerca de <b>' + n0(I.tiHa) + ' hectares</b> (' + Math.round(I.tiHa / I.totalHa * 100) + '%) ficam dentro de Terras Indígenas, onde vivem comunidades que dependem da roça, da caça e da água dos igarapés.';
+    // money: pasture recovery (low/high), forest carbon (USD), soy losses (sector estimate)
+    const pLo = pasto * 630, pHi = pasto * 800, carb = flor * 18 * 190, soja = 500e6;
+    $('cPerda').textContent = mi(pLo + soja) + '+';
+    $('tbl').innerHTML =
+      '<tr><td>Recuperar pasto e roça queimados</td><td>' + n0(pasto) + ' ha × R$ 630 a R$ 800</td><td class="v">' + mi(pLo) + ' a ' + mi(pHi) + '</td></tr>' +
+      '<tr><td>Soja perdida na seca (Aprosoja-RR)</td><td>quebra de até 50% da safra</td><td class="v">' + mi(soja) + '</td></tr>' +
+      '<tr class="tot"><td>Perdas diretas que dá para contar</td><td></td><td class="v">' + mi(pLo + soja) + ' a ' + mi(pHi + soja) + '</td></tr>' +
+      '<tr><td>Efeito na economia (fretes, comércio, impostos)</td><td>projeção da Aprosoja-RR</td><td class="v">até R$ 2 bilhões</td></tr>' +
+      '<tr><td>Custo para o clima: carbono da floresta queimada</td><td>' + n0(flor) + ' ha × 18 t CO₂ × US$ 190</td><td class="v">≈ ' + usd(carb) + '</td></tr>' +
+      '<tr><td>Lavrado queimado</td><td>' + n0(lav) + ' ha</td><td class="v">sem valor em reais</td></tr>';
+    $('tblNote').textContent = 'Área com fogo atualizada com os dados do mapa. Valores por hectare e da soja: fontes na seção "Como as contas foram feitas".';
+  }
+  if (H && H.anos && H.anos[H.ano]) {
+    const y = H.ano, cur = H.anos[y].reduce((a, b) => a + b, 0), prev = (H.anos[y - 1] || []).reduce((a, b) => a + b, 0);
+    const full = +H.ate.slice(5, 7) - 1, past = Object.keys(H.anos).map(Number).filter(a => a >= 1999 && a < y);
+    const upTo = arr => arr.slice(0, full).reduce((a, b) => a + b, 0), avg = past.reduce((s, a) => s + upTo(H.anos[a]), 0) / past.length;
+    const pct = Math.round((upTo(H.anos[y]) / avg - 1) * 100);
+    $('cFocos').textContent = n0(cur);
+    const mes = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'][full - 1];
+    $('pFocos').innerHTML = 'O INPE já contou <b>' + n0(cur) + ' focos de calor</b> em Roraima em ' + y + ' (até ' + H.ate.split('-').reverse().slice(0, 2).join('/') + ')' + (prev && cur > prev ? ', mais do que em todo o ano de ' + (y - 1) + ' (' + n0(prev) + ')' : '') + '. De janeiro a ' + mes + ', foram ' + n0(upTo(H.anos[y])) + ' focos, <b>' + Math.abs(pct) + '% ' + (pct >= 0 ? 'acima' : 'abaixo') + ' da média</b> desde ' + past[0] + '.';
+  }
+  const st = S && S.stations && S.stations.find(s => s.code === '14620000');
+  if (st && st.last) {
+    $('cRio').textContent = n0(st.last.cm) + ' cm';
+    $('cRioTx').textContent = 'Rio Branco em Boa Vista' + (st.rank === 1 ? ': o mais baixo para a data desde ' + st.firstYear : '');
+    $('pRio').innerHTML = 'A régua do Rio Branco em Boa Vista marca <b>' + n0(st.last.cm) + ' cm</b>' + (st.med ? ', quando o normal para esta data é cerca de ' + n0(st.med) + ' cm' : '') + (st.rank === 1 ? '. É o nível <b>mais baixo para esta data desde ' + st.firstYear + '</b>, quando começaram as medições' : '') + '. O recorde de seca foi em ' + (st.record ? st.record.date.split('-').reverse().join('/') : '2016') + '.';
+  }
+})();
+</script>
+</body>
+</html>

@@ -157,6 +157,7 @@ html.big .panel-in, html.big .pop, html.big .timeline, html.big .mbar, html.big 
 .loading .ld { max-width: 340px; padding: 16px; text-align: center; line-height: 1.4; } .loading .ld p { margin: 6px 0; }
 .loading .ld-big { font: 700 20px var(--f-body); } .loading .ld-small, .loading .ld-wait { font-weight: 400; font-size: 14px; opacity: .85; }
 .loading .ld-sos { margin-top: 14px !important; font-size: 14px; } .loading .ld-sos a { color: inherit; font-weight: 700; }
+#popBody .ar-open, .ar-open { display: block; width: 100%; margin: 10px 0 0; font-weight: 600; background: #c2410c; color: #fff; border-color: #c2410c; }
 .rep-map { display: block; width: 100%; border-radius: 8px; margin: 6px 0 12px; }
 @keyframes mepulse { 0% { box-shadow: 0 0 0 0 rgba(43,124,255,.55); } 70% { box-shadow: 0 0 0 16px rgba(43,124,255,0); } 100% { box-shadow: 0 0 0 0 rgba(43,124,255,0); } }
 @media (prefers-reduced-motion: reduce) { .medot { animation: none; } }
@@ -170,7 +171,7 @@ html.big .panel-in, html.big .pop, html.big .timeline, html.big .mbar, html.big 
 .dg-sharebtn { font-weight: 700; }
 .dg-risk { display: block; width: 100%; margin-top: 8px; font-weight: 700; text-align: left; }
 .lbl.risk { pointer-events: auto; cursor: pointer; border: 2px solid #fff; border-radius: 999px; padding: 2px 9px 3px; background: #c47d00; color: #fff; text-shadow: none; font: 700 12px var(--f-body);
-  transform: translate(-50%, calc(-100% - 8px)); box-shadow: 0 2px 8px rgba(0,0,0,.5); z-index: 3; animation: riskPulse 1.6s ease-in-out infinite; }
+  transform: translate(-50%, calc(-100% - 8px)); box-shadow: 0 2px 8px rgba(0,0,0,.5); z-index: 3; animation: riskPulse 1.6s ease-in-out 3; }
 .lbl.risk.alto { background: #d92d20; } .lbl.risk.atencao { background: #e37400; } .lbl.risk.baixo { background: #a87f00; }
 .lbl.risk::after { width: 10px; height: 10px; margin-left: -5px; bottom: -14px; background: #ff3b30; border: 2px solid #fff; }
 @keyframes riskPulse { 50% { box-shadow: 0 0 0 6px rgba(255,59,48,.25), 0 2px 8px rgba(0,0,0,.5); } }
@@ -296,6 +297,27 @@ label.fl select, label.fl input[type=range] { width: 100%; }
 .inst .btn.main { background: var(--accent); border-color: var(--accent); color: #fff; flex: none; }
 .inst-x { flex: none; width: 30px; height: 30px; border: 0; border-radius: 50%; background: var(--chip); color: var(--ink); cursor: pointer; font-size: 16px; line-height: 1; }
 @media (max-width: 880px) { .inst { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); } }
+.implink { margin: 8px 0 0; font-size: 14px; } .implink a { color: var(--accent); font-weight: 600; text-decoration: none; }
+.mystatus.mini { padding: 7px 10px; }
+.dg-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13.5px; line-height: 1.35; }
+.dg-line .dg-badge { flex: none; }
+.dg-line .dg-l { flex: 1 1 160px; min-width: 0; }
+.dg-line .linkbtn { padding: 0; color: inherit; flex: none; }
+.sum-area { margin: 6px 0 0; font-size: 13.5px; color: var(--ink); }
+#pane-resumo .secamini { display: none !important; }
+.wxd > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; }
+.wxd > summary::-webkit-details-marker { display: none; }
+.wxd > summary h2 { margin: 0; }
+.wxd > summary::after { content: "▾"; margin-left: auto; color: var(--muted); }
+.wxd:not([open]) > summary::after { content: "▸"; }
+.wxd:not([open]) > summary { margin: 0; }
+.wxs { font-size: 13px; color: var(--muted); }
+.wxd[open] .wxs { display: none; }
+.btn.impbtn { display: flex; align-items: center; justify-content: center; min-height: 44px; text-decoration: none; text-align: center; font-weight: 600; border-color: var(--accent); color: var(--accent); background: transparent; }
+.emgsec { padding: 0; border: 0; }
+.emg > summary { list-style: none; display: flex; align-items: center; justify-content: center; min-height: 44px; font-weight: 700; cursor: pointer; }
+.emg > summary::-webkit-details-marker { display: none; }
+.emg[open] > summary { margin-bottom: 8px; }
 .linkbtn { border: 0; background: none; color: var(--accent); font: 600 13px var(--f-body); text-decoration: underline; cursor: pointer; padding: 6px 0 0; text-align: left; }
 .mrank.in { margin: 4px 0 8px; }
 .rf-mun li.rf-grp { display: block; margin: 8px 0 0; font-size: 13.5px; line-height: 1.45; }
@@ -383,6 +405,36 @@ label.fl select, label.fl input[type=range] { width: 100%; }
 .busy.off { background: #7a3d00; } .busy.off i { animation: none; border: 0; background: #ffb066; width: 8px; height: 8px; }
 @keyframes busySpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .busy i { animation-duration: 2.4s; } }
+.qual { position: absolute; left: 50%; transform: translateX(-50%); top: calc(max(10px, env(safe-area-inset-top, 0px)) + 84px); z-index: 4; display: flex; align-items: center; gap: 6px;
+  max-width: calc(100% - 24px); border: 0; background: rgba(12,12,12,.72); color: #f4efe8; border-radius: 999px; padding: 4px 10px; font: 600 12px var(--f-body); cursor: pointer; white-space: nowrap; }
+.qual b { font-weight: 700; color: #ffd28a; }
+@media (max-width: 880px) {
+  .busy, .qual { left: max(12px, env(safe-area-inset-left, 0px)); transform: none; max-width: calc(100% - 130px); }
+  .busy span { white-space: normal; line-height: 1.25; }
+  .qual { white-space: normal; text-align: left; line-height: 1.25; }
+}
+#pop.pop { --pz: 1; width: min(calc(300px * var(--pz)), calc(100% - 24px)); transform-origin: left bottom; }
+@media (max-width: 880px) { #pop.pop { max-height: 50vh; max-height: 50dvh; } }
+.pop #popBody { zoom: var(--pz); }
+.pop.pop-in { animation: popIn .2s ease-out; }
+@keyframes popIn { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pop.pop-in { animation: none; } }
+.pop-grab { display: block; width: 100%; height: 18px; margin: -8px 0 4px; padding: 0; border: 0; background: none; cursor: ns-resize; touch-action: none; }
+.pop-grab span { display: block; width: 44px; height: 5px; border-radius: 3px; background: var(--line); margin: 6px auto 0; }
+.pop-grab:hover span, .pop-grab:focus-visible span { background: var(--accent); }
+.wx { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.wx div { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; min-width: 0; }
+.wx b { display: block; font: 600 19px/1.15 var(--f-display); font-variant-numeric: tabular-nums; }
+.wx span { display: block; font-size: 12px; color: var(--muted); line-height: 1.3; }
+.wx-msg { margin: 8px 0 0; font-size: 13.5px; }
+.wx i.wx-src { display: block; margin-top: 3px; font: 600 10.5px var(--f-body); font-style: normal; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+@media (max-width: 380px) { .wx { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.search.floating { position: relative; }
+.topleft:has(.sugg:not([hidden])) { z-index: 7; }
+.sugg { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 6; margin: 0; padding: 4px; list-style: none; background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.35); max-height: min(320px, 50vh); overflow-y: auto; }
+.sugg li { display: flex; align-items: center; min-height: 44px; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 14.5px; line-height: 1.3; }
+.sugg li:hover, .sugg li.on { background: var(--chip); }
 .pickhint { position: absolute; left: 50%; top: max(12px, env(safe-area-inset-top, 0px)); transform: translateX(-50%); background: var(--accent); color: #fff; font: 600 13px var(--f-body); padding: 6px 12px; border-radius: 999px; pointer-events: none; }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; font: 600 15px var(--f-body); color: var(--ink); background: linear-gradient(180deg, var(--sky-top), var(--sky-bot)); z-index: 5; text-align: center; padding: 16px; }
 .hint { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 10px; font: 11.5px var(--f-data); color: #f4efe8; background: rgba(12,12,12,.55); padding: 3px 8px; border-radius: 4px; pointer-events: none; }
@@ -535,6 +587,49 @@ details.legal li { margin-bottom: 4px; }
   .lbl.gauge .gt { display: none; }
   .labels.near .lbl.gauge .gt, .lbl.gauge.tap .gt { display: inline; }
 }
+
+.mtabs button span { display: flex; height: 24px; align-items: center; justify-content: center; }
+.mtabs svg.ic { display: block; }
+.imlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.imlist li { border-bottom: 1px solid var(--line); padding: 7px 0; font-size: 13.5px; line-height: 1.35; }
+.imlist a { color: var(--ink); font-weight: 600; text-decoration: none; }
+.imlist span { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.panel-in:has(#pane-resumo[hidden]) #updated { display: none; }
+/* ---------- design, fase 2: cores ----------
+   Risco (mesma escala em todo o site): mínimo #2e7d32 · baixo #8bc34a · médio #e6b800 · alto #ef6c00 · crítico #b42318
+   Ação (abas, botões escolhidos): tinta (texto) · Laranja e vermelho: só para fogo e perigo */
+:root { --risk-0: #2e7d32; --risk-1: #8bc34a; --risk-2: #e6b800; --risk-3: #ef6c00; --risk-4: #b42318; --line-strong: #9b9389; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --line-strong: #6b645c; } }
+:root[data-theme="dark"] { --line-strong: #6b645c; }
+.seg button[aria-pressed="true"], .season button[aria-pressed="true"], .rf-days button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); box-shadow: none; }
+.tabs button[aria-selected="true"] { border-bottom-color: var(--ink); }
+.btn, select, .search.floating, .season-sel { border-color: var(--line-strong); }
+.mystatus.baixo { background: #fff6c2; color: #4a3b00; border-color: var(--risk-2); }
+.mystatus.warn { border-color: var(--risk-3); }
+.mystatus.alto { background: var(--risk-4); border-color: #8f1c13; }
+.lbl.risk { background: var(--risk-2); } .lbl.risk.atencao { background: var(--risk-3); } .lbl.risk.baixo { background: var(--risk-2); } .lbl.risk.alto { background: var(--risk-4); }
+.ar-1 { background: var(--risk-0); } .ar-4 { background: var(--risk-4); }
+.seca-flag { background: var(--risk-4); } .dc-row a.main { background: var(--risk-4); }
+/* ---------- design, fase 1 (consultoria): contraste, texto mínimo de 12 px, área de toque de 44 px ---------- */
+:root { --on-accent: #fff; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --on-accent: #1b1917; } }
+:root[data-theme="dark"] { --on-accent: #1b1917; }
+.btn[aria-pressed="true"], .seg button[aria-pressed="true"], .season button[aria-pressed="true"], .play, .mplay, .tour-next, .inst .btn.main, .season-sel.on, .pickhint { color: var(--on-accent); }
+.lbl.risk, .lbl.risk.atencao, .lbl.risk.baixo { color: #1b1917; }
+.lbl.risk.alto { color: #fff; background: #b42318; }
+.ar-2 { background: #7a5c00; } .ar-3 { background: #bf360c; }
+.lbl.vil, .lbl.farm, .lbl.road { font-size: 12px; }
+.chart-leg, .clock small { font-size: 12px; }
+.psub { font: 12px var(--f-body); }
+.pop h3 { margin-right: 44px; }
+@media (max-width: 880px) {
+  .mtabs button { font-size: 12px; min-height: 44px; }
+  .mplay { width: 44px; height: 44px; }
+  .vbtn, .search .btn, .tl-toggle, .inst-x { min-height: 44px; min-width: 44px; }
+  .search input { min-height: 44px; }
+  .pop .x { width: 44px; height: 44px; top: 2px; right: 2px; }
+  .compass { width: 44px; height: 44px; }
+}
 </style>
 
 <div class="app" id="app">
@@ -543,8 +638,9 @@ details.legal li { margin-bottom: 4px; }
     <div class="sel-ring" id="selRing" hidden></div>
     <div class="topleft">
       <form class="search floating" id="searchForm" autocomplete="off" role="search">
-        <input id="searchIn" list="placesList" placeholder="Buscar vila, vicinal, município ou coordenada" aria-label="Buscar vila, vicinal, município, Terra Indígena, código do CAR ou coordenada GPS">
+        <input id="searchIn" placeholder="Buscar vila, vicinal, município ou coordenada" aria-label="Buscar vila, vicinal, município, Terra Indígena, código do CAR ou coordenada GPS">
         <button class="btn" type="submit" aria-label="Buscar">Ir</button>
+        <ul class="sugg" id="sugg" role="listbox" aria-label="Sugestões" hidden></ul>
       </form>
       <datalist id="placesList"></datalist>
       <div class="hud"><div class="hud-card" id="hudWx"><b>Boa Vista</b>–</div></div>
@@ -561,10 +657,12 @@ details.legal li { margin-bottom: 4px; }
     </div>
     <div class="sit" id="sit" role="group" aria-label="Situação dos incêndios do INPE: clique para mostrar ou esconder"></div>
     <div class="busy" id="busy" hidden role="status" aria-live="polite"><i></i><span id="busyTx"></span></div>
+    <button class="qual" id="qual" type="button" hidden aria-label="Por que o mapa está com menos qualidade"></button>
     <div class="pickhint" id="pickHint" hidden>Clique no mapa para marcar o local</div>
     <div class="hint" id="hint">Clique num foco para ver detalhes</div>
     <button class="sidetab" id="sideTab" aria-controls="panel" aria-expanded="true" title="Ocultar painel">›</button>
     <div class="pop" id="pop" hidden role="dialog" aria-label="Detalhes da seleção">
+      <button class="pop-grab" id="popGrab" type="button" aria-label="Arraste para aumentar ou diminuir o quadro (setas também funcionam)" title="Arraste para cima ou para a direita para aumentar"><span></span></button>
       <button class="x" id="popX" aria-label="Fechar">×</button>
       <div id="popBody"></div>
     </div>
@@ -625,18 +723,9 @@ details.legal li { margin-bottom: 4px; }
         <section class="sec" aria-live="polite">
           <div class="summary" id="summary"></div>
           <button class="secamini" id="secaMini" hidden></button>
-          <p class="kpis"><span title="Quadrados de 375 m com foco no período, cada um contado uma vez"><b id="stArea">–</b> com fogo no período (estimativa)</span><span><b id="stRain">–</b> de chuva em 24 h</span></p>
+          <p class="kpis" hidden><b id="stArea">–</b><b id="stRain">–</b></p>
           <span hidden><b id="stPlaces"></b><span id="stPlacesLbl"></span></span>
           <p class="psub" id="pSub"></p>
-        </section>
-        <section class="sec" id="avSec" hidden>
-          <h2>Avisos oficiais</h2>
-          <div class="avlist" id="avList"></div>
-        </section>
-        <section class="sec dc" aria-label="Emergência e alertas oficiais">
-          <h2>Emergência</h2>
-          <div class="dc-row"><a class="btn main" href="tel:193">🚒 Bombeiros 193</a><a class="btn" href="tel:199">Defesa Civil 199</a><a class="btn" href="tel:192">SAMU 192</a></div>
-          <p class="note">Alertas da Defesa Civil no celular, de graça: SMS com o <b>CEP</b> para <b>40199</b>. <a href="sms:40199">Abrir SMS</a></p>
         </section>
         <section class="sec" id="rfSec" hidden>
           <h2>Risco de fogo · previsão do INPE</h2>
@@ -649,13 +738,36 @@ details.legal li { margin-bottom: 4px; }
             <p id="rfNote"></p>
           </div></details>
         </section>
+        <section class="sec" id="wxSec" hidden>
+          <details class="wxd" id="wxDet" open>
+            <summary><h2 id="wxTitle">Tempo agora</h2><span class="wxs" id="wxShort"></span></summary>
+            <div class="wx" id="wxBox"></div>
+            <p class="wx-msg" id="wxMsg" hidden></p>
+            <details class="more" style="margin-top:6px"><summary>Saiba mais</summary><div><p id="wxNote"></p></div></details>
+          </details>
+        </section>
         <section class="sec" id="arSec" hidden>
           <h2>Qualidade do ar</h2>
           <div class="ar" id="arBox"></div>
         </section>
+        <section class="sec" id="avSec" hidden>
+          <h2>Avisos oficiais</h2>
+          <div class="avlist" id="avList"></div>
+        </section>
+        <section class="sec" id="imSec" hidden>
+          <h2>Na imprensa</h2>
+          <p class="note" style="margin:0 0 6px">Notícias de jornais e sites sobre fogo, seca e fumaça em Roraima, buscadas automaticamente. <b>Não são avisos oficiais.</b> O site mostra só o título: leia a matéria na fonte.</p>
+          <ul class="imlist" id="imList"></ul>
+        </section>
         <section class="sec">
-          <h2 id="evTitle">Maiores incêndios</h2>
-          <ul class="events" id="events"></ul>
+          <a class="btn impbtn" href="impacto.html">💰 Quanto o fogo e a seca custam a Roraima</a>
+        </section>
+        <section class="sec dc emgsec" aria-label="Emergência">
+          <details class="emg">
+            <summary class="btn main">🚨 Emergência</summary>
+            <div class="dc-row"><a class="btn main" href="tel:193">🚒 Bombeiros 193</a><a class="btn" href="tel:199">Defesa Civil 199</a><a class="btn" href="tel:192">SAMU 192</a></div>
+            <p class="note">Alertas da Defesa Civil no celular, de graça: SMS com o <b>CEP</b> para <b>40199</b>. <a href="sms:40199">Abrir SMS</a></p>
+          </details>
         </section>
       </div>
 
@@ -830,6 +942,11 @@ details.legal li { margin-bottom: 4px; }
         <section class="sec hist" id="histSec" hidden>
           <h2>Este ano comparado com a média</h2>
           <div id="histBox"></div>
+          <p class="implink"><a href="impacto.html">💰 Perdas econômicas do fogo e da seca →</a></p>
+        </section>
+        <section class="sec">
+          <h2 id="evTitle">Maiores incêndios</h2>
+          <ul class="events" id="events"></ul>
         </section>
         <section class="sec">
           <h2>Usar como app</h2>
@@ -878,11 +995,11 @@ details.legal li { margin-bottom: 4px; }
     <button class="mplay" id="mPlay" aria-label="Reproduzir">▶</button>
     <button class="mclock" id="mClock" aria-controls="timeline" aria-expanded="false" title="Abrir a linha do tempo e o gráfico">–</button>
     <div class="mtabs">
-      <button type="button" data-tab="resumo" aria-pressed="true"><span>🔥</span>Resumo</button>
-      <button type="button" data-tab="local" aria-pressed="false"><span>📍</span>Ponto</button>
-      <button type="button" data-tab="seca" aria-pressed="false"><span>💧</span>Seca</button>
-      <button type="button" data-tab="mapa" aria-pressed="false"><span>🗺️</span>Mapa</button>
-      <button type="button" data-tab="dados" aria-pressed="false"><span>ℹ️</span>Dados</button>
+      <button type="button" data-tab="resumo" aria-pressed="true"><span><svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:#ea580c"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></span>Resumo</button>
+      <button type="button" data-tab="local" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>Ponto</button>
+      <button type="button" data-tab="seca" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:#2b7cff"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg></span>Seca</button>
+      <button type="button" data-tab="mapa" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/></svg></span>Mapa</button>
+      <button type="button" data-tab="dados" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>Dados</button>
     </div>
   </nav>
 </div>
@@ -971,6 +1088,7 @@ details.legal li { margin-bottom: 4px; }
   const quietJ = f => fetch(f).then(r => r.ok ? r.json() : null).catch(() => null);
   const arP = quietJ('ar.json'), histP = quietJ('historico.json');
   const rfP = quietJ('risco.json'), avP = quietJ('avisos.json');
+  const medP = quietJ('medido.json'), notP = quietJ('noticias.json'), doeP = quietJ('doe.json');
   const riosP = getL('rios.json', 'rios do mapa'), secaP = getL('seca.json', 'nível dos rios'), inpeP = getL('eventos_inpe.json', 'eventos de fogo do INPE'), roadsP = getL('estradas.json', 'estradas');
   try {
     const load = src => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error(src)); i.src = src; });
@@ -1173,7 +1291,7 @@ details.legal li { margin-bottom: 4px; }
     fireGeo.attributes.position.needsUpdate = true;
   }
   const fireMat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uWin: { value: 1440 }, uMode: { value: 0 }, uScale: { value: 1500 }, uClock: { value: 0 }, uLive: { value: LIGHT ? 0 : 1 } },
+    uniforms: { uTime: { value: 0 }, uWin: { value: 1440 }, uMode: { value: 0 }, uScale: { value: 1500 }, uClock: { value: 0 }, uLive: { value: (LIGHT || matchMedia('(prefers-reduced-motion: reduce)').matches) ? 0 : 1 } },
     vertexShader: `attribute float aTime; attribute float aFrp; attribute float aKind; attribute float aGeo; attribute float aImp; attribute float aSeed;
       uniform float uTime; uniform float uWin; uniform float uMode; uniform float uScale; uniform float uClock; uniform float uLive;
       varying float vStage; varying float vScore; varying float vSeed; varying float vPulse;
@@ -1191,10 +1309,10 @@ details.legal li { margin-bottom: 4px; }
         float rec = h < 3.0 ? 40.0 : h < 12.0 ? 25.0 : h < 24.0 ? 10.0 : 0.0;
         vScore = clamp(aImp + rec, 0.0, 100.0); vSeed = aSeed;
         vPulse = 0.5 + 0.5 * sin(uClock * 3.1416 + aSeed * 6.2832);
-        float px = vStage < 0.5 ? mix(9.0, 30.0, vScore / 100.0) : vStage < 1.5 ? mix(6.0, 14.0, vScore / 100.0) : 5.0;
-        if (vStage < 0.5 && vScore > 70.0) px *= 1.35; // room for the smoke
+        float px = vStage < 0.5 ? mix(12.0, 18.0, aImp / 100.0) : vStage < 1.5 ? 8.0 : 5.0;
+        if (vStage < 0.5 && aImp > 70.0) px *= 1.25; // room for the smoke
         float persp = clamp(uScale / -mv.z / 18.0, 0.55, 1.6);
-        gl_PointSize = px * persp * (1.0 - 0.3 * aGeo) * (1.0 + 0.12 * uLive * sin(uClock * (25.0 + 15.0 * aSeed) + aSeed * 40.0) * step(vStage, 0.5));
+        gl_PointSize = px * persp * (1.0 - 0.3 * aGeo) * (1.0 + 0.08 * uLive * sin(uClock * (6.0 + 4.0 * aSeed) + aSeed * 40.0) * step(vStage, 0.5));
       }`,
     fragmentShader: `uniform float uClock; uniform float uLive;
       varying float vStage; varying float vScore; varying float vSeed; varying float vPulse;
@@ -1333,6 +1451,74 @@ details.legal li { margin-bottom: 4px; }
     let rain = 0; for (let k = 0; k < 8 && hi - k >= 0; k++) rain += sampleArr(PR, hi - k, lon, lat);
     return { sp, from, to: (from + 180) % 360, rh: sampleArr(RH, hi, lon, lat), tc: sampleArr(TC, hi, lon, lat), rain };
   }
+  // ---------- weather of a place now: temperature, today's max/min, humidity, wind, rain (Open-Meteo, 3-hour steps, ~130 km grid)
+  function wxDay(lon, lat) {
+    const nowM = Math.max(0, Math.min(NS * STEP - 1, (Date.now() - T0) / 60000)), h = Math.floor(nowM / STEP);
+    const dayStart = Math.floor((nowM + TZ * 60) / 1440) * 1440 - TZ * 60, h0 = Math.max(0, Math.floor(dayStart / STEP));
+    let mx = -1e9, mn = 1e9; for (let k = h0; k <= h; k++) { const t = sampleArr(TC, k, lon, lat); mx = Math.max(mx, t); mn = Math.min(mn, t); }
+    let r24 = 0; for (let k = 0; k < 8 && h - k >= 0; k++) r24 += sampleArr(PR, h - k, lon, lat);
+    let rNext = 0, nNext = 0, mxNext = -1e9; for (let k = h + 1; k < NS && k <= h + 8; k++) { rNext += sampleArr(PR, k, lon, lat); mxNext = Math.max(mxNext, sampleArr(TC, k, lon, lat)); nNext++; }
+    let dry = 0; for (let d = 0; d < 90; d++) { let r = 0; for (let k = 0; k < 8; k++) { const i = h - d * 8 - k; if (i >= 0) r += sampleArr(PR, i, lon, lat); } if (r >= 1 || h - d * 8 < 0) break; dry++; }
+    const w = wxAt(lon, lat, nowM);
+    return { ...w, mx, mn, r24, rNext, nNext, hEnd: nNext ? (h + nNext + 1) * STEP : null, mxNext: nNext ? mxNext : null, dry, at: nowM };
+  }
+  function wxPlace() {
+    const p = st.pin; return p ? { lon: p.lon, lat: p.lat, name: 'seu ponto marcado' } : { lon: -60.67, lat: 2.82, name: 'Boa Vista' };
+  }
+  function renderWx() {
+    const sec = $('wxSec'); if (!sec) return;
+    const pl = wxPlace(), x = wxBest(pl.lon, pl.lat);
+    $('wxTitle').textContent = 'Tempo agora · ' + pl.name;
+    $('wxShort').textContent = fmt(x.tc, 0) + ' °C · umidade ' + fmt(x.rh) + '% · vento de ' + dirName(x.from) + ' ' + fmt(x.sp) + ' km/h';
+    if (!renderWx.bound) { renderWx.bound = true; const dt = $('wxDet');
+      try { if (localStorage.getItem('rr3d-wx-open') === '0') dt.open = false; } catch (e) {}
+      dt.addEventListener('toggle', () => { try { localStorage.setItem('rr3d-wx-open', dt.open ? '1' : '0'); } catch (e) {} }); }
+    const r1 = v => fmt(v, v < 10 ? 1 : 0), tag = t => '<i class="wx-src">' + t + '</i>';
+    $('wxBox').innerHTML =
+      '<div><b>' + fmt(x.tc, 0) + ' °C</b><span>' + (x.fc ? 'previsão hoje: máx. ' + x.fc.max + ' · mín. ' + x.fc.min : 'máx. ' + fmt(x.mx, 0) + ' · mín. ' + fmt(x.mn, 0) + ' hoje') + '</span>' + tag(x.srcNow) + '</div>' +
+      '<div><b>' + fmt(x.rh) + '%</b><span>umidade do ar' + (x.rh < 30 ? ', muito seco' : x.rh < 40 ? ', seco' : '') + '</span>' + tag(x.srcNow) + '</div>' +
+      '<div><b>' + fmt(x.sp) + ' km/h</b><span>vento de ' + dirName(x.from) + (x.gust ? ', rajada ' + fmt(x.gust) : '') + '</span>' + tag(x.srcNow) + '</div>' +
+      '<div><b>' + (x.r24 < 0.2 ? '0 mm' : r1(x.r24) + ' mm') + '</b><span>chuva nas últimas 24 h</span>' + tag(x.srcRain) + '</div>' +
+      '<div><b>' + (x.dryPlus ? fmt(x.dry) + '+' : fmt(x.dry)) + (x.dry === 1 ? ' dia' : ' dias') + '</b><span>sem chuva (menos de 1 mm por dia)</span>' + tag(x.srcRain) + '</div>' +
+      (x.fc2 ? '<div><b>' + x.fc2.max + '° / ' + x.fc2.min + '°</b><span>amanhã: ' + esc(cptecTxt(x.fc2.t)) + '</span>' + tag('CPTEC/INPE') + '</div>'
+        : x.nNext ? '<div><b>' + (x.rNext < 0.2 ? '0 mm' : r1(x.rNext) + ' mm') + '</b><span>chuva prevista até ' + fmtH(x.hEnd) + '</span>' + tag('estimativa') + '</div>' : '');
+    const fireWx = [x.rh < 40 ? 'o ar está seco' : '', x.sp >= 20 ? 'o vento está forte' : '', x.dry >= 7 ? 'faz ' + fmt(x.dry) + (x.dryPlus ? ' ou mais' : '') + ' dias sem chuva' : '', x.smoke ? 'há fumaça ou névoa seca no ar' : ''].filter(Boolean);
+    $('wxMsg').hidden = !fireWx.length;
+    $('wxMsg').innerHTML = fireWx.length ? '🔥 <b>Tempo favorável ao fogo:</b> ' + fireWx.join(', ') + '. Um fogo pequeno pode se espalhar rápido.' : '';
+    $('wxNote').innerHTML = x.notes.join(' ') + ' Onde não há medição perto, o site usa a estimativa do modelo Open-Meteo (área de cerca de 130 km, a cada 3 horas).';
+    sec.hidden = false;
+  }
+  // measured weather (medido.json, built on the server every 30 min) merged with the model estimate
+  let MED = null;
+  const CPTEC_T = { ec: 'encoberto com chuvas isoladas', ci: 'chuvas isoladas', c: 'chuva', in: 'instável', pp: 'possibilidade de pancadas de chuva', cm: 'chuva pela manhã', cn: 'chuva à noite',
+    pt: 'pancadas de chuva à tarde', pm: 'pancadas de chuva pela manhã', np: 'nublado e pancadas de chuva', pc: 'pancadas de chuva', pn: 'parcialmente nublado', cv: 'chuvisco', ch: 'chuvoso',
+    t: 'tempestade', ps: 'predomínio de sol', e: 'encoberto', n: 'nublado', cl: 'céu claro', nv: 'nevoeiro', nd: 'não definido', pnt: 'pancadas de chuva à noite', psc: 'possibilidade de chuva',
+    pcm: 'possibilidade de chuva pela manhã', pct: 'possibilidade de chuva à tarde', pcn: 'possibilidade de chuva à noite', npt: 'nublado com pancadas à tarde', npn: 'nublado com pancadas à noite',
+    ncn: 'nublado com possibilidade de chuva à noite', nct: 'nublado com possibilidade de chuva à tarde', ncm: 'nublado com possibilidade de chuva pela manhã', npm: 'nublado com pancadas pela manhã',
+    npp: 'nublado com possibilidade de chuva', vn: 'variação de nebulosidade', ct: 'chuva à tarde', ppn: 'possibilidade de pancadas à noite', ppt: 'possibilidade de pancadas à tarde', ppm: 'possibilidade de pancadas pela manhã' };
+  const cptecTxt = c => CPTEC_T[c] || c;
+  function wxBest(lon, lat) {
+    const x = wxDay(lon, lat), notes = [];
+    x.srcNow = 'estimativa'; x.srcRain = 'estimativa'; x.gust = null; x.smoke = false; x.dryPlus = x.dry >= 90;
+    const M = MED && MED.metar, now = Date.now();
+    if (M && M.ultimo && distKm(lon, lat, M.lon, M.lat) <= 40 && now - Date.parse(M.ultimo.t) < 3 * 3600e3) {
+      const o = M.ultimo; x.tc = o.tc; if (o.rh != null) x.rh = o.rh; x.sp = o.ws; if (o.wd != null) { x.from = o.wd; x.to = (o.wd + 180) % 360; } x.gust = o.wg;
+      x.smoke = /FU|HZ/.test(o.wx || '') || (typeof o.vis === 'number' && o.vis < 3);
+      x.srcNow = 'medido no aeroporto'; notes.push('Temperatura, umidade e vento: medidos no aeroporto de Boa Vista (boletim METAR das ' + fmtH((Date.parse(o.t) - T0) / 60000) + ').');
+    }
+    const A = MED && MED.ana && MED.ana.length ? MED.ana.reduce((a, b) => distKm(lon, lat, b.lon, b.lat) < distKm(lon, lat, a.lon, a.lat) ? b : a) : null;
+    if (A && distKm(lon, lat, A.lon, A.lat) <= 60) {
+      const dk = distKm(lon, lat, A.lon, A.lat);
+      x.r24 = A.c24; x.dry = A.semChuva; x.dryPlus = A.semChuva >= A.dias; x.srcRain = 'medido pela ANA';
+      notes.push('Chuva: medida na estação ' + esc(A.n) + ' da ANA' + (dk >= 2 ? ', a ' + fmt(dk, 0) + ' km' : '') + ' (última leitura ' + A.ultimo.slice(8, 10) + '/' + A.ultimo.slice(5, 7) + ' às ' + A.ultimo.slice(11, 16).replace(':', 'h') + ', horário de Brasília).');
+    }
+    const C = MED && MED.cptec && MED.cptec.length ? MED.cptec.reduce((a, b) => distKm(lon, lat, b.lon, b.lat) < distKm(lon, lat, a.lon, a.lat) ? b : a) : null;
+    if (C) {
+      const today = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10), i = C.dias.findIndex(d => d.d === today);
+      if (i >= 0) { x.fc = C.dias[i]; x.fc2 = C.dias[i + 1] || null; notes.push('Previsão: CPTEC/INPE para ' + esc(C.n) + '.'); }
+    }
+    x.notes = notes; return x;
+  }
   const rainTxt = mm => mm < 0.2 ? 'sem chuva' : fmt(mm, mm < 10 ? 1 : 0) + ' mm de chuva';
 
   // wind particles
@@ -1345,10 +1531,10 @@ details.legal li { margin-bottom: 4px; }
   for (let i = 0; i < NP; i++) { respawn(i); pLife[i] *= Math.random(); }
   function stepWind(sf) {
     for (let i = 0; i < NP; i++) {
-      const [u, v] = windAt(pLon[i], pLat[i], sf), dx = u * 0.22, dz = v * 0.22;
+      const [u, v] = windAt(pLon[i], pLat[i], sf), dx = u * 0.055, dz = v * 0.055;
       pLon[i] += dx / KX; pLat[i] += dz / KZ; pLife[i]--;
       if (pLife[i] <= 0 || pLon[i] < W || pLon[i] > E || pLat[i] < S || pLat[i] > N) respawn(i);
-      const x = toX(pLon[i]), z = toZ(pLat[i]), y = yAt(pLon[i], pLat[i]) + 1.2, tl = 7;
+      const x = toX(pLon[i]), z = toZ(pLat[i]), y = yAt(pLon[i], pLat[i]) + 1.2, tl = 28;
       windPos[i * 6] = x; windPos[i * 6 + 1] = y; windPos[i * 6 + 2] = z;
       windPos[i * 6 + 3] = x - dx * tl; windPos[i * 6 + 4] = y; windPos[i * 6 + 5] = z + dz * tl;
     }
@@ -1441,8 +1627,9 @@ details.legal li { margin-bottom: 4px; }
     let r24 = 0; for (let k = 0; k < 8 && h - k >= 0; k++) r24 += prMean[h - k];
     $('stRain').textContent = fmt(r24, 1) + ' mm';
     const w = wxAt(-60.67, 2.82, st.t);
-    $('hudWx').innerHTML = '<b>Boa Vista</b>vento de ' + dirName(w.from) + ' ' + fmt(w.sp) + ' km/h · ' + fmt(w.rh) + '% umidade · ' + fmt(w.tc, 0) + ' °C';
+    $('hudWx').innerHTML = '<b>Boa Vista · ' + fmt(w.tc, 0) + ' °C</b>' + fmtD(st.t) + ' às ' + fmtH(st.t) + ' · vento de ' + dirName(w.from) + ' ' + fmt(w.sp) + ' km/h · umidade ' + fmt(w.rh) + '% · ' + rainTxt(w.rain) + ' em 24 h';
     renderSummary(idx, places, w);
+    renderWx();
     renderNear();
     drawChart();
   }
@@ -1473,9 +1660,11 @@ details.legal li { margin-bottom: 4px; }
       if (F.ti[i] >= 0) { inTi++; byTi.set(F.ti[i], (byTi.get(F.ti[i]) || 0) + 1); }
     }
     const n = places.size, wasOpen = el.querySelector('details[open]') !== null;
-    const head = '<p><b class="big">' + fmt(n) + '</b> locais com fogo ' + winTxt() + '</p>';
+    const aKm = areaHa(period.from, st.t) / 100;
+    const head = '<p><b class="big">' + fmt(n) + '</b> locais com fogo ' + winTxt() + '</p>' +
+      (aKm >= 1 ? '<p class="sum-area">No período (' + esc((period.long || period.name).toLowerCase()) + '), cerca de <b>' + fmt(aKm, 0) + ' km²</b> com fogo.</p>' : '');
     const clima = 'Em Boa Vista: vento de ' + dirName(w.from) + ' a ' + fmt(w.sp) + ' km/h, umidade ' + fmt(w.rh) + '%, ' + rainTxt(w.rain) + ' em 24 h.' + (w.rh < 40 ? ' Ar seco favorece o fogo.' : '');
-    if (!n) { el.innerHTML = head + '<details class="more"' + (wasOpen ? ' open' : '') + '><summary>Ver mais</summary><div><p>' + clima + '</p></div></details>'; return; }
+    if (!n) { el.innerHTML = head + '<details class="more"' + (wasOpen ? ' open' : '') + '><summary>Ver mais</summary><div></div></details>'; return; }
     const top = [...byMun].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m, c]) => D.muns[m] + ' (' + c + ')');
     const lcTop = [...byLc].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([c, v]) => D.lc[c].toLowerCase() + ' (' + Math.round(v / n * 100) + '%)');
     const tiTop = [...byTi].sort((a, b) => b[1] - a[1])[0];
@@ -1483,7 +1672,7 @@ details.legal li { margin-bottom: 4px; }
       '<details class="more"' + (wasOpen ? ' open' : '') + '><summary>Ver mais</summary><div>' +
       munRankHtml(byMun) +
       '<p>' + Math.round(inTi / n * 100) + '% em Terras Indígenas' + (tiTop ? ', principalmente ' + D.tis[tiTop[0]].nome : '') + '.</p>' +
-      '<p>Vegetação: ' + lcTop.join(' e ') + '.</p><p>' + clima + '</p></div></details>';
+      '<p>Vegetação: ' + lcTop.join(' e ') + '.</p></div></details>';
   }
 
   // ---------- municipalities with most fire in the period (bars)
@@ -1544,7 +1733,7 @@ details.legal li { margin-bottom: 4px; }
 
   // ---------- INPE fire risk forecast (the day the files were made and the next 3), 0.05 degree grid computed on the server
   const RF = { J: null, day: 0, mun: [], tex: {} };
-  const RF_LV = [['Mínimo', '#2e7d32'], ['Baixo', '#8bc34a'], ['Médio', '#e6b800'], ['Alto', '#ef6c00'], ['Crítico', '#c62828']];
+  const RF_LV = [['Mínimo', '#2e7d32'], ['Baixo', '#8bc34a'], ['Médio', '#e6b800'], ['Alto', '#ef6c00'], ['Crítico', '#b42318']];
   const WDAY = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
   const localToday = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
   const rfRel = () => Math.round((Date.parse(localToday()) - Date.parse(RF.J.d0)) / 864e5); // which file is "today"
@@ -1578,7 +1767,7 @@ details.legal li { margin-bottom: 4px; }
     const J = RF.J, cw = Math.min(2048, tImg.width), ch = Math.round(cw * tImg.height / tImg.width);
     const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch; const g = cv.getContext('2d');
     g.drawImage(tImg, 0, 0, cw, ch); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, 0, cw, ch);
-    const [W0, , , N0] = J.box, sx = cw / (E - W), sy = ch / (N - S); g.globalAlpha = 0.62;
+    const [W0, , , N0] = J.box, sx = cw / (E - W), sy = ch / (N - S); g.globalAlpha = 0.45;
     for (let j = 0; j < J.ny; j++) for (let i = 0; i < J.nx; i++) {
       const c = J.dias[k][j * J.nx + i]; if (c === '.') continue;
       g.fillStyle = RF_LV[+c][1];
@@ -1613,9 +1802,11 @@ details.legal li { margin-bottom: 4px; }
   }
 
   // ---------- notices: official ones typed by the team (always with the source link) and automatic ones from INPE data
-  let AV = null;
+  let AV = null, NOT = null, DOE = null;
+  const doeTitle = a => a.tipo === 'queima' ? (/suspens/i.test(a.resumo) ? 'Uso do fogo suspenso em todo o estado' : 'Uso do fogo: ato da FEMARH') + (a.prorroga ? ' (prorrogação)' : '') : a.tipo === 'emergencia' ? 'Situação de emergência' + (a.prorroga ? ' (prorrogação)' : '') : a.ato;
+  const newsWhen = iso => { try { return new Date(iso.replace('Z', ':00Z')).toLocaleString('pt-BR', { timeZone: 'America/Boa_Vista', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' às').replace(':', 'h'); } catch (e) { return ''; } };
   function renderAvisos() {
-    const items = (AV && AV.avisos || []).slice();
+    const items = (DOE && DOE.atos || []).map(a => ({ titulo: doeTitle(a), orgao: a.orgao, texto: a.resumo, link: a.link, fim: a.fim, doe: 'nº ' + a.edicao + ', de ' + a.pub.split('-').reverse().join('/') + ', página ' + a.pagina, ato: a.ato })).concat(AV && AV.avisos || []).concat((NOT && NOT.oficiais || []).map(n => ({ titulo: n.t, orgao: /governo de roraima/i.test(n.fonte || '') ? 'Governo de RR' : n.fonte, link: n.link, noticia: n.data })));
     if (false) {
       const rel = rfRel(), parts = [];
       const crit = k => RF.mun.filter(m => m.lv[k] === 4).map(m => m.n), say = ms => ms.length === RF.mun.length ? 'todos os municípios' : ms.map(esc).join(', ');
@@ -1627,8 +1818,8 @@ details.legal li { margin-bottom: 4px; }
     }
     const sec = $('avSec'); sec.hidden = !items.length; if (!items.length) return;
     $('avList').innerHTML = items.map(a => '<details class="av"><summary><span class="av-dot"></span><b>' + esc(a.titulo) + '</b><span class="av-org">' + esc(a.orgao || '') + '</span></summary><div>' +
-      '<p>' + (a.html || esc(a.texto || '')) + '</p>' + (a.link ? '<a href="' + esc(a.link) + '" target="_blank" rel="noopener">' + (a.auto ? 'Ver dados do INPE' : a.imprensa ? 'Ver notícia (' + esc(a.imprensa) + ')' : 'Ver aviso oficial') + '</a>' : '') +
-      (a.fim ? ' · <span class="note">válido até ' + isoBr(a.fim) + '</span>' : '') + (a.auto ? '<p class="note">Aviso automático, montado com a previsão de risco do INPE.</p>' : a.imprensa ? '<p class="note">Fonte: imprensa. O link do Diário Oficial será colocado quando for publicado ou encontrado.</p>' : '') + '</div></details>').join('');
+      (a.noticia ? '<p>Notícia oficial publicada em ' + newsWhen(a.noticia) + ', em ' + esc(a.orgao || 'site do governo') + '. Busca automática a cada 30 minutos.</p>' : '<p>' + (a.html || esc(a.texto || '')) + '</p>') + (a.link ? '<a href="' + esc(a.link) + '" target="_blank" rel="noopener">' + (a.auto ? 'Ver dados do INPE' : a.imprensa ? 'Ver notícia (' + esc(a.imprensa) + ')' : a.noticia ? 'Ler na fonte' : a.doe ? 'Ver no Diário Oficial' : 'Ver aviso oficial') + '</a>' : '') +
+      (a.fim ? ' · <span class="note">válido até ' + isoBr(a.fim) + '</span>' : '') + (a.auto ? '<p class="note">Aviso automático, montado com a previsão de risco do INPE.</p>' : a.imprensa ? '<p class="note">Fonte: imprensa. O link do Diário Oficial será colocado quando for publicado ou encontrado.</p>' : a.doe ? '<p class="note">' + esc(a.ato) + '. Diário Oficial do Estado de Roraima ' + esc(a.doe) + '. Lido automaticamente; o aviso some sozinho no fim do prazo ou quando sair um ato mais novo.</p>' : '') + '</div></details>').join('');
   }
 
   // ---------- "install as an app": the browser's own prompt when it offers one, otherwise short instructions
@@ -1806,7 +1997,7 @@ details.legal li { margin-bottom: 4px; }
     gTap = k; gaugeEls.forEach((el, j) => el.classList.toggle('tap', j === k));
     if (g.noData) { showCard('<h3>' + esc(g.river) + ' · ' + esc(g.name) + '</h3><p class="when">Régua da ANA</p><p>' + (g.lastDay ? 'Esta estação está <b>sem transmitir desde ' + g.lastDay.split('-').reverse().join('/') + '</b>. Pode ser falha no equipamento ou na transmissão da ANA.' : 'Esta estação está sem leitura recente.') + '</p>'); return; }
     const v = g.last.cm, dayLbl = isoBr(addDays(SECA_HY0 || '2026-08-01', g.day)), ch = (a, n) => a == null ? '' : (v - a <= 0 ? '−' : '+') + fmt(Math.abs(v - a), 0) + ' cm em ' + n + ' dias';
-    const lt = g.last.t ? g.last.t.slice(8, 10) + '/' + g.last.t.slice(5, 7) + ' às ' + g.last.t.slice(11, 16) : '';
+    const lt = g.last.t ? g.last.t.slice(8, 10) + '/' + g.last.t.slice(5, 7) + ' às ' + g.last.t.slice(11, 16).replace(':', 'h').replace(/^0(?=\d)/, '') : '';
     const where = g.rank === 1 ? 'O mais baixo para ' + dayLbl + ' desde ' + g.firstYear : g.rank <= 3 ? 'Entre os 3 mais baixos para ' + dayLbl + ' desde ' + g.firstYear : 'Mais baixo que em ' + fmt(100 - g.pct) + '% dos anos para ' + dayLbl;
     showCard('<h3>' + esc(g.river) + ' · ' + esc(g.name) + '</h3><p class="when">Régua da ANA ' + g.code + (lt ? ' · leitura ' + lt : '') + '</p>' +
       '<span class="tag" style="background:' + RISK[g.risk][1] + ';color:#fff">' + RISK[g.risk][0] + '</span>' +
@@ -2042,6 +2233,10 @@ details.legal li { margin-bottom: 4px; }
     lines.push('Último fogo visto pelo satélite ' + agoTxt(D.meta.lastFire) + '. Estimativa com dados do INPE; o satélite pode não ver fogo pequeno, sob nuvem ou à noite. Não substitui avaliação no local.');
     return lines.join('\n');
   }
+  function dangerMini(r) {
+    const L = LEVELS[r.level], a = r.level === 'nenhum' ? '' : arrivalTxt(r);
+    return '<div class="dg-line"><span class="dg-badge">' + L.icon + ' ' + L.name + '</span><span class="dg-l">' + esc(dangerHeadline(r)) + (a ? ' · ' + a : '') + '</span><button type="button" class="linkbtn" data-act="details">Ver detalhes</button></div>';
+  }
   function dangerHtml(r, full) {
     const L = LEVELS[r.level], b = r.best;
     let h = '<div class="dg-head"><span class="dg-badge">' + L.icon + ' ' + L.name + '</span></div><p class="dg-main">' + esc(dangerHeadline(r)) + '</p>';
@@ -2167,7 +2362,7 @@ details.legal li { margin-bottom: 4px; }
   });
   let myPropLine = null, myPropCod = null;
   function renderMyStatus() {
-    const el = $('myStatus'), el2 = $('danger'), p = st.pin; renderRain(); renderAir(); renderRisk();
+    const el = $('myStatus'), el2 = $('danger'), p = st.pin; renderRain(); renderAir(); renderRisk(); renderWx();
     if (!p) { if (st.dLevel) { st.dLevel = null; renderPeek(); } el.hidden = true; el2.hidden = true; removeDraped(myPropLine); myPropLine = null; myPropCod = null; drawRiskArrow(null); return; }
     if (!CT.ok && !CT.loading) loadCarTodos().finally(() => { if (st.pin) renderMyStatus(); });
     const r = computeDanger(p), cls = 'mystatus ' + LEVELS[r.level].cls; if (st.dLevel !== r.level) { st.dLevel = r.level; renderPeek(); }
@@ -2177,7 +2372,8 @@ details.legal li { margin-bottom: 4px; }
       if (r.prop) { myPropLine = makeDraped(r.prop.r.map(flatToRing), 0x7dd3fc, 1, 0.7, 0.4); myPropLine.obj.renderOrder = 7; }
     }
     drawRiskArrow(r);
-    el.className = cls; el.innerHTML = dangerHtml(r, false); el.hidden = false; bindDanger(el, r);
+    el.className = cls + ' mini'; el.innerHTML = dangerMini(r); el.hidden = false;
+    { const dd = el.querySelector('[data-act=details]'); if (dd) dd.onclick = () => setTab('local', true); }
     const open = el2.querySelector('details[open]') !== null;
     el2.className = cls; el2.innerHTML = dangerHtml(r, true); el2.hidden = false; bindDanger(el2, r);
     if (open) el2.querySelectorAll('details').forEach(d => d.open = true);
@@ -2442,6 +2638,30 @@ details.legal li { margin-bottom: 4px; }
   D.tis.forEach(t => searchItems.push({ label: 'TI ' + t.nome, kind: 'ti', item: t }));
   const fillList = () => $('placesList').innerHTML = searchItems.map(s => '<option value="' + esc(s.label) + '">').join('');
   fillList();
+  // the site's own suggestion list
+  (() => {
+    const inp = $('searchIn'), ul = $('sugg'); let items = [], cur = -1;
+    const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const close = () => { ul.hidden = true; cur = -1; };
+    const pick = k => { inp.value = items[k].label; close(); const f = $('searchForm'); if (f.requestSubmit) f.requestSubmit(); else f.dispatchEvent(new Event('submit', { cancelable: true })); };
+    const show = () => {
+      const q = norm(inp.value.trim()); if (q.length < 2 || /^-?\d/.test(q)) { close(); return; }
+      const sc = s => { const l = norm(s.label); return l.startsWith(q) ? 0 : l.includes(' ' + q) ? 1 : l.includes(q) ? 2 : 9; };
+      items = searchItems.map(s => [sc(s), s]).filter(x => x[0] < 9).sort((a, b) => a[0] - b[0] || a[1].label.length - b[1].label.length).slice(0, 8).map(x => x[1]);
+      if (!items.length) { close(); return; }
+      ul.innerHTML = items.map((s, k) => '<li role="option" data-k="' + k + '">' + esc(s.label) + '</li>').join(''); ul.hidden = false; cur = -1;
+    };
+    inp.addEventListener('input', show);
+    inp.addEventListener('keydown', e => {
+      if (ul.hidden) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); cur = (cur + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length; [...ul.children].forEach((li, k) => li.classList.toggle('on', k === cur)); }
+      else if (e.key === 'Enter' && cur >= 0) { e.preventDefault(); pick(cur); }
+      else if (e.key === 'Escape') close();
+    });
+    ul.addEventListener('pointerdown', e => { const li = e.target.closest('li'); if (li) { e.preventDefault(); pick(+li.dataset.k); } });
+    inp.addEventListener('blur', () => setTimeout(close, 150));
+    $('searchForm').addEventListener('submit', close);
+  })();
   function addRoadSearch() {
     const seen = new Set(searchItems.map(s => s.label)), add = (label, kind, item) => { if (!seen.has(label)) { seen.add(label); searchItems.push({ label, kind, item }); } };
     const munTxt = m => m >= 0 ? ' · ' + RD.muns[m] : '';
@@ -3250,7 +3470,7 @@ details.legal li { margin-bottom: 4px; }
       : J.rank <= 5 ? '<span class="seca-flag warn">Entre os ' + J.rank + ' mais baixos para ' + dayLbl + ' desde ' + J.firstYear + '</span>'
       : v < med ? '<span class="seca-flag ok">Abaixo do normal para a data</span>' : '<span class="seca-flag ok">Normal ou acima para a data</span>';
     const ch = (a, n) => a == null ? '' : '<span>' + (v - a <= 0 ? '−' : '+') + fmt(Math.abs(v - a), 0) + ' cm em ' + n + ' dias</span>';
-    const lastT = J.last && J.last.t ? J.last.t.slice(8, 10) + '/' + J.last.t.slice(5, 7) + ' às ' + J.last.t.slice(11, 16) : '';
+    const lastT = J.last && J.last.t ? J.last.t.slice(8, 10) + '/' + J.last.t.slice(5, 7) + ' às ' + J.last.t.slice(11, 16).replace(':', 'h').replace(/^0(?=\d)/, '') : '';
     $('secaTitle').textContent = J.title;
     $('secaNow').innerHTML = '<div class="big">' + cmTxt(v) + '</div>' + flag +
       '<p>Normal para a data: <b>' + cmTxt(med) + '</b>. ' + [ch(J.d7, 7), ch(J.d30, 30)].filter(Boolean).join(' · ') + '.</p>' +
@@ -3268,7 +3488,7 @@ details.legal li { margin-bottom: 4px; }
       : J.rank <= 5 ? '<span class="seca-flag warn">Entre os ' + J.rank + ' mais baixos para ' + dayLbl + ' desde ' + J.firstYear + '</span>'
       : v < med ? '<span class="seca-flag ok">Abaixo do normal para a data</span>' : '<span class="seca-flag ok">Normal ou acima para a data</span>';
     const ch = (a, n) => a == null ? '' : '<span>' + (v - a <= 0 ? '−' : '+') + fmt(Math.abs(v - a), 0) + ' cm em ' + n + ' dias</span>';
-    const lastT = J.last && J.last.t ? J.last.t.slice(8, 10) + '/' + J.last.t.slice(5, 7) + ' às ' + J.last.t.slice(11, 16) : '';
+    const lastT = J.last && J.last.t ? J.last.t.slice(8, 10) + '/' + J.last.t.slice(5, 7) + ' às ' + J.last.t.slice(11, 16).replace(':', 'h').replace(/^0(?=\d)/, '') : '';
     renderSecaNow();
     $('secaMini').innerHTML = '💧 Rio Branco em Boa Vista: <b>' + cmTxt(v) + '</b>' + (J.rank === 1 ? ', o mais baixo para a data desde ' + J.firstYear : J.rank <= 5 ? ', entre os mais baixos para a data' : '') + '. <u>Ver seca</u>';
     $('secaMini').hidden = false; $('secaMini').onclick = () => setTab('seca', true);
@@ -3323,7 +3543,22 @@ details.legal li { margin-bottom: 4px; }
   // info card over the map: essentials first, the rest behind an arrow
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   const rowsHtml = rows => '<dl>' + rows.map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl>';
-  function showCard(html) { $('popBody').innerHTML = html; $('pop').hidden = false; $('hint').hidden = true; if (isPhone()) { if (isMob()) setTimeline(false, true); setDrawer(false); } }
+  (() => {
+    const pop = $('pop'), g = $('popGrab'); let pz = 1;
+    try { pz = Math.min(1.5, Math.max(0.85, +localStorage.getItem('rr3d-pz2') || 1)); } catch (e) {}
+    const set = v => { pz = Math.min(1.5, Math.max(0.85, v)); pop.style.setProperty('--pz', pz.toFixed(2)); };
+    const save = () => { try { localStorage.setItem('rr3d-pz2', pz.toFixed(2)); localStorage.removeItem('rr3d-pz'); } catch (e) {} };
+    set(pz);
+    g.addEventListener('pointerdown', e => {
+      e.preventDefault(); g.setPointerCapture(e.pointerId); const x0 = e.clientX, y0 = e.clientY, p0 = pz;
+      const mv = ev => set(p0 + ((ev.clientX - x0) - (ev.clientY - y0)) / 220);
+      const up = () => { g.removeEventListener('pointermove', mv); g.removeEventListener('pointerup', up); g.removeEventListener('pointercancel', up); save(); };
+      g.addEventListener('pointermove', mv); g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
+    });
+    g.addEventListener('dblclick', () => { set(pz > 1.05 ? 1 : 1.3); save(); });
+    g.addEventListener('keydown', e => { if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { set(pz + 0.1); save(); e.preventDefault(); } if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { set(pz - 0.1); save(); e.preventDefault(); } });
+  })();
+  function showCard(html) { $('popBody').innerHTML = html + areaBtnHtml(); const pe = $('pop'); if (pe.hidden) { pe.classList.remove('pop-in'); void pe.offsetWidth; pe.classList.add('pop-in'); } pe.hidden = false; $('hint').hidden = true; if (isPhone()) { if (isMob()) setTimeline(false, true); setDrawer(false); } }
   $('popX').onclick = () => { st.sel = null; showDetail(); };
   function showDetail() {
     const s = st.sel;
@@ -3446,6 +3681,14 @@ details.legal li { margin-bottom: 4px; }
     if (v[0] !== 'm' && byMun.size) rows.push(['Municípios com mais área com fogo', top(byMun, 8).map(([k, c]) => [D.muns[k], ha(c)])]);
     if (byLc.size) rows.push(['Tipo de vegetação atingida', top(byLc, 8).map(([k, c]) => [D.lc[k], ha(c)])]);
     if (byTi.size) rows.push(['Terras Indígenas com fogo', top(byTi, 8).map(([k, c]) => ['TI ' + D.tis[k].nome, ha(c)])]);
+    { // weather of the place of the report: marked point, centre of the municipality or Boa Vista
+      let wl = [-60.67, 2.82], wn = 'Boa Vista';
+      if (v === 'local' && p) { wl = [p.lon, p.lat]; wn = 'o local marcado'; }
+      else if (v[0] === 'm') { const mm = D.munis.find(m => m.nome === D.muns[+v.slice(1)]); if (mm) { wl = mm.c; wn = mm.nome; } }
+      const x = wxBest(wl[0], wl[1]);
+      rows.push(['Tempo agora em ' + wn, [['Temperatura', fmt(x.tc, 0) + ' °C' + (x.fc ? ' (previsão CPTEC hoje: máx. ' + x.fc.max + ', mín. ' + x.fc.min + ')' : ' (máx. ' + fmt(x.mx, 0) + ', mín. ' + fmt(x.mn, 0) + ' hoje)') + ' · ' + x.srcNow], ['Umidade do ar', fmt(x.rh) + '%'],
+        ['Vento', fmt(x.sp) + ' km/h, de ' + dirName(x.from)], ['Chuva nas últimas 24 h', fmt(x.r24, 1) + ' mm'], ...(x.nNext ? [['Chuva prevista até ' + fmtH(x.hEnd), fmt(x.rNext, 1) + ' mm']] : []), ['Dias seguidos sem chuva', fmt(x.dry)]]]);
+    }
     if (SECA) { const lv = SECA.last && SECA.last.cm != null ? SECA.last.cm : SECA.dayValue; rows.push(['Seca', [['Rio Branco em Boa Vista (última leitura)', cmTxt(lv) + (SECA.rank === 1 ? ', o mais baixo para a data desde ' + SECA.firstYear : '')]]]); }
     const now = new Date(), gen = now.toLocaleDateString('pt-BR') + ' às ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const notes = ['Área calculada com os focos dos sensores VIIRS: cada quadrado de 375 m conta 14 ha, uma vez só no período. É aproximada e pode ser maior ou menor que a área queimada de verdade.',
@@ -3482,9 +3725,31 @@ details.legal li { margin-bottom: 4px; }
     el.scrollTop = 0;
   }
   $('repBtn').onclick = showReport;
+  // ---------- technical report of one area (burn scar, degradation, deforestation, fire event): code in relatorio-area.js, loaded only on demand
+  const AREA_KINDS = { queim: 1, deter: 1, prodes: 1, inpe: 1, event: 1 };
+  const areaBtnHtml = () => st.sel && AREA_KINDS[st.sel.kind] ? '<button type="button" class="btn ar-open" data-area-rep="1">📄 Relatório técnico completo da área</button><p class="note" style="margin:4px 0 0">Imagens de antes e depois, histórico, imóveis, embargos, lei e fontes. Leva cerca de 30 segundos.</p>' : '';
+  function areaOf(s) {
+    if (s.kind === 'queim') { const d = QM[s.k], deg = d.cls === 'DEGRADACAO'; return { kind: 'queim', title: deg ? 'Área degradada' : 'Área queimada', cls: QM_CLS[d.cls] || '', source: 'INPE DETER (alerta de ' + (deg ? 'degradação' : 'cicatriz de queimada') + ')', date: d.d, ha: d.km2 * 100, rings: d.r }; }
+    if (s.kind === 'deter') { const d = DET[s.k]; return { kind: 'deter', title: 'Desmatamento', cls: DET_CLS[d.cls] || '', source: 'INPE DETER (alerta de desmatamento)', date: d.d, ha: d.km2 * 100, rings: d.r }; }
+    if (s.kind === 'prodes') { const d = PRD.list[s.k]; return { kind: 'prodes', title: 'Desmatamento medido', cls: 'PRODES ' + d.y, source: 'INPE PRODES (ano ' + d.y + ', agosto de ' + (d.y - 1) + ' a julho de ' + d.y + ')', date: d.d || (d.y + '-07-31'), ha: d.km2 * 100, rings: d.r }; }
+    if (s.kind === 'inpe') { const e = IN.ev[s.k]; return { kind: 'inpe', title: inpeName(e.tipo), cls: e.tipo, source: 'INPE, Evento de Fogo nº ' + e.id, date: e.d0, date1: e.d1, ha: e.ha, rings: e.r, mun: e.mun,
+      extra: e.desm != null ? 'O que queimou: ' + fmt(e.desm || 0, 0) + '% área desmatada, ' + fmt(e.veg || 0, 0) + '% vegetação nativa, ' + fmt(e.trans || 0, 0) + '% transição (INPE)' : '' }; }
+    if (s.kind === 'event') { const ev = D.events[s.k]; let sn = ev.snaps[ev.snaps.length - 1]; for (const x of ev.snaps) if (x.t <= st.t) sn = x;
+      return { kind: 'event', title: 'Área queimada', cls: 'contorno pelos focos VIIRS', source: 'Fogo em Roraima 3D (contorno estimado pelos focos VIIRS de 375 m)', date: dayOf(ev.start), date1: dayOf(ev.end), ha: ev.area * 100, rings: sn.rings, mun: D.muns[ev.m] }; }
+    return null;
+  }
+  let areaJs = null; // relatorio-area.js?v=...: change the number on every edit of that file (the offline cache keeps .js by address)
+  function openAreaReport() {
+    const a = st.sel && areaOf(st.sel); if (!a || !a.rings || !a.rings.length) return;
+    window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
+      whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026111202'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    areaJs.then(() => window.FRR_AREA.open(a)).catch(() => showToast('Não foi possível abrir o relatório agora. Verifique a internet e tente de novo.'));
+  }
+  $('popBody').addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-area-rep]')) openAreaReport(); });
   // ---------- first visit: a short guide (4 cards, little text); the "?" button shows it again
   const TOUR = [
-    ['🛰️', 'Fogo visto do satélite', 'Os pontos que brilham são focos de fogo vistos pelos satélites do INPE. Quanto mais forte o brilho, mais recente e mais forte o fogo.'],
+    ['🛰️', 'Fogo visto do satélite', 'O satélite vê o calor, não a chama. Chama: visto há menos de 6 h; brasa: de 6 a 24 h; ponto escuro: de 1 a 7 dias. Quanto maior o ponto, mais forte o calor. A posição pode errar de 375 m a alguns quilômetros.'],
     ['👆', 'Toque para saber mais', 'Um toque num fogo, num rio 💧 ou numa mancha abre os detalhes. Arraste para girar o mapa; use dois dedos para aproximar.'],
     ['📍', 'Marque o seu lugar', 'Dois toques no mapa marcam um ponto. O site diz se há fogo perto, para que lado o vento leva e o que fazer. Dois toques no alfinete removem.'],
     ['📞', 'Em perigo, ligue', '<b>193</b> Bombeiros · <b>199</b> Defesa Civil. O satélite pode não ver fogo pequeno, sob nuvem ou à noite: se vir fumaça, não espere o mapa.']
@@ -3561,7 +3826,8 @@ details.legal li { margin-bottom: 4px; }
   let prev = performance.now();
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // velocidade: a cada 2 s mede os quadros por segundo; se ficar lento, baixa a resolução; se sobrar, volta a subir
-  const BASE_PR = renderer.getPixelRatio(), MIN_PR = Math.min(BASE_PR, 0.5);
+  let HQ = false; try { HQ = localStorage.getItem('rr3d-hq') === '1'; } catch (e) {}
+  const BASE_PR = renderer.getPixelRatio(), MIN_PR = HQ ? BASE_PR : Math.min(BASE_PR, 0.5);
   const pf = { start: performance.now() + 4000, t0: 0, n: 0, good: 0, slow: 0 };
   let perfEl = null;
   function showPerf(kind) {
@@ -3594,15 +3860,45 @@ details.legal li { margin-bottom: 4px; }
     else pf.good = 0;
     if (fps < 18 && pr <= MIN_PR + 0.01 && !LIGHT) { if (++pf.slow >= 2) showPerf('slow'); } else pf.slow = 0;
     window.__perf = { fps: Math.round(fps), pixelRatio: +renderer.getPixelRatio().toFixed(2), soft: SOFT, light: LIGHT };
+    qualSync();
   }
+  // ---------- tell when the map is simplified: automatic reduction (while it lasts) or light mode (a few seconds after opening)
+  let qualLightUntil = 0;
+  function qualSync() {
+    const el = $('qual'); if (!el) return;
+    const reduced = renderer.getPixelRatio() < BASE_PR - 0.01, light = LIGHT && performance.now() < qualLightUntil;
+    if (reduced) el.innerHTML = 'Qualidade reduzida para o mapa não travar <b>ⓘ</b>';
+    else if (light) el.innerHTML = 'Modo leve: mapa mais simples para ' + (SOFT ? 'este navegador' : 'celular') + ' <b>ⓘ</b>';
+    el.hidden = !(reduced || light);
+  }
+  try { if (LIGHT && sessionStorage.getItem('rr3d-qual-seen') !== '1') { qualLightUntil = performance.now() + 12000; sessionStorage.setItem('rr3d-qual-seen', '1'); setTimeout(qualSync, 12100); } } catch (e) {}
+  qualSync();
+  let qualEl = null;
+  $('qual').onclick = () => {
+    if (qualEl) { qualEl.remove(); qualEl = null; return; }
+    qualEl = document.createElement('div'); qualEl.className = 'perfnote'; qualEl.setAttribute('role', 'dialog');
+    qualEl.innerHTML = '<p><b>Por que o mapa está menos nítido?</b></p><p>' +
+      (LIGHT ? 'O <b>modo leve</b> está ligado: o mapa é desenhado com menos detalhes para gastar menos bateria e internet' + (SOFT ? ', porque este navegador não está usando a placa de vídeo' : '') + '. ' : '') +
+      (renderer.getPixelRatio() < BASE_PR - 0.01 ? 'O aparelho estava com dificuldade para desenhar o 3D, então a resolução foi <b>baixada sozinha</b> para não travar; ela volta a subir quando o mapa fica leve de novo. ' : '') +
+      'Os dados (focos, rios, risco) são os mesmos: muda só a nitidez da imagem.</p><div class="row"><button class="btn" data-q="hq">Usar alta qualidade</button><button class="btn" data-q="ok">Entendi</button></div>' +
+      '<p class="note" style="margin:8px 0 0">Com alta qualidade o mapa pode ficar lento em aparelhos simples. Para voltar, ligue "Modo leve" na aba Mapa.</p>';
+    qualEl.onclick = ev => {
+      const a = ev.target.dataset && ev.target.dataset.q; if (!a) return;
+      if (a === 'hq') { try { localStorage.setItem('rr3d-hq', '1'); localStorage.setItem('rr3d-light', '0'); if (SOFT) localStorage.setItem('rr3d-soft-full', '1'); } catch (e) {} location.reload(); return; }
+      qualEl.remove(); qualEl = null; qualLightUntil = 0; qualSync();
+    };
+    document.body.appendChild(qualEl);
+  };
+  // turning light mode on again also gives back the automatic reduction
+  $('lyLight').addEventListener('change', e => { if (e.target.checked) try { localStorage.setItem('rr3d-hq', '0'); } catch (err) {} });
   function place(el, lon, lat, lift, r) {
     tmpV.set(toX(lon), yAt(lon, lat) + lift, toZ(lat)).project(camera);
     const ok = tmpV.z < 1 && Math.abs(tmpV.x) < 1.05 && Math.abs(tmpV.y) < 1.05;
     el.hidden = !ok || el.dataset.off === '1'; if (ok) { el.style.left = (tmpV.x + 1) / 2 * r.width + 'px'; el.style.top = (1 - tmpV.y) / 2 * r.height + 'px'; }
   }
   function frame(now) {
-    const dt = Math.min(0.1, (now - prev) / 1000); prev = now;
-    if (st.playing) { const nt = st.t + dt * st.speed * 60; if (nt >= period.to) { setTime(period.to, true); pause(); } else setTime(nt); }
+    const dtReal = Math.max(0, (now - prev) / 1000), dt = Math.min(0.1, dtReal); prev = now;
+    if (st.playing) { const nt = st.t + Math.min(0.5, dtReal) * st.speed * 60; if (nt >= period.to) { setTime(period.to, true); pause(); } else setTime(nt); }
     if (fly) {
       const k = Math.min(1, (now - fly.t0) / (fly.dur || 1400)), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
       camera.position.lerpVectors(fly.p0, fly.p1, e); controls.target.lerpVectors(fly.q0, fly.q1, e);
@@ -3656,8 +3952,8 @@ details.legal li { margin-bottom: 4px; }
   const offNote = () => busyShow(); // the 'no internet' pill on the map stays while offline
   offNote(); window.addEventListener('offline', offNote);
   // arrival like a plane: from the whole state, glide toward the most important fire, upwind so the smoke goes away from the eye
-  if (!st.pin) setTimeout(() => {
-    if (fly || st.sel) return; let bi = -1, bs = 54; for (const i of windowIdx()) { const s = fireScore(i, st.t); if (s > bs) { bs = s; bi = i; } }
+  if (!st.pin && !reduce) setTimeout(() => {
+    if (fly || st.sel) return; let bi = -1, bs = 54; for (const i of windowIdx()) { if (st.t - F.t[i] > 1440) continue; const s = fireScore(i, st.t); if (s > bs) { bs = s; bi = i; } }
     if (bi < 0) return; const w = wxAt(F.lon[bi], F.lat[bi], F.t[bi]), az = -(w.sp >= 3 ? w.to : 180) * Math.PI / 180;
     flyTo(orbitPose(toX(F.lon[bi]), toZ(F.lat[bi]), 80, az, 0.98)); fly.intro = true; fly.dur = 2600;
   }, 1400);
@@ -3674,7 +3970,7 @@ details.legal li { margin-bottom: 4px; }
   roadsP.then(initRoads);
   inpeP.then(initInpe);
   Promise.all([rfP, avP]).then(([R, A]) => { AV = A; if (R && R.dias) { RF.J = R; rfInit(); } renderRisk(); renderAvisos(); if ($('base').value === 'risco') applyBase('risco'); });
-  arP.then(J => { AR = J; renderAir(); }); inpeP.then(() => setTimeout(renderAir, 0)); histP.then(renderHist);
+  arP.then(J => { AR = J; renderAir(); }); medP.then(J => { MED = J; renderWx(); }); doeP.then(J => { DOE = J; renderAvisos(); }); notP.then(J => { NOT = J; renderAvisos(); const L = J && J.imprensa || []; $('imSec').hidden = !L.length; $('imList').innerHTML = L.map(n => '<li><a href="' + esc(n.link) + '" target="_blank" rel="noopener">' + esc(n.t) + '</a><span>' + esc(n.fonte || '') + ' · ' + newsWhen(n.data) + '</span></li>').join(''); }); inpeP.then(() => setTimeout(renderAir, 0)); histP.then(renderHist);
   secaP.then(J => { SECA_HY0 = J && J.hy0; initSeca(J); initGauges(J); renderPeek(); drawChart(); });
   riosP.then(initRios);
   requestAnimationFrame(frame);

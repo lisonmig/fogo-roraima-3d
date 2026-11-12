@@ -39,7 +39,7 @@ jobs:
           python-version: '3.12'
 
       - name: Instalar bibliotecas
-        run: pip install numpy pillow shapely
+        run: pip install numpy pillow shapely pypdf
 
       - name: Recuperar downloads anteriores
         uses: actions/cache@v4
@@ -68,7 +68,10 @@ jobs:
         run: python -I scripts/prep_prodes.py dados-3d docs || echo "::warning::falhou o PRODES; a camada fica indisponível"
 
       - name: Qualidade do ar, histórico do INPE, risco de fogo e avisos (cada parte falha sozinha)
-        run: python -I scripts/prep_extras.py dados-3d docs || echo "::warning::falhou parte do resumo extra (ar, histórico, risco ou avisos)"
+        run: python -I scripts/prep_extras.py dados-3d docs || echo "::warning::falhou parte do resumo extra (ar, histórico, risco, avisos, tempo medido, notícias ou Diário Oficial)"
+
+      - name: Relatório da área - embargos do IBAMA e autorizações de desmate (baixam de novo só a cada 30 dias)
+        run: python -I scripts/prep_relatorio.py dados-3d docs --dinamicas || echo "::warning::falharam os embargos ou as autorizações do relatório da área"
 
       - name: Salvar o histórico dos eventos do INPE (uma vez por dia)
         if: github.event_name != 'push'   # agendamento do GitHub ou agendador externo

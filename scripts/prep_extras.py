@@ -1,7 +1,7 @@
 """Extra data for the summary tab: air quality, INPE yearly history, INPE fire risk forecast and official notices.
 
 Usage: python -I scripts/prep_extras.py <cache_dir> <out_dir>
-Writes <out_dir>/ar.json, historico.json, risco.json and avisos.json. Each part fails on its own:
+Writes <out_dir>/ar.json, historico.json, risco.json, avisos.json, impacto.json and medido.json. Each part fails on its own:
 if a source is down, the previous file is kept and the site hides that block.
 """
 import array
@@ -278,12 +278,354 @@ def avisos(src_file, out_dir):
 
 
 
+# ---------- area with fire this year by type of land (VIIRS 375 m squares, each counted once), for the impact page
+def impacto(out_dir):
+    d = json.load(open(os.path.join(out_dir, 'roraima3d.json'), encoding='utf-8'))
+    F = d['fires']
+    t0 = datetime.fromisoformat(d['meta']['t0'].replace('Z', '+00:00'))
+    year = datetime.now(timezone.utc).year
+    y0 = (datetime(year, 1, 1, 4, tzinfo=timezone.utc) - t0).total_seconds() / 60   # 1 Jan, Roraima time
+    seen, ti = {}, set()
+    for i, t in enumerate(F['t']):
+        if t < y0 or not F['v'][i]:
+            continue
+        k = (round(F['lat'][i] / 0.003375), round(F['lon'][i] / 0.003375))
+        if k in seen:
+            continue
+        seen[k] = F['c'][i]
+        if F['ti'][i] >= 0:
+            ti.add(k)
+    by = {}
+    for c in seen.values():
+        by[d['lc'][c]] = by.get(d['lc'][c], 0) + 1
+    cell_ha = 14.06
+    write(os.path.join(out_dir, 'impacto.json'), {
+        'generated': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ'), 'ano': year,
+        'ultimoFogo': d['meta'].get('lastFire'), 'haCelula': cell_ha,
+        'totalHa': round(len(seen) * cell_ha), 'tiHa': round(len(ti) * cell_ha),
+        'porTipo': {k: round(v * cell_ha) for k, v in sorted(by.items(), key=lambda x: -x[1])}})
+    print('impacto.json:', round(len(seen) * cell_ha), 'ha com fogo em', year)
+
+
+# ---------- measured weather, better than the model wherever it exists
+# 1) Boa Vista airport (SBBV): METAR every hour (temperature, dew point, wind, gusts, visibility, smoke/haze)
+# 2) ANA telemetry stations: rain measured every 15 minutes (the same stations used for the rivers)
+# 3) CPTEC/INPE: official forecast for the 15 municipal seats, 4 days
+CPTEC_IDS = {}   # filled once per run from the CPTEC city list
+
+
+def get_text(url, timeout=60, enc='utf-8'):
+    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
+        return r.read().decode(enc, errors='replace')
+
+
+def _metar():
+    data = get_json('https://aviationweather.gov/api/data/metar?ids=SBBV&format=json&hours=26')
+    obs = []
+    for m in data:
+        if m.get('temp') is None:
+            continue
+        t, dp = m['temp'], m.get('dewp')
+        rh = None
+        if dp is not None:   # relative humidity from temperature and dew point (Magnus)
+            import math
+            rh = round(100 * math.exp(17.625 * dp / (243.04 + dp)) / math.exp(17.625 * t / (243.04 + t)))
+        kt = 1.852
+        vis = m.get('visib')
+        obs.append({'t': m.get('reportTime'), 'tc': t, 'rh': rh,
+                    'wd': m.get('wdir') if isinstance(m.get('wdir'), (int, float)) else None,
+                    'ws': round((m.get('wspd') or 0) * kt), 'wg': round(m['wgst'] * kt) if m.get('wgst') else None,
+                    'vis': vis, 'wx': m.get('wxString'), 'raw': m.get('rawOb')})
+    obs.sort(key=lambda o: o['t'] or '')
+    if not obs:
+        return None
+    last = obs[-1]
+    temps = [o['tc'] for o in obs[-24:]]
+    return {'nome': 'Aeroporto de Boa Vista', 'lat': 2.846, 'lon': -60.69, 'ultimo': last,
+            'max24': max(temps), 'min24': min(temps)}
+
+
+def _ana_rain(out_dir):
+    st = json.load(open(os.path.join(out_dir, 'seca.json'), encoding='utf-8')).get('stations', [])
+    end = datetime.now(timezone.utc)
+    ini = datetime.fromtimestamp(end.timestamp() - 10 * 86400, timezone.utc)
+    res = []
+    import re
+    for s_ in st:
+        try:
+            x = get_text('https://telemetriaws1.ana.gov.br/ServiceANA.asmx/DadosHidrometeorologicos?codEstacao=' + s_['code'] +
+                         '&dataInicio=' + ini.strftime('%d/%m/%Y') + '&dataFim=' + end.strftime('%d/%m/%Y'), 120)
+        except Exception as e:
+            print('ANA chuva', s_['code'], 'falhou:', e)
+            continue
+        rows = []
+        for t, c in re.findall(r'<DataHora>([^<]+)</DataHora>.*?<Chuva>([^<]*)</Chuva>', x, re.S):
+            if c.strip():
+                rows.append((t.strip(), float(c)))
+        if not rows:
+            continue
+        rows.sort()
+        last_t = rows[-1][0]
+        # station clock is Brasília time (UTC-3)
+        lt = datetime.strptime(last_t[:19], '%Y-%m-%d %H:%M:%S').timestamp() + 3 * 3600
+        def total(hours):
+            lim = lt - hours * 3600
+            return round(sum(v for t, v in rows if datetime.strptime(t[:19], '%Y-%m-%d %H:%M:%S').timestamp() + 3 * 3600 > lim), 1)
+        by_day = {}
+        for t, v in rows:
+            by_day[t[:10]] = by_day.get(t[:10], 0) + v
+        days = sorted(by_day)
+        dry = 0
+        for d in reversed(days):
+            if by_day[d] >= 1:
+                break
+            dry += 1
+        res.append({'code': s_['code'], 'n': s_.get('name'), 'rio': s_.get('river'), 'lat': s_['lat'], 'lon': s_['lon'],
+                    'ultimo': last_t, 'c24': total(24), 'c72': total(72), 'c10d': round(sum(by_day.values()), 1),
+                    'semChuva': dry, 'dias': len(days)})
+        time.sleep(0.5)
+    return res
+
+
+def _cptec():
+    import unicodedata
+    plain = lambda x: unicodedata.normalize('NFKD', x).encode('ascii', 'ignore').decode().lower()
+    out = []
+    for nome, la, lo in SEDES:
+        try:
+            if nome not in CPTEC_IDS:
+                xml = get_text('https://servicos.cptec.inpe.br/XML/listaCidades?city=' + urllib.request.quote(plain(nome)), 60, 'iso-8859-1')
+                import re
+                for n_, uf, i_ in re.findall(r'<nome>([^<]+)</nome><uf>([^<]+)</uf><id>(\d+)</id>', xml):
+                    if uf == 'RR' and plain(n_) == plain(nome):
+                        CPTEC_IDS[nome] = i_
+                        break
+            i_ = CPTEC_IDS.get(nome)
+            if not i_:
+                continue
+            xml = get_text('https://servicos.cptec.inpe.br/XML/cidade/' + i_ + '/previsao.xml', 60, 'iso-8859-1')
+            import re
+            dias = [{'d': d, 't': t, 'max': int(mx), 'min': int(mn)} for d, t, mx, mn in
+                    re.findall(r'<dia>([^<]+)</dia><tempo>([^<]+)</tempo><maxima>(-?\d+)</maxima><minima>(-?\d+)</minima>', xml)]
+            if dias:
+                out.append({'n': nome, 'lat': la, 'lon': lo, 'dias': dias})
+        except Exception as e:
+            print('CPTEC', nome, 'falhou:', e)
+        time.sleep(0.3)
+    return out
+
+
+def medido(out_dir):
+    res = {'generated': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ')}
+    for key, fn in (('metar', _metar), ('ana', lambda: _ana_rain(out_dir)), ('cptec', _cptec)):
+        try:
+            res[key] = fn()
+        except Exception as e:
+            print('medido', key, 'falhou:', e)
+    write(os.path.join(out_dir, 'medido.json'), res)
+    print('medido.json: aeroporto', 'ok' if res.get('metar') else 'sem dados', '· ANA', len(res.get('ana') or []), 'estações · CPTEC', len(res.get('cptec') or []), 'cidades')
+
+
+
+# ---------- news: official notices (gov.br, rr.gov.br) go automatically to 'Avisos'; press goes to 'Na imprensa'.
+# Only title, source, date and link are stored (the text belongs to the newspaper). Old items disappear by themselves.
+NEWS_KEYS = r'queimad|inc[eê]ndi|fogo|focos? de calor|estiagem|\bseca\b|fuma[cç]a|emerg[eê]ncia|defesa civil|el ni[nñ]o|brigad|n[ií]vel do rio|rio branco|qualidade do ar|chuva'
+NEWS_PLACES = r'roraima|\bRR\b|boa vista|bonfim|cant[aá]|normandia|uiramut[aã]|pacaraima|amajari|alto alegre|mucaja[ií]|iracema|caracara[ií]|rorain[oó]polis|caroebe|s[aã]o jo[aã]o da baliza|s[aã]o luiz|yanomami|raposa serra do sol'
+RR_PRESS = ('folhabv.com.br', 'roraima1.com.br', 'g1.globo.com/rr', 'roraimaemfoco', 'jornalroraimahoje', 'agenciagov', 'diariorr', 'seligaroraima', 'ncnews.com.br')
+
+
+def _rss_items(url):
+    import re
+    from email.utils import parsedate_to_datetime
+    import html as H
+    x = get_text(url, 60)
+    out = []
+    for it in re.findall(r'<item>(.*?)</item>', x, re.S):
+        g = lambda tag: (re.search(r'<' + tag + r'[^>]*>(.*?)</' + tag + '>', it, re.S) or [None, ''])[1]
+        title = H.unescape(re.sub(r'<!\[CDATA\[|\]\]>', '', g('title'))).strip()
+        link = H.unescape(re.sub(r'<!\[CDATA\[|\]\]>', '', g('link'))).strip()
+        src = re.search(r'<source url="([^"]+)">(.*?)</source>', it, re.S)
+        src_url, src_name = (src.group(1), H.unescape(src.group(2)).strip()) if src else ('', '')
+        try:
+            when = parsedate_to_datetime(g('pubDate').strip()).astimezone(timezone.utc)
+        except Exception:
+            continue
+        if src_name and title.endswith(' - ' + src_name):
+            title = title[: -len(' - ' + src_name)]
+        out.append({'t': title, 'link': link, 'fonte': src_name, 'fonteUrl': src_url, 'quando': when})
+    return out
+
+
+def noticias(out_dir):
+    import re
+    from urllib.parse import quote
+    now = datetime.now(timezone.utc)
+    items = []
+    q1 = 'Roraima (queimada OR incêndio OR "focos de calor" OR estiagem OR fumaça OR "Defesa Civil" OR "situação de emergência")'
+    q2 = '(site:rr.gov.br OR site:gov.br) Roraima (queimada OR incêndio OR estiagem OR emergência OR fumaça)'
+    for q in (q1, q2):
+        try:
+            items += _rss_items('https://news.google.com/rss/search?q=' + quote(q) + '&hl=pt-BR&gl=BR&ceid=BR:pt-419')
+        except Exception as e:
+            print('noticias google', e)
+    try:   # Defesa Civil Nacional / Ministério da Integração: recognitions of emergency
+        for it in _rss_items('https://www.gov.br/mdr/pt-br/noticias/RSS'):
+            it['fonte'] = it['fonte'] or 'Ministério da Integração e do Desenvolvimento Regional'
+            it['fonteUrl'] = it['fonteUrl'] or 'https://www.gov.br/mdr'
+            items.append(it)
+    except Exception as e:
+        print('noticias mdr', e)
+    seen, of, im = set(), [], []
+    for it in sorted(items, key=lambda x: x['quando'], reverse=True):
+        age_d = (now - it['quando']).total_seconds() / 86400
+        t = it['t']
+        if not t or age_d > 10 or age_d < -1:
+            continue
+        if not re.search(NEWS_KEYS, t, re.I):
+            continue
+        u = (it['fonteUrl'] or '').lower()
+        official = '.gov.br' in u or u.endswith('gov.br') or 'rr.gov.br' in u
+        local = any(p in u for p in RR_PRESS)
+        if not re.search(NEWS_PLACES, t, re.I) and not (local or 'rr.gov.br' in u):
+            continue   # nothing to do with Roraima
+        key = re.sub(r'\W+', ' ', t.lower()).strip()[:80]
+        if key in seen:
+            continue
+        seen.add(key)
+        row = {'t': t, 'fonte': it['fonte'], 'link': it['link'], 'data': it['quando'].strftime('%Y-%m-%dT%H:%MZ')}
+        if official and age_d <= 7 and len(of) < 4:
+            of.append(row)
+        elif not official and age_d <= 5 and len(im) < 6:
+            im.append(row)
+    write(os.path.join(out_dir, 'noticias.json'), {'generated': now.strftime('%Y-%m-%dT%H:%MZ'), 'oficiais': of, 'imprensa': im})
+    print('noticias.json:', len(of), 'oficiais,', len(im), 'na imprensa')
+
+
+
+# ---------- Diário Oficial do Estado de Roraima: official acts (portarias, decretos) about fire, burning, drought, emergency.
+# Each new edition is read once (cache); the newest act of each subject stays until its end date; an extension replaces the older act.
+DOE_BASE = 'https://www.imprensaoficial.rr.gov.br'
+DOE_KEYS = r'uso do fogo|fogo controlado|queima controlada|queimadas?\b|inc[eê]ndios? florest|situa[cç][aã]o de emerg[eê]ncia|estiagem|calend[aá]rio de queima'
+DOE_ACT = r'(?m)^\s*((?:PORTARIA|DECRETO|RESOLU[CÇ][AÃ]O)\s+N[ºo°.]*\s*[\d.]+[^\n]{0,60}?,?\s*DE\s+\d{1,2}\s+DE\s+[A-ZÇ]+\s+DE\s+\d{4})'
+MESES_PT = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO']
+
+
+def _doe_opener():
+    import http.cookiejar
+    return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+
+def _doe_editions(op, ano, mes):
+    import re
+    page = DOE_BASE + '/_visualizar-mes/?ano=%d&mes=%02d' % (ano, mes)
+    x = op.open(urllib.request.Request(page, headers=UA), timeout=60).read().decode('utf-8', 'replace')
+    out = []
+    for form in re.findall(r'<form role="form" action="../_visualizar-doe/".*?</form>', x, re.S):
+        kv = dict(re.findall(r'name="([^"]+)" value="([^"]*)"', form))
+        if kv.get('doe'):
+            out.append((kv, page))
+    return out
+
+
+def _doe_pdf(op, kv, page):
+    from urllib.parse import urlencode
+    req = urllib.request.Request(DOE_BASE + '/_visualizar-doe/', data=urlencode(kv).encode(), headers=dict(UA, Referer=page))
+    b = op.open(req, timeout=240).read()
+    return b if b[:4] == b'%PDF' else None
+
+
+def _doe_acts(pdf_bytes, name, page_url):
+    import io, re
+    from datetime import date, timedelta
+    from pypdf import PdfReader
+    pages = [(p.extract_text() or '') for p in PdfReader(io.BytesIO(pdf_bytes)).pages]
+    full, starts = '', []
+    for t in pages:
+        starts.append(len(full)); full += t + '\n'
+    ed = re.search(r'Edição N°:\s*(\d+)', full)
+    y, m, d_ = int(name[-12:-8]), int(name[-8:-6]), int(name[-6:-4])
+    pub = date(y, m, d_)
+    marks = list(re.finditer(DOE_ACT, full))
+    acts = []
+    for i, mk in enumerate(marks):
+        block = full[mk.start(): marks[i + 1].start() if i + 1 < len(marks) else mk.start() + 4000][:4000]
+        if not re.search(DOE_KEYS, block, re.I):
+            continue
+        art = re.search(r'Art\.?\s*1[ºo°]?\s*[-–.]?\s*(.{20,500}?\.)\s', block, re.S)
+        art_txt = re.sub(r'\s+', ' ', art.group(1)).strip() if art else ''
+        if not art_txt or not re.search(DOE_KEYS, art_txt + ' ' + block[:600], re.I):
+            continue
+        head = re.sub(r'\s+', ' ', mk.group(1)).strip()
+        hd = re.search(r'DE\s+(\d{1,2})\s+DE\s+([A-ZÇ]+)\s+DE\s+(\d{4})', head)
+        act_date = date(int(hd.group(3)), MESES_PT.index(hd.group(2)) + 1, int(hd.group(1))) if hd and hd.group(2) in MESES_PT else pub
+        low = block.lower()
+        tipo = 'queima' if re.search(r'uso do fogo|fogo controlado|queima', low) else 'emergencia' if re.search(r'emerg[eê]ncia|estiagem', low) else 'fogo'
+        fim = None
+        mm = re.search(r'por\s+(\d+)\s*(?:\([^)]*\))?\s*dias\s*,?\s*a\s+(?:contar|partir)\s+d[oa]?\s*(?:dia\s+)?(\d{1,2})[./](\d{1,2})[./](\d{4})', art_txt, re.I)
+        if mm:
+            fim = date(int(mm.group(4)), int(mm.group(3)), int(mm.group(2))) + timedelta(days=int(mm.group(1)) - 1)
+        else:
+            mm = re.search(r'(\d+)\s*\([^)]*\)\s*dias|por\s+(\d+)\s+dias|(cento e oitenta)\s+dias', block, re.I)
+            n = int(mm.group(1) or mm.group(2)) if mm and (mm.group(1) or mm.group(2)) else 180 if mm else None
+            if n is None and tipo == 'emergencia':
+                n = 180
+            if n:
+                fim = act_date + timedelta(days=n)
+        orgao = 'FEMARH' if 'FEMARH' in head.upper() else 'Governo de Roraima' if head.upper().startswith('DECRETO') else 'Diário Oficial de RR'
+        page_no = max(k for k, st in enumerate(starts) if st <= mk.start()) + 1
+        acts.append({'ato': head, 'orgao': orgao, 'tipo': tipo, 'prorroga': 'PRORROG' in block.upper(),
+                     'resumo': art_txt[:420], 'dataAto': act_date.isoformat(), 'pub': pub.isoformat(),
+                     'edicao': ed.group(1) if ed else '', 'pagina': page_no, 'fim': fim.isoformat() if fim else None, 'link': page_url})
+    return acts
+
+
+def doe_rr(cache_dir, out_dir):
+    from datetime import date
+    cpath = os.path.join(cache_dir, 'doe_cache.json')
+    cache = json.load(open(cpath, encoding='utf-8')) if os.path.exists(cpath) else {'lidas': [], 'atos': []}
+    op = _doe_opener()
+    today = datetime.now(timezone.utc).date()
+    months = [(today.year, today.month), (today.year if today.month > 1 else today.year - 1, today.month - 1 if today.month > 1 else 12)]
+    new = 0
+    for ano, mes in months:
+        try:
+            eds = _doe_editions(op, ano, mes)
+        except Exception as e:
+            print('DOE lista', ano, mes, 'falhou:', e)
+            continue
+        for kv, page in eds:
+            name = kv['doe']
+            if name in cache['lidas'] or new >= 8:
+                continue
+            try:
+                pdf = _doe_pdf(op, kv, page)
+                if pdf:
+                    cache['atos'] += _doe_acts(pdf, name, page)
+                cache['lidas'].append(name)
+                new += 1
+            except Exception as e:
+                print('DOE', name, 'falhou:', e)
+                new += 1   # a failure also counts, so a broken run never downloads every edition
+            time.sleep(1)
+    cache['lidas'] = cache['lidas'][-120:]
+    # newest act per subject (an extension replaces the older act); drop expired ones
+    best = {}
+    for a in sorted(cache['atos'], key=lambda a: (a['pub'], a['dataAto'])):
+        best[a['tipo']] = a
+    vivos = [a for a in best.values() if not a['fim'] or a['fim'] >= today.isoformat()]
+    cache['atos'] = [a for a in cache['atos'] if (a['fim'] or a['pub']) >= (today.replace(day=1)).isoformat() or a in vivos][-200:]
+    json.dump(cache, open(cpath, 'w', encoding='utf-8'), ensure_ascii=False)
+    write(os.path.join(out_dir, 'doe.json'), {'generated': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ'), 'atos': vivos})
+    print('doe.json:', len(vivos), 'atos em vigor;', new, 'edições novas lidas')
+
+
+
 def main():
     cache_dir = sys.argv[1] if len(sys.argv) > 1 else 'dados-3d'
     out_dir = sys.argv[2] if len(sys.argv) > 2 else 'docs'
     src = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'avisos.json')
     ok = True
-    for part in (lambda: air(out_dir), lambda: history(out_dir), lambda: risco(cache_dir, out_dir), lambda: avisos(src, out_dir)):
+    for part in (lambda: air(out_dir), lambda: history(out_dir), lambda: risco(cache_dir, out_dir), lambda: avisos(src, out_dir), lambda: impacto(out_dir), lambda: medido(out_dir), lambda: noticias(out_dir), lambda: doe_rr(cache_dir, out_dir)):
         try:
             part()
         except Exception as e:

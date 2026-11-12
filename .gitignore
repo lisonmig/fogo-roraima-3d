@@ -17,3 +17,7 @@ dados-3d/s2_rr_*.jpg
 
 # registro local da atualização no PC
 atualizacao.log
+
+# arquivos grandes do IBAMA com o Brasil inteiro (o relatório da área guarda só Roraima, em docs/rel/)
+dados-3d/ibama_embargo.csv
+dados-3d/sinaflor_asv.csv
