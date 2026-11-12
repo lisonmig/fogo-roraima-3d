@@ -595,6 +595,67 @@ details.legal li { margin-bottom: 4px; }
 .imlist a { color: var(--ink); font-weight: 600; text-decoration: none; }
 .imlist span { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
 .panel-in:has(#pane-resumo[hidden]) #updated { display: none; }
+/* ---------- ferramenta Medir */
+#measBtn[aria-pressed="true"] { background: var(--accent, #c2410c); color: #fff; }
+body.measuring #labels > * { pointer-events: none; }
+.meas-big { font: 700 26px var(--f-disp, sans-serif); margin: 2px 0 0; line-height: 1.1; }
+.meas-sub { margin: 2px 0 8px; font-size: 13px; color: var(--ink-2, #555); }
+.meas-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.meas-row .btn { flex: 1 1 auto; min-height: 40px; }
+.meas-seg { display: flex; gap: 0; margin: 6px 0 8px; border: 1px solid var(--line-strong, #bbb); border-radius: 8px; overflow: hidden; }
+.meas-seg button { flex: 1; min-height: 38px; border: 0; background: transparent; font: 600 13px var(--f-body, sans-serif); color: inherit; cursor: pointer; }
+.meas-seg button[aria-pressed="true"] { background: var(--ink, #1b1917); color: #fff; }
+.meas-prof { width: 100%; height: 76px; display: block; margin: 4px 0 0; }
+.meas-prof path.a { fill: rgba(194,65,12,.18); stroke: none; } .meas-prof path.l { fill: none; stroke: #c2410c; stroke-width: 1.6; }
+.meas-prof text { font: 10px var(--f-mono, monospace); fill: currentColor; opacity: .75; }
+.meas-tip { font-size: 12.5px; color: var(--ink-2, #555); margin: 6px 0 0; }
+/* ---------- coordenadas sob o mouse */
+.coord { position: absolute; left: 50%; transform: translateX(-50%); bottom: 10px; z-index: 2; display: flex; gap: 2px; align-items: stretch; }
+.coord button { border: 0; background: rgba(12,12,12,.72); color: #f4efe8; font: 12px var(--f-data, monospace); padding: 4px 9px; cursor: pointer; white-space: nowrap; }
+.coord .coord-v { border-radius: 6px 0 0 6px; } .coord .coord-f { border-radius: 0 6px 6px 0; color: #ffb27a; }
+.coord button:hover { background: rgba(12,12,12,.9); }
+@media (hover: none), (pointer: coarse) { .coord { display: none !important; } }
+/* ---------- meus lugares */
+.places-box { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line, #e3ddd4); }
+.places-box h3 { margin: 0 0 4px; font-size: 15px; }
+.places-box .row { display: flex; gap: 6px; flex-wrap: wrap; } .places-box input { flex: 1 1 160px; min-height: 40px; padding: 6px 9px; font: inherit; border: 1px solid var(--line-strong, #bbb); border-radius: 6px; }
+.places { list-style: none; margin: 8px 0 0; padding: 0; }
+.places li { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--line, #eee); }
+.places li .pn { flex: 1; min-width: 0; } .places li .pn b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.places li .pn small { font: 11.5px var(--f-data, monospace); opacity: .75; }
+.places li .btn { min-height: 38px; padding: 4px 10px; }
+.meas-row a.btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+/* ---------- quadro de informações: mover, minimizar, redimensionar */
+#pop.pop { overflow: hidden; display: flex; flex-direction: column; translate: var(--px, 0px) var(--py, 0px); }
+#pop.pop > #popBody { overflow-y: auto; min-height: 0; flex: 1 1 auto; overscroll-behavior: contain; }
+#pop.pop .pop-grab { cursor: grab; flex: none; } #pop.pop.dragging .pop-grab { cursor: grabbing; }
+#pop.pop.dragging { box-shadow: 0 18px 44px rgba(0,0,0,.45); transform: scale(1.02); transition: transform .15s, box-shadow .15s; }
+#pop.pop.settle { transition: translate .32s cubic-bezier(.3,1.45,.5,1); }
+.pop.pop-in { animation: popIn2 .34s cubic-bezier(.2,.8,.3,1.2); }
+@keyframes popIn2 { 0% { opacity: 0; transform: translateY(16px) scale(.94); } 65% { opacity: 1; transform: translateY(-3px) scale(1.01); } 100% { opacity: 1; transform: none; } }
+.pop .pop-min { position: absolute; top: 8px; right: 40px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: var(--chip); color: var(--ink); cursor: pointer; font: 700 16px/1 var(--f-body); }
+.pop h3 { margin-right: 64px; }
+.pop-rs { position: absolute; right: 0; bottom: 0; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 10px 0 10px 0; cursor: nwse-resize; touch-action: none;
+  background: var(--chip, #eee); color: var(--ink, #222); font: 700 17px/34px var(--f-body, sans-serif); text-align: center; opacity: .85; }
+.pop-rs::before { content: "⤡"; }
+#pop.pop > #popBody { zoom: var(--tz, var(--pz)); }
+#pop.pop.mini { height: auto !important; }
+.pop-rs:hover, .pop-rs:focus-visible, #pop.pop.resizing .pop-rs { opacity: 1; background: var(--accent, #c2410c); color: #fff; }
+#pop.pop > #popBody { padding-bottom: 26px; }
+.pop-mt { display: none; }
+#pop.pop.mini { width: auto !important; max-width: min(70%, 320px); padding: 4px 70px 4px 10px; border-radius: 999px; }
+#pop.pop.mini #popBody, #pop.pop.mini .pop-grab, #pop.pop.mini .pop-rs { display: none; }
+#pop.pop.mini .pop-mt { display: block; border: 0; background: none; color: var(--ink); font: 600 14px var(--f-body); min-height: 34px; padding: 0; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; touch-action: none; text-align: left; }
+#pop.pop.mini .pop-min { top: 50%; margin-top: -13px; }
+#pop.pop.mini .x { top: 50%; margin-top: -13px; }
+@media (max-width: 880px) {
+  .pop .pop-min { width: 44px; height: 44px; top: 2px; right: 48px; font-size: 20px; }
+  .pop h3 { margin-right: 96px; }
+  .pop-rs { width: 40px; height: 40px; line-height: 40px; }
+  #pop.pop.mini { padding: 2px 98px 2px 12px; }
+  #pop.pop.mini .pop-min, #pop.pop.mini .x { margin-top: -22px; }
+}
+@media (prefers-reduced-motion: reduce) { #pop.pop.settle, #pop.pop.dragging { transition: none; transform: none; } .pop.pop-in { animation: none; } }
 /* ---------- design, fase 2: cores ----------
    Risco (mesma escala em todo o site): mínimo #2e7d32 · baixo #8bc34a · médio #e6b800 · alto #ef6c00 · crítico #b42318
    Ação (abas, botões escolhidos): tinta (texto) · Laranja e vermelho: só para fogo e perigo */
@@ -649,6 +710,8 @@ details.legal li { margin-bottom: 4px; }
       <button class="compass" id="compass" title="Virar para o norte"><span id="needle">N</span></button>
       <button class="vbtn" id="home">Estado todo</button>
       <button class="vbtn" id="topView">Vista de cima</button>
+      <button class="vbtn" id="measBtn" aria-pressed="false" title="Medir distância e área no mapa">📏 Medir</button>
+      <button class="vbtn" id="viewLinkBtn" title="Copiar um link que abre o mapa neste mesmo ângulo e momento">🔗 Link desta vista</button>
       <button class="vbtn" id="moreBtn" aria-expanded="false" title="Mais botões do mapa">⋯ Mais</button>
       <button class="vbtn" id="bigBtn" aria-pressed="false" title="Aumentar o texto">A+ Texto</button>
       <button class="vbtn" id="helpBtn" title="Como usar o mapa" aria-label="Como usar o mapa">Como usar?</button>
@@ -660,11 +723,15 @@ details.legal li { margin-bottom: 4px; }
     <button class="qual" id="qual" type="button" hidden aria-label="Por que o mapa está com menos qualidade"></button>
     <div class="pickhint" id="pickHint" hidden>Clique no mapa para marcar o local</div>
     <div class="hint" id="hint">Clique num foco para ver detalhes</div>
+    <div class="coord" id="coord" hidden><button type="button" class="coord-v" id="coordV" title="Clique para copiar as coordenadas"></button><button type="button" class="coord-f" id="coordF" title="Trocar entre graus decimais e graus, minutos e segundos">°′″</button></div>
     <button class="sidetab" id="sideTab" aria-controls="panel" aria-expanded="true" title="Ocultar painel">›</button>
     <div class="pop" id="pop" hidden role="dialog" aria-label="Detalhes da seleção">
-      <button class="pop-grab" id="popGrab" type="button" aria-label="Arraste para aumentar ou diminuir o quadro (setas também funcionam)" title="Arraste para cima ou para a direita para aumentar"><span></span></button>
+      <button class="pop-grab" id="popGrab" type="button" aria-label="Arraste para mover o quadro (setas também movem)" title="Arraste para mover o quadro"><span></span></button>
+      <button class="pop-mt" id="popMt" type="button" title="Abrir o quadro (arraste para mover)"></button>
+      <button class="pop-min" id="popMin" type="button" aria-label="Minimizar o quadro" title="Minimizar">–</button>
       <button class="x" id="popX" aria-label="Fechar">×</button>
       <div id="popBody"></div>
+      <button class="pop-rs" id="popRs" type="button" aria-label="Arraste para mudar a largura e a altura do quadro (setas também funcionam; toque duplo volta ao tamanho normal)" title="Arraste para mudar a largura (para os lados) e a altura (para cima ou para baixo). Toque duplo: tamanho normal"></button>
     </div>
     <div class="inst" id="inst" hidden role="dialog" aria-label="Instalar o app">
       <img src="icone-192.png" alt="">
@@ -785,6 +852,13 @@ details.legal li { margin-bottom: 4px; }
           </div>
           <p class="note" id="gpsMsg" hidden></p>
           <div class="near" id="near"></div>
+          <div class="places-box">
+            <h3>⭐ Meus lugares</h3>
+            <p class="note" style="margin:0 0 6px">Guarde sítios, vicinais e pontos de referência com um nome. Ficam salvos <b>só neste aparelho</b>.</p>
+            <div class="row"><input id="placeName" maxlength="40" placeholder="Nome do local (ex.: Sítio Boa Esperança)" aria-label="Nome do local"><button class="btn" id="placeSave">Salvar local marcado</button></div>
+            <p class="note" id="placeMsg" hidden></p>
+            <ul class="places" id="places"></ul>
+          </div>
           <div id="rainLive" hidden style="margin-top:10px"></div>
           <details class="more fine" id="fineBox" hidden>
             <summary>Simular multa</summary>
@@ -1899,6 +1973,32 @@ details.legal li { margin-bottom: 4px; }
     $('near').innerHTML = ''; $('pinClear').hidden = true; $('fineBox').hidden = true; stopPicking();
     saveLocal(); renderMyStatus();
   }
+  // ---------- 'Meus lugares' (like Google Earth placemarks): named places kept only in this browser
+  let MYPL = []; try { MYPL = JSON.parse(localStorage.getItem('rr3d-places') || '[]').filter(p => p && Number.isFinite(p.lon) && Number.isFinite(p.lat)); } catch (e) {}
+  const placesSave = () => { try { localStorage.setItem('rr3d-places', JSON.stringify(MYPL.slice(0, 50))); } catch (e) {} };
+  function placesRender() {
+    const ul = $('places'); if (!ul) return;
+    ul.innerHTML = MYPL.length ? '' : '<li class="note" style="border:0">Nenhum lugar salvo ainda. Marque um local no mapa (toque duplo ou "Marcar no mapa"), dê um nome e salve.</li>';
+    MYPL.forEach((p, k) => {
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="pn"><b></b><small>' + p.lat.toFixed(5) + ', ' + p.lon.toFixed(5) + '</small></span><button type="button" class="btn" data-go="' + k + '">Ir</button><button type="button" class="btn" data-del="' + k + '" aria-label="Apagar">×</button>';
+      li.querySelector('b').textContent = p.name; li.querySelector('[data-del]').setAttribute('aria-label', 'Apagar ' + p.name); ul.appendChild(li);
+    });
+  }
+  function placeMsg(t) { const m = $('placeMsg'); m.textContent = t; m.hidden = !t; }
+  $('placeSave').onclick = () => {
+    if (!st.pin) { placeMsg('Marque um local no mapa primeiro (toque duplo no mapa ou "Marcar no mapa").'); return; }
+    const name = ($('placeName').value || '').trim() || (st.pin.label && st.pin.label !== 'Ponto marcado' ? st.pin.label : 'Lugar ' + (MYPL.length + 1));
+    MYPL.unshift({ name, lon: +st.pin.lon.toFixed(6), lat: +st.pin.lat.toFixed(6) }); MYPL = MYPL.slice(0, 50); placesSave(); placesRender();
+    $('placeName').value = ''; placeMsg('"' + name + '" salvo neste aparelho.');
+  };
+  $('places').addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('button'); if (!b) return;
+    if (b.dataset.del != null) { const p = MYPL[+b.dataset.del]; if (!p) return; MYPL.splice(+b.dataset.del, 1); placesSave(); placesRender(); placeMsg('"' + p.name + '" apagado.'); }
+    else if (b.dataset.go != null) { const p = MYPL[+b.dataset.go]; if (!p) return; setPin(p.lon, p.lat, p.name); if (isPhone()) setDrawer(false);
+      flyTo(orbitPose(toX(p.lon), toZ(p.lat), 30, 0, 0.9)); }
+  });
+  placesRender();
   // ---------- rivers (OpenStreetMap): wide rivers and long named rivers act as barriers to a ground fire
   const RV = { ok: false, G: 0.05, segs: [], grid: new Map(), psegs: [], pgrid: new Map(), names: [], lines: [], areas: [], layers: [] };
   function initRios(J) {
@@ -2379,7 +2479,7 @@ details.legal li { margin-bottom: 4px; }
     if (open) el2.querySelectorAll('details').forEach(d => d.open = true);
   }
   $('pinClear').onclick = clearPin;
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (st.picking) stopPicking(); else if (!$('pop').hidden) { st.sel = null; showDetail(); } } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (MEAS.on) measOff(); else if (st.picking) stopPicking(); else if (!$('pop').hidden) { st.sel = null; showDetail(); } } });
 
   // burned area (VIIRS 375 m cells) inside the circle, from the start of the period to now
   function burnedInCircle(lon, lat, R) {
@@ -3255,6 +3355,24 @@ details.legal li { margin-bottom: 4px; }
     const c = g && carLayer && carLayer.obj.visible ? carAt(g.lon, g.lat) : -1;
     st.sel = c >= 0 ? { kind: 'car', k: c } : null; showDetail();
   }
+  // ---------- coordinates and altitude under the mouse (like Google Earth); click copies
+  const CO = { fmt: 0, last: null, raf: 0, ev: null };
+  try { CO.fmt = +localStorage.getItem('rr3d-coordfmt') || 0; } catch (err) {}
+  const dms = (v, pos, neg) => { const a = Math.abs(v), d = Math.floor(a), mf = (a - d) * 60, m = Math.floor(mf), s = (mf - m) * 60;
+    return d + '°' + two(m) + '′' + s.toFixed(1).padStart(4, '0').replace('.', ',') + '″ ' + (v >= 0 ? pos : neg); };
+  const coordTxt = g => CO.fmt ? dms(g.lat, 'N', 'S') + '  ' + dms(g.lon, 'L', 'O')
+    : g.lat.toFixed(5).replace('.', ',') + '°  ' + g.lon.toFixed(5).replace('.', ',') + '°';
+  function coordShow() {
+    CO.raf = 0; const e = CO.ev; if (!e) return; const g = groundAt(e.clientX, e.clientY);
+    if (!g || g.lon < W || g.lon > E || g.lat < S || g.lat > N) { $('coord').hidden = true; return; }
+    CO.last = g; $('coordV').textContent = coordTxt(g) + '  ·  ' + fmt(elevAt(g.lon, g.lat), 0) + ' m'; $('coord').hidden = false;
+  }
+  renderer.domElement.addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; CO.ev = e; if (!CO.raf) CO.raf = requestAnimationFrame(coordShow); });
+  renderer.domElement.addEventListener('pointerleave', e => { CO.ev = null; if (!(e.relatedTarget && $('coord').contains(e.relatedTarget))) $('coord').hidden = true; });
+  $('coord').addEventListener('pointerleave', e => { if (!(e.relatedTarget && e.relatedTarget === renderer.domElement)) $('coord').hidden = true; });
+  $('coordF').onclick = () => { CO.fmt = CO.fmt ? 0 : 1; try { localStorage.setItem('rr3d-coordfmt', CO.fmt); } catch (err) {} if (CO.last) $('coordV').textContent = coordTxt(CO.last) + '  ·  ' + fmt(elevAt(CO.last.lon, CO.last.lat), 0) + ' m'; };
+  $('coordV').onclick = async () => { const g = CO.last; if (!g) return;
+    try { await navigator.clipboard.writeText(g.lat.toFixed(5) + ', ' + g.lon.toFixed(5)); showToast('Coordenadas copiadas: ' + g.lat.toFixed(5) + ', ' + g.lon.toFixed(5), 3500); } catch (err) { showToast('Não foi possível copiar neste navegador.'); } };
   let downAt = null;
   renderer.domElement.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; if (fly && fly.intro) fly = null; });
   // double tap / double click on the map marks (or moves) the point; double tap on the pin (or double right click) removes it, with undo
@@ -3275,6 +3393,7 @@ details.legal li { margin-bottom: 4px; }
     const kind = e.pointerType === 'mouse' ? (e.button === 2 ? 'r' : 'l') : 't', now = performance.now();
     const dbl = lastTap && lastTap.kind === kind && now - lastTap.t < 450 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40;
     lastTap = dbl ? null : { kind, t: now, x: e.clientX, y: e.clientY };
+    if (MEAS.on) { if (kind !== 'r') measAdd(e.clientX, e.clientY); return; }
     if (dbl && !st.picking) {
       const onPin = st.pin && (() => { const r = renderer.domElement.getBoundingClientRect(); tmpV.set(toX(st.pin.lon), yAt(st.pin.lon, st.pin.lat) + 0.8, toZ(st.pin.lat)).project(camera);
         return tmpV.z < 1 && Math.hypot(r.left + (tmpV.x + 1) / 2 * r.width - e.clientX, r.top + (1 - tmpV.y) / 2 * r.height - e.clientY) < 40; })();
@@ -3543,23 +3662,180 @@ details.legal li { margin-bottom: 4px; }
   // info card over the map: essentials first, the rest behind an arrow
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   const rowsHtml = rows => '<dl>' + rows.map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl>';
+  // info card: size (corner handle), position (top bar, remembered, attracted to edges) and minimize (pill with the place name)
+  let popFit = () => {};
   (() => {
-    const pop = $('pop'), g = $('popGrab'); let pz = 1;
-    try { pz = Math.min(1.5, Math.max(0.85, +localStorage.getItem('rr3d-pz2') || 1)); } catch (e) {}
-    const set = v => { pz = Math.min(1.5, Math.max(0.85, v)); pop.style.setProperty('--pz', pz.toFixed(2)); };
+    const pop = $('pop'), g = $('popGrab'), rs = $('popRs'), mt = $('popMt'); let pz = 1, px = 0, py = 0;
+    const MIN_PZ = 0.43, MIN_H = 70; let ph = null; // smallest card: half of the old minimum (0.85)
+    try { pz = Math.min(1.5, Math.max(MIN_PZ, +localStorage.getItem('rr3d-pz2') || 1)); ph = +localStorage.getItem('rr3d-poph') || null; } catch (e) {}
+    try { const o = JSON.parse(localStorage.getItem('rr3d-popxy') || 'null'); if (o) { px = +o.x || 0; py = +o.y || 0; } } catch (e) {}
+    const set = v => { pz = Math.min(1.5, Math.max(MIN_PZ, v)); pop.style.setProperty('--pz', pz.toFixed(2)); pop.style.setProperty('--tz', Math.max(0.75, pz).toFixed(2)); };
     const save = () => { try { localStorage.setItem('rr3d-pz2', pz.toFixed(2)); localStorage.removeItem('rr3d-pz'); } catch (e) {} };
-    set(pz);
-    g.addEventListener('pointerdown', e => {
-      e.preventDefault(); g.setPointerCapture(e.pointerId); const x0 = e.clientX, y0 = e.clientY, p0 = pz;
-      const mv = ev => set(p0 + ((ev.clientX - x0) - (ev.clientY - y0)) / 220);
-      const up = () => { g.removeEventListener('pointermove', mv); g.removeEventListener('pointerup', up); g.removeEventListener('pointercancel', up); save(); };
-      g.addEventListener('pointermove', mv); g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
+    const savePos = () => { try { localStorage.setItem('rr3d-popxy', JSON.stringify({ x: Math.round(px), y: Math.round(py) })); } catch (e) {} };
+    const place = () => { pop.style.setProperty('--px', px.toFixed(1) + 'px'); pop.style.setProperty('--py', py.toFixed(1) + 'px'); };
+    // keep the card inside the map; near an edge (48 px) it sticks to the edge
+    function fit(magnet) {
+      if (pop.hidden || !pop.offsetParent) return;
+      const c = pop.offsetParent.getBoundingClientRect(), r = pop.getBoundingClientRect(), m = 8, top = isPhone() ? 64 : 56;
+      const bl = r.left - px, bt = r.top - py; // position without the offset
+      const minX = c.left + m - bl, maxX = c.right - m - r.width - bl, minY = c.top + top - bt, maxY = c.bottom - m - r.height - bt;
+      if (magnet) { if (px - minX < 48) px = minX; if (maxX - px < 48) px = maxX; if (py - minY < 48) py = minY; if (maxY - py < 48) py = maxY; }
+      px = Math.min(Math.max(px, minX), Math.max(minX, maxX)); py = Math.min(Math.max(py, minY), Math.max(minY, maxY)); place();
+    }
+    popFit = () => fit(false);
+    set(pz); place();
+    // drag by the top bar (or by the pill when minimized); a short tap on the pill opens the card again
+    function drag(el, onTap) {
+      el.addEventListener('pointerdown', e => {
+        if (e.button > 0) return; e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (err) {}
+        const x0 = e.clientX, y0 = e.clientY, p0 = [px, py]; let moved = false;
+        pop.classList.remove('settle');
+        const mv = ev => { const dx = ev.clientX - x0, dy = ev.clientY - y0; if (!moved && Math.hypot(dx, dy) < 6) return;
+          if (!moved) { moved = true; pop.classList.add('dragging'); } px = p0[0] + dx; py = p0[1] + dy; place(); };
+        const up = () => { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+          pop.classList.remove('dragging');
+          if (!moved) { if (onTap) onTap(); return; }
+          pop.classList.add('settle'); fit(true); savePos(); setTimeout(() => pop.classList.remove('settle'), 400); };
+        el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+      });
+    }
+    drag(g); drag(mt, () => restore());
+    g.addEventListener('dblclick', () => { pop.classList.add('settle'); px = 0; py = 0; place(); fit(false); savePos(); setTimeout(() => pop.classList.remove('settle'), 400); });
+    g.addEventListener('keydown', e => { const k = { ArrowLeft: [-20, 0], ArrowRight: [20, 0], ArrowUp: [0, -20], ArrowDown: [0, 20] }[e.key]; if (!k) return;
+      px += k[0]; py += k[1]; fit(false); savePos(); e.preventDefault(); });
+    // resize from the corner like a window: sideways changes the width, up/down the height; the top edge stays put
+    const maxH = () => { const c = pop.offsetParent ? pop.offsetParent.getBoundingClientRect().height : innerHeight; return Math.max(120, c - (isPhone() ? 72 : 64)); };
+    const applyH = () => { pop.style.height = ph ? Math.min(ph, maxH()) + 'px' : ''; pop.style.maxHeight = ph ? 'none' : ''; };
+    const saveH = () => { try { if (ph) localStorage.setItem('rr3d-poph', String(Math.round(ph))); else localStorage.removeItem('rr3d-poph'); } catch (e) {} };
+    applyH();
+    rs.addEventListener('pointerdown', e => {
+      e.preventDefault(); try { rs.setPointerCapture(e.pointerId); } catch (err) {}
+      const x0 = e.clientX, y0 = e.clientY, p0 = pz, r0 = pop.getBoundingClientRect(), w0 = r0.width, h0 = r0.height, py0 = py;
+      pop.classList.add('resizing');
+      const mv = ev => {
+        set(p0 * Math.max(0.3, (w0 + ev.clientX - x0) / w0));
+        ph = Math.min(maxH(), Math.max(MIN_H, h0 + ev.clientY - y0)); applyH();
+        py = py0 + (ph - h0); place(); // the card grows upward from its base, so move it down by the same amount
+      };
+      const up = () => { rs.removeEventListener('pointermove', mv); rs.removeEventListener('pointerup', up); rs.removeEventListener('pointercancel', up); pop.classList.remove('resizing'); save(); saveH(); fit(false); savePos(); };
+      rs.addEventListener('pointermove', mv); rs.addEventListener('pointerup', up); rs.addEventListener('pointercancel', up);
     });
-    g.addEventListener('dblclick', () => { set(pz > 1.05 ? 1 : 1.3); save(); });
-    g.addEventListener('keydown', e => { if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { set(pz + 0.1); save(); e.preventDefault(); } if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { set(pz - 0.1); save(); e.preventDefault(); } });
+    rs.addEventListener('dblclick', () => { keepTopR(() => { set(1); ph = null; applyH(); }); save(); saveH(); });
+    rs.addEventListener('wheel', e => { e.preventDefault(); set(pz + (e.deltaY < 0 ? 0.05 : -0.05)); save(); fit(false); }, { passive: false }); // mouse wheel over the corner: width
+    rs.addEventListener('keydown', e => {
+      const k = { ArrowRight: [0.05, 0], ArrowLeft: [-0.05, 0], ArrowDown: [0, 30], ArrowUp: [0, -30] }[e.key]; if (!k) return; e.preventDefault();
+      keepTopR(() => { set(pz + k[0]); if (k[1]) { ph = Math.min(maxH(), Math.max(MIN_H, (ph || pop.getBoundingClientRect().height) + k[1])); applyH(); } }); save(); saveH();
+    });
+    function keepTopR(change) { const t0 = pop.getBoundingClientRect().top; change(); py += t0 - pop.getBoundingClientRect().top; place(); fit(false); savePos(); }
+    // minimize into a pill with the title of the card
+    const keepTop = change => { const t0 = pop.getBoundingClientRect().top; change(); py += t0 - pop.getBoundingClientRect().top; place(); fit(false); savePos(); };
+    function restore() { keepTop(() => pop.classList.remove('mini')); $('popMin').textContent = '–'; $('popMin').setAttribute('aria-label', 'Minimizar o quadro'); }
+    $('popMin').onclick = () => {
+      if (pop.classList.contains('mini')) { restore(); return; }
+      const h = $('popBody').querySelector('h3'); mt.textContent = (h ? h.textContent.trim() : 'Detalhes') + '  ▸';
+      keepTop(() => pop.classList.add('mini')); $('popMin').textContent = '⤢'; $('popMin').setAttribute('aria-label', 'Abrir o quadro de novo');
+    };
+    window.addEventListener('resize', () => fit(false));
   })();
-  function showCard(html) { $('popBody').innerHTML = html + areaBtnHtml(); const pe = $('pop'); if (pe.hidden) { pe.classList.remove('pop-in'); void pe.offsetWidth; pe.classList.add('pop-in'); } pe.hidden = false; $('hint').hidden = true; if (isPhone()) { if (isMob()) setTimeline(false, true); setDrawer(false); } }
+  function showCard(html) { $('popBody').innerHTML = html + areaBtnHtml(); const pe = $('pop'); if (pe.hidden) { pe.classList.remove('pop-in'); void pe.offsetWidth; pe.classList.add('pop-in'); } if (pe.classList.contains('mini')) $('popMin').click(); pe.hidden = false; requestAnimationFrame(popFit); $('hint').hidden = true; if (isPhone()) { if (isMob()) setTimeline(false, true); setDrawer(false); } }
   $('popX').onclick = () => { st.sel = null; showDetail(); };
+  // ---------- 'Medir' tool (like Google Earth's ruler): path length with elevation profile, or closed area
+  const MEAS = { on: false, area: false, pts: [], line: null, dots: null };
+  const measMatL = new THREE.LineBasicMaterial({ color: 0xffd400, depthTest: false, transparent: true });
+  const measDotTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.beginPath(); x.arc(32, 32, 26, 0, Math.PI * 2); x.fillStyle = '#fff'; x.fill(); x.lineWidth = 9; x.strokeStyle = '#1b1917'; x.stroke(); return new THREE.CanvasTexture(c); })();
+  const measMatP = new THREE.PointsMaterial({ size: 15, sizeAttenuation: false, depthTest: false, transparent: true, alphaTest: 0.4, map: measDotTex, vertexColors: true });
+  const fmtLen = km => km < 1 ? fmt(km * 1000, 0) + ' m' : fmt(km, km < 10 ? 2 : 1) + ' km';
+  const fmtArea = km2 => { const ha = km2 * 100; return ha < 100 ? fmt(ha, ha < 10 ? 2 : 1) + ' ha' : fmt(ha, 0) + ' ha (' + fmt(km2, km2 < 10 ? 2 : 1) + ' km²)'; };
+  function measPath() { const p = MEAS.pts.slice(); if (MEAS.area && p.length > 2) p.push(p[0]); return p; }
+  function measLen() { const p = measPath(); let s = 0; for (let i = 1; i < p.length; i++) s += distKm(p[i - 1].lon, p[i - 1].lat, p[i].lon, p[i].lat); return s; }
+  function measAreaKm2() {
+    const p = MEAS.pts; if (p.length < 3) return 0;
+    const la0 = p.reduce((a, q) => a + q.lat, 0) / p.length, kx = 111.32 * Math.cos(la0 * Math.PI / 180), kz = 110.57;
+    let s = 0; for (let i = 0, j = p.length - 1; i < p.length; j = i++) s += (p[j].lon * kx) * (p[i].lat * kz) - (p[i].lon * kx) * (p[j].lat * kz);
+    return Math.abs(s) / 2;
+  }
+  function measDraw() {
+    [MEAS.line, MEAS.dots].forEach(o => { if (o) { scene.remove(o); o.geometry.dispose(); } }); MEAS.line = MEAS.dots = null;
+    const p = measPath(); if (!p.length) return;
+    const v = [];
+    for (let i = 0; i < p.length; i++) {
+      if (i === 0) { v.push(toX(p[0].lon), yAt(p[0].lon, p[0].lat) + 0.06, toZ(p[0].lat)); continue; }
+      const a = p[i - 1], b = p[i], n = Math.max(1, Math.min(200, Math.ceil(distKm(a.lon, a.lat, b.lon, b.lat) / 0.25)));
+      for (let k = 1; k <= n; k++) { const lo = a.lon + (b.lon - a.lon) * k / n, la = a.lat + (b.lat - a.lat) * k / n; v.push(toX(lo), yAt(lo, la) + 0.06, toZ(la)); }
+    }
+    if (v.length >= 6) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); MEAS.line = new THREE.Line(g, measMatL); MEAS.line.renderOrder = 999; scene.add(MEAS.line); }
+    const d = []; MEAS.pts.forEach(q => d.push(toX(q.lon), yAt(q.lon, q.lat) + 0.06, toZ(q.lat)));
+    const gd = new THREE.BufferGeometry(); gd.setAttribute('position', new THREE.Float32BufferAttribute(d, 3)); const dc = []; MEAS.pts.forEach((q, i) => i ? dc.push(1, 1, 1) : dc.push(1, 0.48, 0.18)); gd.setAttribute('color', new THREE.Float32BufferAttribute(dc, 3)); MEAS.dots = new THREE.Points(gd, measMatP); MEAS.dots.renderOrder = 1000; scene.add(MEAS.dots);
+  }
+  function measProfile() {
+    const p = measPath(), L = measLen(); if (p.length < 2 || L <= 0) return '';
+    const N = 80, hs = [], seg = []; let acc = 0;
+    for (let i = 1; i < p.length; i++) { const l = distKm(p[i - 1].lon, p[i - 1].lat, p[i].lon, p[i].lat); seg.push([acc, l, p[i - 1], p[i]]); acc += l; }
+    for (let k = 0; k <= N; k++) {
+      const x = L * k / N, s = seg.find(q => x <= q[0] + q[1] + 1e-9) || seg[seg.length - 1], f = s[1] ? (x - s[0]) / s[1] : 0;
+      hs.push(elevAt(s[2].lon + (s[3].lon - s[2].lon) * f, s[2].lat + (s[3].lat - s[2].lat) * f));
+    }
+    const lo = Math.min(...hs), hi = Math.max(...hs), r = Math.max(10, hi - lo), W = 300, H = 76, T = 12, B = 64;
+    const pt = (h, k) => (k / N * W).toFixed(1) + ',' + (B - (h - lo) / r * (B - T)).toFixed(1);
+    const line = hs.map((h, k) => (k ? 'L' : 'M') + pt(h, k)).join('');
+    let up = 0, dn = 0; for (let k = 1; k <= N; k++) { const dh = hs[k] - hs[k - 1]; if (dh > 0) up += dh; else dn -= dh; }
+    return '<svg class="meas-prof" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" aria-label="Perfil de altitude do caminho: de ' + fmt(lo, 0) + ' a ' + fmt(hi, 0) + ' metros">' +
+      '<path class="a" d="' + line + 'L' + W + ',' + B + 'L0,' + B + 'Z"/><path class="l" d="' + line + '"/>' +
+      '<text x="2" y="10">' + fmt(hi, 0) + ' m</text><text x="2" y="' + (H - 2) + '">' + fmt(lo, 0) + ' m</text><text x="' + (W - 2) + '" y="' + (H - 2) + '" text-anchor="end">' + fmtLen(L) + '</text></svg>' +
+      '<p class="meas-tip">Altitude de ' + fmt(lo, 0) + ' a ' + fmt(hi, 0) + ' m · sobe ' + fmt(up, 0) + ' m e desce ' + fmt(dn, 0) + ' m no caminho (relevo SRTM, aproximado).</p>';
+  }
+  function measCard() {
+    const n = MEAS.pts.length, last = MEAS.pts[n - 1];
+    let h = '<h3>📏 Medir</h3><div class="meas-seg" role="group" aria-label="O que medir">' +
+      '<button type="button" data-m="line" aria-pressed="' + !MEAS.area + '">Distância</button><button type="button" data-m="area" aria-pressed="' + MEAS.area + '">Área</button></div>';
+    if (!n) h += '<p class="meas-tip">Toque no mapa para marcar o primeiro ponto. Cada toque acrescenta um ponto; arraste para mover o mapa sem marcar.</p>';
+    else if (MEAS.area) {
+      h += n < 3 ? '<p class="meas-big">' + (n === 1 ? '1 ponto' : '2 pontos') + '</p><p class="meas-sub">Marque pelo menos 3 pontos em volta da área.</p>'
+        : '<p class="meas-big">' + fmtArea(measAreaKm2()) + '</p><p class="meas-sub">Perímetro ' + fmtLen(measLen()) + ' · ' + n + ' pontos</p>';
+    } else {
+      h += '<p class="meas-big">' + fmtLen(measLen()) + '</p><p class="meas-sub">' + (n === 1 ? 'Marque o próximo ponto.' : n + ' pontos · em linha reta entre os pontos') + '</p>' + measProfile() +
+        (n >= 3 ? '<p class="meas-tip">Para fechar a forma e ver a área, toque no primeiro ponto (laranja) ou em "Fechar área".</p>' : '');
+    }
+    if (last) h += '<p class="meas-tip">Último ponto: <span class="mono">' + last.lat.toFixed(5) + ', ' + last.lon.toFixed(5) + '</span> · ' + fmt(elevAt(last.lon, last.lat), 0) + ' m de altitude</p>';
+    h += '<div class="meas-row">' + (!MEAS.area && n >= 3 ? '<button type="button" class="btn" data-m="area">⬠ Fechar área</button>' : '') + '<button type="button" class="btn" data-m="undo"' + (n ? '' : ' disabled') + '>↶ Desfazer</button><button type="button" class="btn" data-m="clear"' + (n ? '' : ' disabled') + '>Limpar</button>' +
+      '<button type="button" class="btn" data-m="copy"' + (n ? '' : ' disabled') + '>Copiar</button><button type="button" class="btn" data-m="kml"' + (n > 1 ? '' : ' disabled') + ' title="Baixar arquivo KML: abre no Google Earth, Google Maps e QGIS">⬇ KML</button>' + (last ? '<a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' + last.lat.toFixed(5) + ',' + last.lon.toFixed(5) + '">Ver no Google Maps</a>' : '') + '<button type="button" class="btn" data-m="off">Sair</button></div>';
+    return h;
+  }
+  function measShow() { showCard(measCard()); }
+  function measOn() { MEAS.on = true; document.body.classList.add('measuring'); document.querySelector('.tools').classList.remove('open'); $('moreBtn').setAttribute('aria-expanded', 'false'); $('measBtn').setAttribute('aria-pressed', 'true'); st.sel = null; showDetail(); measShow(); }
+  function measOff() { MEAS.on = false; document.body.classList.remove('measuring'); MEAS.pts = []; measDraw(); $('measBtn').setAttribute('aria-pressed', 'false'); if (!$('pop').hidden && $('popBody').querySelector('.meas-row')) $('pop').hidden = true; }
+  function measNearFirst(cx, cy) { const p = MEAS.pts[0]; if (!p) return false; const r = renderer.domElement.getBoundingClientRect(); tmpV.set(toX(p.lon), yAt(p.lon, p.lat) + 0.06, toZ(p.lat)).project(camera);
+    return tmpV.z < 1 && Math.hypot(r.left + (tmpV.x + 1) / 2 * r.width - cx, r.top + (1 - tmpV.y) / 2 * r.height - cy) < 26; }
+  function measAdd(cx, cy) {
+    if (MEAS.pts.length >= 3 && measNearFirst(cx, cy)) { if (!MEAS.area) { MEAS.area = true; measDraw(); measShow(); showToast('Forma fechada: o último ponto foi ligado ao primeiro.', 3500); } return; }
+    const g = groundAt(cx, cy); if (!g) return; MEAS.pts.push(g); measDraw(); measShow(); }
+  function measText() {
+    const p = MEAS.pts, head = MEAS.area && p.length > 2 ? 'Área: ' + fmtArea(measAreaKm2()) + ' · perímetro ' + fmtLen(measLen()) : 'Distância: ' + fmtLen(measLen());
+    return head + '\nPontos (latitude, longitude):\n' + p.map((q, i) => (i + 1) + '. ' + q.lat.toFixed(5) + ', ' + q.lon.toFixed(5)).join('\n') + '\nMedido no Fogo em Roraima 3D (fogororaima.com.br)';
+  }
+  $('measBtn').onclick = () => { if (MEAS.on) measOff(); else measOn(); };
+  $('popX').addEventListener('click', () => { if (MEAS.on) measOff(); });
+  $('exag').addEventListener('input', () => { if (MEAS.on) measDraw(); });
+  $('popBody').addEventListener('click', async e => {
+    const b = e.target.closest && e.target.closest('[data-m]'); if (!b || !MEAS.on) return; const m = b.dataset.m;
+    if (m === 'line' || m === 'area') { MEAS.area = m === 'area'; measDraw(); measShow(); }
+    else if (m === 'undo') { MEAS.pts.pop(); measDraw(); measShow(); }
+    else if (m === 'clear') { MEAS.pts = []; measDraw(); measShow(); }
+    else if (m === 'off') measOff();
+    else if (m === 'kml') {
+      const p = MEAS.pts, poly = MEAS.area && p.length > 2, c = (poly ? p.concat([p[0]]) : p).map(q => q.lon.toFixed(6) + ',' + q.lat.toFixed(6) + ',0').join(' ');
+      const nm = poly ? 'Área ' + fmtArea(measAreaKm2()) : 'Caminho ' + fmtLen(measLen());
+      const kml = '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Fogo em Roraima 3D – medida</name>' +
+        '<Style id="m"><LineStyle><color>ff00d4ff</color><width>3</width></LineStyle><PolyStyle><color>4000d4ff</color></PolyStyle></Style>' +
+        '<Placemark><name>' + nm + '</name><description>Medido em fogororaima.com.br em ' + new Date().toLocaleDateString('pt-BR') + '</description><styleUrl>#m</styleUrl>' +
+        (poly ? '<Polygon><outerBoundaryIs><LinearRing><coordinates>' + c + '</coordinates></LinearRing></outerBoundaryIs></Polygon>' : '<LineString><tessellate>1</tessellate><coordinates>' + c + '</coordinates></LineString>') +
+        '</Placemark></Document></kml>';
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' }));
+      a.download = (poly ? 'area' : 'caminho') + '-fogo-rr.kml'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      showToast('Arquivo KML baixado: abra no Google Earth, Google Maps (Meus mapas) ou QGIS.', 5000);
+    }
+    else if (m === 'copy') { try { await navigator.clipboard.writeText(measText()); showToast('Medida e coordenadas copiadas.'); } catch (err) { showToast('Não foi possível copiar neste navegador.'); } }
+  });
   function showDetail() {
     const s = st.sel;
     setSecaFocus(s && s.kind === 'gauge' && GAUGES[s.k] && !GAUGES[s.k].noData ? s.k : -1);
@@ -3952,7 +4228,33 @@ details.legal li { margin-bottom: 4px; }
   const offNote = () => busyShow(); // the 'no internet' pill on the map stays while offline
   offNote(); window.addEventListener('offline', offNote);
   // arrival like a plane: from the whole state, glide toward the most important fire, upwind so the smoke goes away from the eye
-  if (!st.pin && !reduce) setTimeout(() => {
+  // ---------- 'Link desta vista' (like Google Earth): the link keeps the camera angle and the moment; never the marked place (privacy)
+  let viewLinked = false;
+  function viewLink() {
+    const o = camera.position.clone().sub(controls.target), d = o.length();
+    const v = [controls.target.x, controls.target.z, d, Math.atan2(o.x, o.z), Math.acos(Math.max(-1, Math.min(1, o.y / d)))].map(x => +x.toFixed(3));
+    return location.origin + location.pathname + '#v=' + v.join(',') + '&t=' + Math.round(st.t);
+  }
+  (function applyViewLink() {
+    const h = new URLSearchParams(location.hash.slice(1)), v = (h.get('v') || '').split(',').map(Number), t = +h.get('t');
+    if (v.length === 5 && v.every(Number.isFinite) && v[2] > 0.5 && v[2] < 3000) {
+      const p = orbitPose(v[0], v[1], v[2], v[3], v[4]); camera.position.copy(p.pos); controls.target.copy(p.tgt); controls.update(); fly = null; viewLinked = true;
+    }
+    if (h.has('t') && Number.isFinite(t)) {
+      const p = PERIODS.find(q => t >= q.from && t <= q.to);
+      if (p) { if (p !== period) setPeriod(p); setTime(t, true); viewLinked = true; }
+      else showToast('O momento desse link já saiu da janela de dados do mapa; mostrando o mais recente.', 6000);
+    }
+    if (viewLinked) try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  })();
+  $('viewLinkBtn').onclick = async () => {
+    const url = viewLink(), txt = 'Fogo em Roraima 3D – ' + fmtT(st.t);
+    document.querySelector('.tools').classList.remove('open'); $('moreBtn').setAttribute('aria-expanded', 'false');
+    if (navigator.share && isPhone()) { try { await navigator.share({ title: txt, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    try { await navigator.clipboard.writeText(url); showToast('Link copiado: abre o mapa neste ângulo, em ' + fmtT(st.t) + '. O local marcado não vai junto.', 5000); }
+    catch (e) { showToast('Não foi possível copiar neste navegador.'); }
+  };
+  if (!st.pin && !reduce && !viewLinked) setTimeout(() => {
     if (fly || st.sel) return; let bi = -1, bs = 54; for (const i of windowIdx()) { if (st.t - F.t[i] > 1440) continue; const s = fireScore(i, st.t); if (s > bs) { bs = s; bi = i; } }
     if (bi < 0) return; const w = wxAt(F.lon[bi], F.lat[bi], F.t[bi]), az = -(w.sp >= 3 ? w.to : 180) * Math.PI / 180;
     flyTo(orbitPose(toX(F.lon[bi]), toZ(F.lat[bi]), 80, az, 0.98)); fly.intro = true; fly.dur = 2600;
