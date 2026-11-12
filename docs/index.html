@@ -640,6 +640,10 @@ body.measuring #labels > * { pointer-events: none; }
 .pop-rs::before { content: "⤡"; }
 #pop.pop > #popBody { zoom: var(--tz, var(--pz)); }
 #pop.pop.mini { height: auto !important; }
+#pop.pop #popBody h3 { margin-right: calc(64px / var(--tz, 1)); }
+@media (max-width: 880px) { #pop.pop #popBody h3 { margin-right: calc(96px / var(--tz, 1)); } }
+#pop.pop:not(.mini) { container-type: inline-size; }
+@container (max-width: 250px) { #popBody h3 { margin-right: 0 !important; margin-top: calc(34px / var(--tz, 1)) !important; } }
 .pop-rs:hover, .pop-rs:focus-visible, #pop.pop.resizing .pop-rs { opacity: 1; background: var(--accent, #c2410c); color: #fff; }
 #pop.pop > #popBody { padding-bottom: 26px; }
 .pop-mt { display: none; }
@@ -2114,7 +2118,9 @@ body.measuring #labels > * { pointer-events: none; }
   let SECA_HY0 = null;
   function drawGauge(g) {
     const cv = $('gChart'); if (!cv) return;
-    const r = cv.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2); if (!r.width) return;
+    if (!cv._ro && window.ResizeObserver) { cv._ro = new ResizeObserver(() => { if (cv.isConnected) drawGauge(g); else cv._ro.disconnect(); }); cv._ro.observe(cv); }
+    const bb = cv.getBoundingClientRect(), r = { width: cv.clientWidth, height: cv.clientHeight }; if (!r.width) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2) * (bb.width / r.width || 1); // the card zoom enlarges the canvas: draw more pixels, same shapes
     cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
     const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
     const vals = g.band.p90.concat(g.band.p10, g.cur).filter(v => v != null), lo = Math.min(...vals), hi = Math.max(...vals);
