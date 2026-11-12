@@ -351,12 +351,19 @@ def _ana_rain(out_dir):
     ini = datetime.fromtimestamp(end.timestamp() - 10 * 86400, timezone.utc)
     res = []
     import re
-    for s_ in st:
+    from concurrent.futures import ThreadPoolExecutor
+
+    def fetch(s_):  # several stations at once with a short timeout: the ANA server is often slow
         try:
-            x = get_text('https://telemetriaws1.ana.gov.br/ServiceANA.asmx/DadosHidrometeorologicos?codEstacao=' + s_['code'] +
-                         '&dataInicio=' + ini.strftime('%d/%m/%Y') + '&dataFim=' + end.strftime('%d/%m/%Y'), 120)
+            return get_text('https://telemetriaws1.ana.gov.br/ServiceANA.asmx/DadosHidrometeorologicos?codEstacao=' + s_['code'] +
+                            '&dataInicio=' + ini.strftime('%d/%m/%Y') + '&dataFim=' + end.strftime('%d/%m/%Y'), 45)
         except Exception as e:
             print('ANA chuva', s_['code'], 'falhou:', e)
+            return None
+    with ThreadPoolExecutor(6) as ex:
+        xs = list(ex.map(fetch, st))
+    for s_, x in zip(st, xs):
+        if not x:
             continue
         rows = []
         for t, c in re.findall(r'<DataHora>([^<]+)</DataHora>.*?<Chuva>([^<]*)</Chuva>', x, re.S):
@@ -383,7 +390,6 @@ def _ana_rain(out_dir):
         res.append({'code': s_['code'], 'n': s_.get('name'), 'rio': s_.get('river'), 'lat': s_['lat'], 'lon': s_['lon'],
                     'ultimo': last_t, 'c24': total(24), 'c72': total(72), 'c10d': round(sum(by_day.values()), 1),
                     'semChuva': dry, 'dias': len(days)})
-        time.sleep(0.5)
     return res
 
 
@@ -595,7 +601,7 @@ def doe_rr(cache_dir, out_dir):
             continue
         for kv, page in eds:
             name = kv['doe']
-            if name in cache['lidas'] or new >= 8:
+            if name in cache['lidas'] or new >= 3:  # at most 3 editions per run, so one run never takes long
                 continue
             try:
                 pdf = _doe_pdf(op, kv, page)
