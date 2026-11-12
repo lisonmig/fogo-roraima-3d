@@ -3663,7 +3663,7 @@ body.measuring #labels > * { pointer-events: none; }
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   const rowsHtml = rows => '<dl>' + rows.map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl>';
   // info card: size (corner handle), position (top bar, remembered, attracted to edges) and minimize (pill with the place name)
-  let popFit = () => {};
+  let popFit = () => {}, popKey = null;
   (() => {
     const pop = $('pop'), g = $('popGrab'), rs = $('popRs'), mt = $('popMt'); let pz = 1, px = 0, py = 0;
     const MIN_PZ = 0.43, MIN_H = 70; let ph = null; // smallest card: half of the old minimum (0.85)
@@ -3737,7 +3737,7 @@ body.measuring #labels > * { pointer-events: none; }
     };
     window.addEventListener('resize', () => fit(false));
   })();
-  function showCard(html) { $('popBody').innerHTML = html + areaBtnHtml(); const pe = $('pop'); if (pe.hidden) { pe.classList.remove('pop-in'); void pe.offsetWidth; pe.classList.add('pop-in'); } if (pe.classList.contains('mini')) $('popMin').click(); pe.hidden = false; requestAnimationFrame(popFit); $('hint').hidden = true; if (isPhone()) { if (isMob()) setTimeline(false, true); setDrawer(false); } }
+  function showCard(html) { $('popBody').innerHTML = html + areaBtnHtml(); const pe = $('pop'); if (pe.hidden) { pe.classList.remove('pop-in'); void pe.offsetWidth; pe.classList.add('pop-in'); } const pk = JSON.stringify(st.sel || null), pNew = pe.hidden || pk !== popKey; popKey = pk; if (pe.classList.contains('mini')) { if (pNew) $('popMin').click(); else { const h3 = $('popBody').querySelector('h3'); $('popMt').textContent = (h3 ? h3.textContent.trim() : 'Detalhes') + '  ▸'; } } pe.hidden = false; requestAnimationFrame(popFit); $('hint').hidden = true; if (isPhone()) { if (isMob()) setTimeline(false, true); setDrawer(false); } }
   $('popX').onclick = () => { st.sel = null; showDetail(); };
   // ---------- 'Medir' tool (like Google Earth's ruler): path length with elevation profile, or closed area
   const MEAS = { on: false, area: false, pts: [], line: null, dots: null };
