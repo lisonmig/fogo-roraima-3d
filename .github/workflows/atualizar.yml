@@ -70,6 +70,11 @@ jobs:
       - name: Qualidade do ar, histórico do INPE, risco de fogo e avisos (cada parte falha sozinha)
         run: python -I scripts/prep_extras.py dados-3d docs || echo "::warning::falhou parte do resumo extra (ar, histórico, risco, avisos, tempo medido, notícias ou Diário Oficial)"
 
+      - name: Qualidade do ar medida (sensores PurpleAir; sem a chave, não faz nada)
+        env:
+          PURPLEAIR_API_KEY: ${{ secrets.PURPLEAIR_API_KEY }}
+        run: python -I scripts/prep_purpleair.py dados-3d docs || echo "::warning::falhou o ar medido (PurpleAir)"
+
       - name: Relatório da área - embargos do IBAMA e autorizações de desmate (baixam de novo só a cada 30 dias)
         run: python -I scripts/prep_relatorio.py dados-3d docs --dinamicas || echo "::warning::falharam os embargos ou as autorizações do relatório da área"
 
