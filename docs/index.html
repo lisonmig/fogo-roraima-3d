@@ -1196,7 +1196,7 @@ body.measuring #labels > * { pointer-events: none; }
   const failed = [], getL = (f, name) => fetch(f).then(r => { if (!r.ok) throw 0; return r.json(); }).catch(() => { failed.push(name); return null; });
   // optional blocks of the summary: if missing, the block just stays hidden
   const quietJ = f => fetch(f).then(r => r.ok ? r.json() : null).catch(() => null);
-  const arP = quietJ('ar.json'), histP = quietJ('historico.json');
+  const arP = quietJ('ar.json'), histP = quietJ('historico.json'), arMP = quietJ('ar_medido.json');
   const rfP = quietJ('risco.json'), avP = quietJ('avisos.json');
   const medP = quietJ('medido.json'), notP = quietJ('noticias.json'), doeP = quietJ('doe.json');
   const riosP = getL('rios.json', 'rios do mapa'), secaP = getL('seca.json', 'nível dos rios'), inpeP = getL('eventos_inpe.json', 'eventos de fogo do INPE'), roadsP = getL('estradas.json', 'estradas');
@@ -1843,12 +1843,23 @@ body.measuring #labels > * { pointer-events: none; }
     IN.ev.forEach(ev => { if (inpeSit(ev, today) === 'burn') ev.r.forEach(r => { for (let j = 0; j < r.length; j += 4) look(r[j], r[j + 1], 'inpe'); }); });
     return best;
   }
+  // PM2.5 measured by low-cost PurpleAir sensors (EPA-corrected on the server) within 25 km of the point; only fresh readings (last 3 h)
+  let ARM = null;
+  function airMeasured(lon, lat) {
+    if (!ARM || !ARM.sensores) return null;
+    const now = Date.parse(ARM.atualizado || ''), ok = ARM.sensores.filter(s => s.externo !== false && s.canais_ok && s.pm25 != null && s.pm25 >= 0 && s.pm25 < 500 && now - Date.parse(s.visto || '') < 3 * 3600e3 && distKm(lon, lat, s.lon, s.lat) <= 25);
+    if (!ok.length || !isFinite(now) || Date.now() - now > 4 * 3600e3) return null;
+    const v = ok.map(s => s.pm25).sort((a, b) => a - b), m = v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
+    return { pm: m, n: ok.length, t: now };
+  }
   function renderAir() {
     const sec = $('arSec');
     if (!AR || !AR.grid || !AR.grid.length) { sec.hidden = true; return; }
     const p = st.pin, lon = p ? p.lon : -60.6758, lat = p ? p.lat : 2.8235;
     const c = arCell(lon, lat), pm = c[2], nxt = c[3], L = arLevel(pm), where = p ? 'Seu ponto marcado' : 'Boa Vista';
-    const sm = smokeNear(lon, lat);
+    const sm = smokeNear(lon, lat), me = airMeasured(lon, lat), ML = me && arLevel(me.pm);
+    const meSrc = me ? 'Medido por ' + me.n + (me.n === 1 ? ' sensor' : ' sensores') + ' de baixo custo (PurpleAir, com correção da EPA) a até 25 km, às ' + fmtH((me.t - T0) / 60000) + '. Sensor barato pode errar para mais ou para menos e não é medição oficial. As faixas Boa, Moderada e Ruim valem para a média de 24 h; este valor é o de agora. ' : '';
+    const meLine = me ? '<p class="ar-num"><b>' + fmt(me.pm, 0) + '</b> µg/m³ de fumaça fina (PM2,5) <b>medido agora</b>' + (ML ? ' · ' + ML[1].toLowerCase() : '') + '</p>' : '';
     const model = '<b>' + fmt(pm, 0) + '</b> µg/m³ de fumaça fina (PM2,5), média das últimas 24 h' + (c[4] > pm * 1.5 ? ', com pico de ' + fmt(c[4], 0) : '');
     const trend = nxt == null ? '' : nxt > pm * 1.2 ? 'Tende a piorar nas próximas 24 h. ' : nxt < pm * 0.8 ? 'Tende a melhorar nas próximas 24 h. ' : 'Deve ficar parecido nas próximas 24 h. ';
     const src = 'Estimativa de um modelo de computador (Copernicus CAMS, pelo Open-Meteo) para uma área de cerca de 40 km × 40 km, não é medição no local.';
@@ -1857,12 +1868,13 @@ body.measuring #labels > * { pointer-events: none; }
       const tip = sm.lv === 2 ? 'Feche janelas e portas, evite esforço ao ar livre e, se precisar sair, use máscara PFF2 (N95). Crianças, idosos, gestantes e quem tem asma ou problema no coração devem ficar em casa. Com falta de ar, ligue 192 (SAMU).'
         : 'Se sentir cheiro de fumaça ou ardência nos olhos, feche as janelas e evite esforço ao ar livre. Crianças, idosos e quem tem asma devem ter mais cuidado.';
       $('arBox').innerHTML = '<div class="ar-head ' + (sm.lv === 2 ? 'ar-4' : 'ar-3') + '"><span>' + (sm.lv === 2 ? 'Fumaça forte provável' : 'Pode haver fumaça') + '</span><span class="ar-where">' + where + '</span></div>' +
-        '<p>' + why + '</p><p>' + tip + '</p>' +
-        '<details class="more"><summary>Saiba mais</summary><div><p>Perto de incêndio, o ar costuma ficar bem pior do que o modelo regional mostra. Aviso calculado pela distância do fogo e pelo vento, não por medidor. Modelo regional: ' + fmt(pm, 0) + ' µg/m³ (' + L[1].toLowerCase() + ') na média de 24 h. ' + src + '</p></div></details>';
+        '<p>' + why + '</p>' + meLine + '<p>' + tip + '</p>' +
+        '<details class="more"><summary>Saiba mais</summary><div>' + (me ? '<p>' + meSrc + '</p>' : '') + '<p>Perto de incêndio, o ar costuma ficar bem pior do que o modelo regional mostra. Aviso calculado pela distância do fogo e pelo vento, não por medidor. Modelo regional: ' + fmt(pm, 0) + ' µg/m³ (' + L[1].toLowerCase() + ') na média de 24 h. ' + src + '</p></div></details>';
     } else {
-      $('arBox').innerHTML = '<div class="ar-head ' + L[2] + '"><span>' + L[1] + '</span><span class="ar-where">' + where + '</span></div>' +
-        '<p class="ar-num">' + model + '</p><p>' + L[3] + '</p>' +
-        '<details class="more"><summary>Saiba mais</summary><div><p>' + trend + 'Nenhum fogo visto nas últimas 24 h perto ' + (p ? 'do ponto' : 'da cidade') + '. ' + src + (p ? '' : ' Marque um ponto no mapa para ver o ar no seu local.') + '</p></div></details>';
+      const LL = me ? ML : L;
+      $('arBox').innerHTML = '<div class="ar-head ' + LL[2] + '"><span>' + LL[1] + '</span><span class="ar-where">' + where + (me ? ' · medido' : '') + '</span></div>' +
+        (me ? meLine + '<p>' + LL[3] + '</p>' : '<p class="ar-num">' + model + '</p><p>' + L[3] + '</p>') +
+        '<details class="more"><summary>Saiba mais</summary><div>' + (me ? '<p>' + meSrc + 'Modelo regional (CAMS): ' + fmt(pm, 0) + ' µg/m³ na média de 24 h.</p>' : '') + '<p>' + trend + 'Nenhum fogo visto nas últimas 24 h perto ' + (p ? 'do ponto' : 'da cidade') + '. ' + src + (p ? '' : ' Marque um ponto no mapa para ver o ar no seu local.') + '</p></div></details>';
     }
     sec.hidden = false;
   }
@@ -4452,7 +4464,7 @@ body.measuring #labels > * { pointer-events: none; }
   roadsP.then(initRoads);
   inpeP.then(initInpe);
   Promise.all([rfP, avP]).then(([R, A]) => { AV = A; if (R && R.dias) { RF.J = R; rfInit(); } renderRisk(); renderAvisos(); if ($('base').value === 'risco') applyBase('risco'); });
-  arP.then(J => { AR = J; renderAir(); }); medP.then(J => { MED = J; renderWx(); }); doeP.then(J => { DOE = J; renderAvisos(); }); notP.then(J => { NOT = J; renderAvisos(); const L = J && J.imprensa || []; $('imSec').hidden = !L.length; $('imList').innerHTML = L.map(n => '<li><a href="' + esc(n.link) + '" target="_blank" rel="noopener">' + esc(n.t) + '</a><span>' + esc(n.fonte || '') + ' · ' + newsWhen(n.data) + '</span></li>').join(''); }); inpeP.then(() => setTimeout(renderAir, 0)); histP.then(renderHist);
+  arP.then(J => { AR = J; renderAir(); }); arMP.then(J => { ARM = J; renderAir(); }); medP.then(J => { MED = J; renderWx(); }); doeP.then(J => { DOE = J; renderAvisos(); }); notP.then(J => { NOT = J; renderAvisos(); const L = J && J.imprensa || []; $('imSec').hidden = !L.length; $('imList').innerHTML = L.map(n => '<li><a href="' + esc(n.link) + '" target="_blank" rel="noopener">' + esc(n.t) + '</a><span>' + esc(n.fonte || '') + ' · ' + newsWhen(n.data) + '</span></li>').join(''); }); inpeP.then(() => setTimeout(renderAir, 0)); histP.then(renderHist);
   secaP.then(J => { SECA_HY0 = J && J.hy0; initSeca(J); initGauges(J); renderPeek(); drawChart(); });
   riosP.then(initRios);
   requestAnimationFrame(frame);
