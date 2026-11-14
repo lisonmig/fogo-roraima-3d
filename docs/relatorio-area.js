@@ -185,11 +185,19 @@
       s2Search(frame.b, addDays(area.date1 || d, 0), addDays(area.date1 || d, 75) > t ? t : addDays(area.date1 || d, 75)).catch(() => []),
       dayDiff(addDays(area.date1 || d, 75), t) > 20 ? s2Search(frame.b, addDays(t, -90), t).catch(() => []) : Promise.resolve([])]);
     step('Conferindo nuvens sobre a área em cada imagem');
-    const [pre, post, now] = await Promise.all([bestScene(preC, frame, mask, addDays(d, -10)), bestScene(postC, frame, mask, addDays(area.date1 || d, 10)), bestScene(nowC, frame, mask, t)]);
+    let [pre, post, now] = await Promise.all([bestScene(preC, frame, mask, addDays(d, -10)), bestScene(postC, frame, mask, addDays(area.date1 || d, 10)), bestScene(nowC, frame, mask, t)]);
+    // fire ended a few days ago (or still burning): no clear image after it yet, so take the one with the least cloud over the area
+    // since the fire started, even if cloudy, and say it is from during the fire
+    if (!post) {
+      step('Sem imagem limpa depois do fogo: buscando a de menos nuvem desde o início do incêndio');
+      const durC = await s2Search(frame.b, d, t).catch(() => []);
+      post = await bestScene(durC, frame, mask, t);
+      if (post) post.during = post.date <= (area.date1 || d);
+    }
     const out = { frame, pre, post, now, figs: {} };
     step('Baixando as imagens recortadas na área');
     const jobs = [];
-    for (const [k, sc, lab] of [['pre', pre, 'ANTES'], ['post', post, 'DEPOIS'], ['now', now, 'HOJE']]) if (sc) jobs.push(loadPixels(cropUrl(sc.id, frame.b, frame.w, frame.h, Q_RGB)).then(p => { out.figs[k] = figure(p.canvas, area, frame, lab + ' · ' + br(sc.date)); }).catch(() => {}));
+    for (const [k, sc, lab] of [['pre', pre, 'ANTES'], ['post', post, post && post.during ? 'DURANTE O FOGO' : 'DEPOIS'], ['now', now, 'HOJE']]) if (sc) jobs.push(loadPixels(cropUrl(sc.id, frame.b, frame.w, frame.h, Q_RGB)).then(p => { out.figs[k] = figure(p.canvas, area, frame, lab + ' · ' + br(sc.date)); }).catch(() => {}));
     if (pre && post) jobs.push(Promise.all([loadPixels(cropUrl(pre.id, frame.b, frame.w, frame.h, Q_NBR)), loadPixels(cropUrl(post.id, frame.b, frame.w, frame.h, Q_NBR))])
       .then(([a, b]) => { out.sev = severity(a, b, pre.scl, post.scl, mask, frame); out.figs.sev = figure(out.sev.canvas, area, frame, 'GRAVIDADE (dNBR)'); }).catch(() => {}));
     await Promise.all(jobs);
@@ -546,12 +554,13 @@
     else {
       const fig = (k, cap) => I.figs[k] ? '<figure><img src="' + I.figs[k] + '" alt="' + esc(cap) + '"><figcaption>' + cap + '</figcaption></figure>' : '';
       const capOf = (sc, lab) => sc ? lab + ': ' + br(sc.date) + ' · ' + nf(sc.clear * 100, 0) + '% da área sem nuvem' : lab;
-      h += '<div class="ar-grid">' + fig('pre', capOf(I.pre, 'Antes')) + fig('post', capOf(I.post, 'Depois')) + fig('now', capOf(I.now, 'Hoje')) + fig('sev', (isDesm(area) ? 'Perda de vegetação' : 'Gravidade da queima') + ' (dNBR) dentro do contorno') + '</div>';
+      h += '<div class="ar-grid">' + fig('pre', capOf(I.pre, 'Antes')) + fig('post', capOf(I.post, I.post && I.post.during ? 'Durante o fogo' : 'Depois')) + fig('now', capOf(I.now, 'Hoje')) + fig('sev', (isDesm(area) ? 'Perda de vegetação' : 'Gravidade da queima') + ' (dNBR) dentro do contorno') + '</div>';
       if (I.sev) {
         const s = I.sev;
         h += '<table class="ar-sev"><tr><th>' + (isDesm(area) ? 'Mudança na vegetação (dNBR)' : 'Gravidade da queima (dNBR)') + '</th><th>Área</th><th>% medido</th></tr>' + s.classes.map(c => '<tr><td><i style="background:' + c.color + '"></i>' + esc(isDesm(area) ? (DESM_NAME[c.name] || c.name) : c.name) + '</td><td>' + haTxt(c.ha) + '</td><td>' + nf(c.pct * 100, 0) + '%</td></tr>').join('') + '</table>';
         h += note((isDesm(area) ? 'Em desmatamento, o dNBR mede a troca da floresta por solo exposto ou palha, com ou sem fogo; a queima se confirma pelos focos de calor e pela cor escura na imagem do depois. ' : '') + 'dNBR médio na área: <b>' + nf(s.mean, 2) + '</b>. Medido em ' + nf(s.cover * 100, 0) + '% dos pixels da área (o resto estava sob nuvem, sombra ou sem dado). Classes de Key e Benson (USGS FIREMON). Em lavrado e pasto a queima rebrota em semanas, então imagens distantes da data mostram gravidade menor que a real.');
       } else if (I.pre && !I.post) h += note('Não há imagem sem nuvem depois da data para medir a gravidade.');
+      if (I.post && I.post.during) h += note('<b>Ainda não há imagem limpa depois do fim do fogo.</b> A segunda imagem é a de menos nuvem sobre a área desde o início do incêndio (' + br(I.post.date) + '), mesmo com nuvem ou fumaça. A gravidade medida com ela pode estar <b>subestimada</b>: gere o relatório de novo em alguns dias para ter a imagem do depois.');
       h += note('Sentinel-2 nível 2A (10 m), Copernicus/ESA, via Microsoft Planetary Computer.' + (I.hls ? ' Imagens de reserva: NASA HLS (30 m), via GIBS.' : '') + ' Contorno da área em amarelo; partes listradas em cinza ficaram fora da passagem do satélite (sem dado). Imagens escolhidas pela menor cobertura de nuvem sobre a própria área.');
     }
 

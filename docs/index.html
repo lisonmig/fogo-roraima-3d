@@ -4125,7 +4125,7 @@ body.measuring #labels > * { pointer-events: none; }
     const a = st.sel && areaOf(st.sel); if (!a || !a.rings || !a.rings.length) return;
     window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
       whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
-    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026111202'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026111302'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
     areaJs.then(() => window.FRR_AREA.open(a)).catch(() => showToast('Não foi possível abrir o relatório agora. Verifique a internet e tente de novo.'));
   }
   $('popBody').addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-area-rep]')) openAreaReport(); });
