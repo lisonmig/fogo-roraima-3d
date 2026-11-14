@@ -2202,14 +2202,21 @@ body.measuring #labels > * { pointer-events: none; }
       if (ok(cellFirst.get(scKey(la0 + a, lo0 + b)))) { s0 = [la0 + a, lo0 + b]; break; }
     }
     if (!s0) return null;
-    const seen = new Set([scKey(s0[0], s0[1])]), q = [s0]; let t0 = Infinity, t1 = -Infinity, n = 0;
+    const seen = new Set([scKey(s0[0], s0[1])]), q = [s0], cells = []; let t0 = Infinity, t1 = -Infinity, n = 0;
     while (q.length && n < 20000) {
-      const [la, lo] = q.pop(), c = cellFirst.get(scKey(la, lo)); n++; if (c.t < t0) t0 = c.t; if (c.t > t1) t1 = c.t;
+      const [la, lo] = q.pop(), c = cellFirst.get(scKey(la, lo)); n++; cells.push([la, lo]); if (c.t < t0) t0 = c.t; if (c.t > t1) t1 = c.t;
       for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
         if (!a && !b) continue; const k = scKey(la + a, lo + b); if (seen.has(k) || !ok(cellFirst.get(k))) continue; seen.add(k); q.push([la + a, lo + b]);
       }
     }
-    return { kind: 'scar', lon, lat, t0, t1, n };
+    // the outline: the fire cells (about 375 m each) joined by rows, one rectangle per run of cells, so the area is exact (no limit on the number of cells)
+    const hf = SC_STEP / 2, byRow = new Map(), rings = [];
+    cells.forEach(([la, lo]) => { if (!byRow.has(la)) byRow.set(la, []); byRow.get(la).push(lo); });
+    byRow.forEach((los, la) => { los.sort((p, q) => p - q); let ini = los[0], fim = los[0];
+      const sai = e => { const x0 = ini * SC_STEP - hf, x1 = e * SC_STEP + hf, y0 = la * SC_STEP - hf, y1 = la * SC_STEP + hf; rings.push([x0, y0, x1, y0, x1, y1, x0, y1, x0, y0]); };
+      for (let k = 1; k < los.length; k++) { if (los[k] === fim + 1) fim = los[k]; else { sai(fim); ini = fim = los[k]; } }
+      sai(fim); });
+    return { kind: 'scar', lon, lat, t0, t1, n, rings };
   }
   function scarCard(s) {
     showCard('<h3>Cicatriz de queimada</h3><p class="when">Área que pegou fogo, vista pelo satélite</p>' +
@@ -3326,7 +3333,7 @@ body.measuring #labels > * { pointer-events: none; }
       legalHtml({ lc: -1, ti: tiHit, dt: -1, car: carAt(e.c[0], e.c[1]), inpe: e }) +
       '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([['Classificação', e.tipo], ['Situação no INPE', e.atual ? e.status : 'encerrado'], ['Código do evento', String(e.id)], ['Área estimada', fmt(e.ha, 1) + ' ha'], ['Município', e.mun]]) +
       '<p style="margin-top:6px">Contorno e classificação do Programa Queimadas, que junta os focos de vários satélites em eventos de fogo. <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">Ver no INPE</a></p></div></details>' +
-      lawLink());
+      lawBtn());
   }
   $('lyWind').onchange = e => windLines.visible = e.target.checked;
   $('lyLbl').onchange = e => $('labels').hidden = !e.target.checked;
@@ -3609,6 +3616,7 @@ body.measuring #labels > * { pointer-events: none; }
       '<div class="fineOut" id="evOut"></div>' +
       '<p class="note" style="margin:0">Só para entender a lei (Decreto 6.514/2008, redação de 2024). Não é multa aplicada nem parecer jurídico: a multa real depende de investigação, de quem provocou o fogo e de haver ou não autorização.</p></div></details>';
   }
+  const lawBtn = () => '<div><button type="button" class="btn ar-open" data-prej="1" style="margin-top:8px">📄 Quanto a lei prevê por hectare e o prejuízo total</button><p class="note" style="margin:4px 0 0">Documento para imprimir ou salvar em PDF, com a multa prevista na lei e o prejuízo econômico estimado para esta área.</p></div>';
   const lawLink = () => '<p class="note" style="margin:8px 0 0"><a href="#" onclick="document.getElementById(\'tab-dados\').click();return false">Quanto a lei prevê por hectare →</a></p>';
   function bindFineBlock() {
     const upd = () => calcFine($('evHa'), $('evType'), $('evTi'), $('evOut'));
@@ -3634,8 +3642,10 @@ body.measuring #labels > * { pointer-events: none; }
       '<p class="note" style="margin:2px 0 4px">De 01/01 até ' + fmtD(TLAST) + ' (focos VIIRS de 375 m). No período escolhido (' + period.name.toLowerCase() + '): ≈ ' + fmt(haPer, 0) + ' ha.</p>' +
       '<div class="aware"><b>Fogo no imóvel não quer dizer culpa do dono.</b> Pode ser queima autorizada de pasto ou roça, manejo, fogo que veio de fora, acidente ou incêndio. O satélite não sabe quem acendeu nem se havia autorização. O CAR é declarado pelo próprio dono e não prova posse nem autoria.</div>' +
       legalHtml({ lc: lcIdx, ti: tiHit, dt: -1, dtAny, car: k }) +
+      '<button type="button" class="btn" id="carMemo" style="margin:8px 0 2px">📋 Memorial descritivo do CAR</button>' +
       '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([['Município', c.mun || '–'], ['Situação no CAR', (c.cond || '–')], ['Área declarada', fmt(c.area, 1) + ' ha']]) +
       '<p style="margin-top:6px">Dados públicos do SICAR. O CAR é declarado pelo próprio dono e pode ter sobreposições; não comprova posse nem autoria do fogo.</p></div></details>' + lawLink());
+    const memoBtn = $('carMemo'); if (memoBtn) memoBtn.onclick = () => openCarMemorial(k);
   }
 
   // ---------- estimate for 2026: possible fines for fire without authorization
@@ -3989,7 +3999,7 @@ body.measuring #labels > * { pointer-events: none; }
           ['Maior intensidade', ev.frpMax >= 0 ? fmt(ev.frpMax, 1) + ' MW' : 'não informada'],
           ['Território', ti ? 'TI ' + ti.nome + (ti.etnia ? ' (' + ti.etnia + ')' : '') : 'fora de Terra Indígena']]) +
         '<p style="margin-top:6px">Área aproximada a partir dos focos de 375 m; não substitui mapeamento oficial.</p></div></details>' +
-        lawLink());
+        lawBtn());
     }
   }
 
@@ -4108,27 +4118,56 @@ body.measuring #labels > * { pointer-events: none; }
   }
   $('repBtn').onclick = showReport;
   // ---------- technical report of one area (burn scar, degradation, deforestation, fire event): code in relatorio-area.js, loaded only on demand
-  const AREA_KINDS = { queim: 1, deter: 1, prodes: 1, inpe: 1, event: 1 };
-  const areaBtnHtml = () => st.sel && AREA_KINDS[st.sel.kind] ? '<button type="button" class="btn ar-open" data-area-rep="1">📄 Relatório técnico completo da área</button><p class="note" style="margin:4px 0 0">Imagens de antes e depois, histórico, imóveis, embargos, lei e fontes. Leva cerca de 30 segundos.</p>' : '';
+  const AREA_KINDS = { queim: 1, deter: 1, prodes: 1, inpe: 1, event: 1, scar: 1 };
+  // the CAR properties that touch the selected area: a sample of its vertices and centre inside each outline
+  function carsAtSel() {
+    const a = st.sel && areaOf(st.sel); if (!a || !a.rings || !a.rings.length) return [];
+    const pts = []; let x = 0, y = 0, n = 0;
+    a.rings.forEach(r => { for (let j = 0; j < r.length; j += 2) { x += r[j]; y += r[j + 1]; n++; } });
+    a.rings.forEach(r => { const step = Math.max(2, Math.floor(r.length / 2 / 60) * 2); for (let j = 0; j < r.length; j += step) pts.push([r[j], r[j + 1]]); });
+    pts.push([x / n, y / n]);
+    const out = []; CAR.forEach((c, k) => { if (c.r && c.r.some(r => pts.some(p => pointInRing(p[0], p[1], r)))) out.push(k); });
+    return out;
+  }
+  const areaBtnHtml = () => st.sel && AREA_KINDS[st.sel.kind] ? '<button type="button" class="btn ar-open" data-area-rep="1">📄 Relatório técnico completo da área</button><p class="note" style="margin:4px 0 0">Imagens de antes e depois, histórico, imóveis, embargos, lei e fontes. Leva cerca de 30 segundos.</p>' + (carsAtSel().length ? '<button type="button" class="btn ar-open" data-area-rep-car="1" style="margin-top:6px">📄 Relatório técnico com CAR (passivo ambiental)</button><p class="note" style="margin:4px 0 0">Inclui o croqui da área, a imagem de satélite com o contorno do imóvel e o memorial do CAR.</p>' : '') : '';
   function areaOf(s) {
     if (s.kind === 'queim') { const d = QM[s.k], deg = d.cls === 'DEGRADACAO'; return { kind: 'queim', title: deg ? 'Área degradada' : 'Área queimada', cls: QM_CLS[d.cls] || '', source: 'INPE DETER (alerta de ' + (deg ? 'degradação' : 'cicatriz de queimada') + ')', date: d.d, ha: d.km2 * 100, rings: d.r }; }
     if (s.kind === 'deter') { const d = DET[s.k]; return { kind: 'deter', title: 'Desmatamento', cls: DET_CLS[d.cls] || '', source: 'INPE DETER (alerta de desmatamento)', date: d.d, ha: d.km2 * 100, rings: d.r }; }
     if (s.kind === 'prodes') { const d = PRD.list[s.k]; return { kind: 'prodes', title: 'Desmatamento medido', cls: 'PRODES ' + d.y, source: 'INPE PRODES (ano ' + d.y + ', agosto de ' + (d.y - 1) + ' a julho de ' + d.y + ')', date: d.d || (d.y + '-07-31'), ha: d.km2 * 100, rings: d.r }; }
     if (s.kind === 'inpe') { const e = IN.ev[s.k]; return { kind: 'inpe', title: inpeName(e.tipo), cls: e.tipo, source: 'INPE, Evento de Fogo nº ' + e.id, date: e.d0, date1: e.d1, ha: e.ha, rings: e.r, mun: e.mun,
       extra: e.desm != null ? 'O que queimou: ' + fmt(e.desm || 0, 0) + '% área desmatada, ' + fmt(e.veg || 0, 0) + '% vegetação nativa, ' + fmt(e.trans || 0, 0) + '% transição (INPE)' : '' }; }
-    if (s.kind === 'event') { const ev = D.events[s.k]; let sn = ev.snaps[ev.snaps.length - 1]; for (const x of ev.snaps) if (x.t <= st.t) sn = x;
+    if (s.kind === 'scar') return { kind: 'scar', title: 'Cicatriz de queimada (estimada pelos focos)', cls: 'contorno estimado pelos focos VIIRS de 375 m', source: 'Fogo em Roraima 3D (contorno estimado pelos focos VIIRS; não é contorno oficial)', date: dayOf(s.t0), date1: dayOf(s.t1), ha: s.n * 14.06, rings: s.rings };
+        if (s.kind === 'event') { const ev = D.events[s.k]; let sn = ev.snaps[ev.snaps.length - 1]; for (const x of ev.snaps) if (x.t <= st.t) sn = x;
       return { kind: 'event', title: 'Área queimada', cls: 'contorno pelos focos VIIRS', source: 'Fogo em Roraima 3D (contorno estimado pelos focos VIIRS de 375 m)', date: dayOf(ev.start), date1: dayOf(ev.end), ha: ev.area * 100, rings: sn.rings, mun: D.muns[ev.m] }; }
     return null;
   }
   let areaJs = null; // relatorio-area.js?v=...: change the number on every edit of that file (the offline cache keeps .js by address)
-  function openAreaReport() {
-    const a = st.sel && areaOf(st.sel); if (!a || !a.rings || !a.rings.length) return;
+  function openCarMemorial(k) {
+    const c = CAR[k]; if (!c || !c.r) return;
     window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
       whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
-    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026111303'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
-    areaJs.then(() => window.FRR_AREA.open(a)).catch(() => showToast('Não foi possível abrir o relatório agora. Verifique a internet e tente de novo.'));
+    const memo = { cod: c.cod, tipo: c.tipo, tipoNome: CAR_TIPO[c.tipo] || 'Imóvel rural', cond: c.cond, mun: c.mun, area: c.area, rings: c.r };
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026111415'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    areaJs.then(() => window.FRR_AREA.memorial(memo)).catch(() => showToast('Não foi possível abrir o memorial agora. Verifique a internet e tente de novo.'));
   }
-  $('popBody').addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-area-rep]')) openAreaReport(); });
+  function openAreaReport(withCar) {
+    const a = st.sel && areaOf(st.sel); if (!a || !a.rings || !a.rings.length) return;
+    const cars = withCar ? carsAtSel().slice(0, 4).map(k => { const car = CAR[k]; return { cod: car.cod, tipo: car.tipo, tipoNome: CAR_TIPO[car.tipo] || 'Imóvel rural', cond: car.cond, mun: car.mun, area: car.area, rings: car.r }; }) : [];
+    window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
+      whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026111415'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    areaJs.then(() => window.FRR_AREA.open(a, cars.length ? { cars } : undefined)).catch(() => showToast('Não foi possível abrir o relatório agora. Verifique a internet e tente de novo.'));
+  }
+  $('popBody').addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-area-rep],[data-area-rep-car]'); if (t) openAreaReport(t.hasAttribute('data-area-rep-car')); });
+  $('popBody').addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-prej]')) openPrejuizo(); });
+  function openPrejuizo() {
+    const a = st.sel && areaOf(st.sel); if (!a || !a.rings || !a.rings.length) return;
+    const cars = carsAtSel().slice(0, 4).map(k => { const car = CAR[k]; return { cod: car.cod, tipo: car.tipo, tipoNome: CAR_TIPO[car.tipo] || 'Imóvel rural', cond: car.cond, mun: car.mun, area: car.area, rings: car.r }; });
+    window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
+      whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026111415'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    areaJs.then(() => window.FRR_AREA.prejuizo(a, cars)).catch(() => showToast('Não foi possível abrir o documento agora. Verifique a internet e tente de novo.'));
+  }
   // ---------- first visit: a short guide (4 cards, little text); the "?" button shows it again
   const TOUR = [
     ['🛰️', 'Fogo visto do satélite', 'O satélite vê o calor, não a chama. Chama com brilho: visto há menos de 6 h (o anel pulsando marca o fogo das últimas 3 h); brasa com fumaça: de 6 a 24 h, apagando; ponto cinza: de 1 a 7 dias, apagado. Quanto maior o ponto, mais forte o calor. A posição pode errar de 375 m a alguns quilômetros.'],

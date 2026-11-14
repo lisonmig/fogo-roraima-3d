@@ -9,6 +9,7 @@
   const GIBS = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
   const OM = 'https://historical-forecast-api.open-meteo.com/v1/forecast';
   const OMAQ = 'https://air-quality-api.open-meteo.com/v1/air-quality';
+  const OMARCH = 'https://archive-api.open-meteo.com/v1/archive';
   const VERSION = '1.0';
   const LAYERS = {};
   const layer = name => LAYERS[name] || (LAYERS[name] = fetch('rel/' + name, { cache: 'force-cache' }).then(r => r.ok ? r.json() : null).catch(() => null));
@@ -178,6 +179,7 @@
     return { canvas: c, mean: used ? sum / used : null, cover: inside ? used / inside : 0, classes: SEV.map((s, i) => ({ name: s[2], color: s[3], ha: cnt[i] * pxHa, pct: used ? cnt[i] / used : 0 })), burnedHa: cnt.slice(2).reduce((a, b) => a + b, 0) * pxHa };
   }
   async function imagery(area, ctx, step) {
+    if (area.ano && area.ano < 2017) return imageryLs(area, ctx, step);
     const frame = frameOf(area), mask = maskOf(area, frame), d = area.date, t = today();
     step('Procurando imagens Sentinel-2 sem nuvem (antes e depois)');
     const [preC, postC, nowC] = await Promise.all([
@@ -215,6 +217,63 @@
     return out;
   }
 
+  // ---------- relatorio de um ano: o mesmo relatorio completo, com as datas e os focos daquele ano no local
+  const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  async function lsSearch(bbox, from, to) {
+    const u = PC + '/stac/v1/search?collections=landsat-c2-l2&bbox=' + bbox.map(v => v.toFixed(5)).join(',') + '&datetime=' + from + 'T00:00:00Z/' + to + 'T23:59:59Z&limit=60';
+    const J = await getJSON(u, 30000);
+    return (J.features || []).map(f => ({ id: f.id, date: f.properties.datetime.slice(0, 10), cloud: f.properties['eo:cloud_cover'], plat: f.properties.platform || '' }));
+  }
+  const lsCrop = (id, b, w, h) => PC + '/data/v1/item/bbox/' + b.map(v => v.toFixed(5)).join(',') + '/' + w + 'x' + h + '.png?collection=landsat-c2-l2&item=' + encodeURIComponent(id) +
+    '&dst_crs=epsg:4326&assets=red&assets=green&assets=blue&rescale=7300,14000&nodata=0';
+  // Landsat: a cena com menos nuvem sobre a propria area, entre as candidatas (mede a nuvem dentro da area pelos pixels muito claros)
+  async function pickLs(c, frame, m, w, h, prefer) {
+    if (!c.length) return null;
+    const score = s => s.cloud + (s.plat === 'landsat-7' && s.date > '2003-05-31' ? 30 : 0) + Math.abs(dayDiff(prefer, s.date)) / 10;
+    let best = null;
+    for (const sc of c.slice().sort((a, b) => score(a) - score(b)).slice(0, 4)) {
+      try {
+        const p = await loadPixels(lsCrop(sc.id, frame.b, w, h), 30000); let n = 0, cl = 0;
+        for (let k = 0; k < m.length; k++) { if (!m[k]) continue; n++; if (!p.data[k * 4 + 3] || (p.data[k * 4] > 200 && p.data[k * 4 + 1] > 200 && p.data[k * 4 + 2] > 200)) cl++; }
+        const clear = n ? 1 - cl / n : 0;
+        if (!best || clear > best.clear + 0.02) best = { sc, p, clear };
+        if (clear >= 0.95) break;
+      } catch (e) { /* proxima cena */ }
+    }
+    return best;
+  }
+  // antes de 2017 não há Sentinel-2 contínuo: antes e depois com Landsat (sem medir a gravidade)
+  async function imageryLs(area, ctx, step) {
+    const frame = frameOf(area), d = area.date, d1 = area.date1 || d, w = Math.min(frame.w, 600), h = Math.min(frame.h, 600), m = maskOf(area, { b: frame.b, w, h });
+    step('Procurando imagens Landsat antes e depois do fogo (anteriores ao Sentinel-2)');
+    const [preC, postC] = await Promise.all([lsSearch(frame.b, addDays(d, -150), addDays(d, -2)).catch(() => []), lsSearch(frame.b, addDays(d1, 1), addDays(d1, 75)).catch(() => [])]);
+    const [pre, post] = await Promise.all([pickLs(preC, frame, m, w, h, addDays(d, -10)), pickLs(postC, frame, m, w, h, addDays(d1, 10))]);
+    const out = { frame, pre: null, post: null, now: null, figs: {}, ls: true };
+    if (pre) { out.pre = { date: pre.sc.date, clear: pre.clear }; out.figs.pre = figure(pre.p.canvas, area, frame, 'ANTES · Landsat · ' + br(pre.sc.date)); }
+    if (post) { out.post = { date: post.sc.date, clear: post.clear }; out.figs.post = figure(post.p.canvas, area, frame, 'DEPOIS · Landsat · ' + br(post.sc.date)); }
+    return out;
+  }
+  // um relatorio por ano: fecha o que estiver aberto e monta o relatorio completo daquele ano
+  function showYearMsg(y, msg) {
+    const el = document.getElementById('report') || document.body.appendChild(Object.assign(document.createElement('div'), { id: 'report' }));
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Relatório do ano ' + y);
+    el.innerHTML = '<div class="rep-page ar-page"><p class="rep-kick">Fogo em Roraima 3D · relatório técnico do ano ' + y + '</p><h1>Fogo em ' + y + ' no local</h1><p>' + esc(msg) + '</p><div class="rep-actions"><button class="btn" data-a="close">Fechar</button></div></div>';
+    el.onclick = e => { if (e.target.dataset && e.target.dataset.a === 'close') el.remove(); };
+  }
+  async function openYearReport(area, rec, y) {
+    const J = await fetch('rel/anos/' + y + '.json', { cache: 'force-cache' }).then(r => r.ok ? r.json() : null).catch(() => null);
+    if (!J) { showYearMsg(y, 'Não foi possível carregar os focos de ' + y + '. Tente de novo com internet.'); return; }
+    const G = J.g, [ox, oy] = J.origin, cells = new Set(rec.cells), T0 = Date.parse(window.FRR.D.meta.t0.replace('Z', ':00Z')), fires = [];
+    for (let k = 0; k < J.f.length; k += 4) {
+      if (!cells.has(J.f[k] + ',' + J.f[k + 1])) continue;
+      const dia = J.f[k + 2], hora = J.f[k + 3];
+      fires.push({ lon: ox + J.f[k] * G, lat: oy + J.f[k + 1] * G, t: (Date.UTC(y, 0, dia, hora) - T0) / 60000, dia });
+    }
+    if (!fires.length) { showYearMsg(y, 'Nenhum foco do satélite de referência nos quadrados da área em ' + y + '.'); return; }
+    const iso = d => new Date(Date.UTC(y, 0, d)).toISOString().slice(0, 10);
+    const dmin = Math.min(...fires.map(f => f.dia)), dmax = Math.max(...fires.map(f => f.dia));
+    open(Object.assign({}, area, { title: 'Fogo de ' + y }), { ano: { y, fires, date: iso(dmin), date1: iso(dmax) } });
+  }
   // ---------- land cover history: MODIS IGBP 2001–2023 (NASA GIBS), majority class inside the area
   const LC_NAMES = ['Floresta', 'Lavrado / savana', 'Campo ou pasto', 'Agricultura', 'Área alagável', 'Área urbana', 'Água', 'Outros'];
   const IGBP = [[[33, 138, 33], 0], [[49, 204, 49], 0], [[152, 204, 49], 0], [[150, 250, 150], 0], [[141, 186, 141], 0], [[186, 141, 141], 1], [[245, 222, 179], 1], [[218, 235, 157], 1], [[255, 213, 0], 1],
@@ -236,7 +295,7 @@
   // ---------- weather and air before/after the date (Open-Meteo: weather model, not a station)
   async function weather(area) {
     const [lon, lat] = area.center, d0 = addDays(area.date, -30), d1 = addDays(area.date1 || area.date, 2) > today() ? today() : addDays(area.date1 || area.date, 2);
-    const u = OM + '?latitude=' + lat.toFixed(3) + '&longitude=' + lon.toFixed(3) + '&start_date=' + d0 + '&end_date=' + d1 +
+    const u = (area.date < '2022-01-01' ? OMARCH : OM) + '?latitude=' + lat.toFixed(3) + '&longitude=' + lon.toFixed(3) + '&start_date=' + d0 + '&end_date=' + d1 +
       '&daily=precipitation_sum,temperature_2m_max,relative_humidity_2m_min,wind_speed_10m_max,wind_direction_10m_dominant&timezone=America%2FBoa_Vista';
     const J = await getJSON(u, 30000), D = J.daily;
     const days = D.time.map((t, i) => ({ t, rain: D.precipitation_sum[i], tmax: D.temperature_2m_max[i], rh: D.relative_humidity_2m_min[i], wind: D.wind_speed_10m_max[i], dir: D.wind_direction_10m_dominant[i] }));
@@ -245,6 +304,7 @@
     const rain30 = before.reduce((a, x) => a + (x.rain || 0), 0);
     let air = null;
     try {
+      if (area.date < '2013-01-01') throw new Error('sem dados de qualidade do ar antes de 2013');
       const A = await getJSON(OMAQ + '?latitude=' + lat.toFixed(3) + '&longitude=' + lon.toFixed(3) + '&hourly=pm2_5&start_date=' + addDays(area.date, -1) + '&end_date=' + (addDays(area.date1 || area.date, 3) > today() ? today() : addDays(area.date1 || area.date, 3)) + '&timezone=America%2FBoa_Vista', 25000);
       const by = new Map(); A.hourly.time.forEach((t, i) => { const v = A.hourly.pm2_5[i]; if (v == null) return; const k = t.slice(0, 10); const o = by.get(k) || [0, 0]; o[0] += v; o[1]++; by.set(k, o); });
       const daily = [...by].map(([k, [s, n]]) => [k, s / n]).sort((a, b) => b[1] - a[1]);
@@ -287,8 +347,15 @@
   const isDesm = area => area.kind === 'deter' || area.kind === 'prodes';
   const LEVEL = { 3: ['alto', 'Indício forte', '#b42318'], 2: ['medio', 'Atenção', '#b54708'], 1: ['info', 'Informação', '#475467'] };
   let running = false;
-  async function open(area0) {
-    if (running) return; running = true;
+  // aviso curto na tela (quando um pedido chega enquanto outro relatorio ainda esta montando)
+  function avisa(txt) {
+    let t = document.getElementById('arAviso');
+    if (!t) { t = document.body.appendChild(Object.assign(document.createElement('div'), { id: 'arAviso' })); t.setAttribute('role', 'status');
+      t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10000;background:#1b1917;color:#fff;padding:10px 14px;border-radius:8px;font:14px system-ui,sans-serif;max-width:90vw;box-shadow:0 4px 16px rgba(0,0,0,.3)'; }
+    t.textContent = txt; clearTimeout(t._h); t._h = setTimeout(() => t.remove(), 4000);
+  }
+  async function open(area0, opts) {
+    if (running) { avisa('Aguarde o relatório atual terminar (ou cancele) e tente de novo.'); return; } running = true;
     const A = window.FRR;
     const el = document.getElementById('report') || document.body.appendChild(Object.assign(document.createElement('div'), { id: 'report' }));
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Relatório técnico da área');
@@ -299,6 +366,7 @@
     const step = t => { if (cancelled) return; const li = document.createElement('li'); li.textContent = t; stepsEl.appendChild(li); };
     try {
       const area = Object.assign({}, area0);
+      if (opts && opts.ano) { area.date = opts.ano.date; area.date1 = opts.ano.date1; area.ano = opts.ano.y; }
       area.rings = area0.rings.filter(r => r.length >= 6);
       area.box = boxOf(area.rings);
       area.samples = samplesOf(area.rings, area.box);
@@ -324,8 +392,16 @@
       const [img, lc, wx, ph] = await Promise.all([tasks.img, tasks.lc, tasks.wx, tasks.ph]);
       if (cancelled) return;
       step('Cruzando tudo e escrevendo o relatório');
-      const R = analyse(area, A, { FP, UC, EMB, SOL, GEO, ASV, POP, SAU, REC, img, lc, wx, ph });
+      const R = analyse(area, A, { FP, UC, EMB, SOL, GEO, ASV, POP, SAU, REC, img, lc, wx, ph, anoFires: opts && opts.ano ? opts.ano.fires : null, ano: opts && opts.ano ? opts.ano.y : null });
       render(el, area, R);
+      if (opts && opts.cars && opts.cars.length) {
+        const preps = [];
+        for (let k = 0; k < opts.cars.length; k++) {
+          try { preps.push(await carBlock(el, opts.cars[k], area, R, k + 1, opts.cars.length)); }
+          catch (e) { el.querySelector('.rep-page').insertAdjacentHTML('beforeend', '<p style="color:#b42318">Não foi possível montar o imóvel ' + (k + 1) + ' do CAR: ' + esc(e.message) + '</p>'); }
+        }
+        if (preps.length > 1) await overlapBlock(el, opts.cars, preps, area).catch(e => { el.querySelector('.rep-page').insertAdjacentHTML('beforeend', '<p style="color:#b42318">Não foi possível montar a sobreposição: ' + esc(e.message) + '</p>'); });
+      }
     } catch (e) {
       el.querySelector('.rep-page').insertAdjacentHTML('beforeend', '<p style="color:#b42318">Não foi possível montar o relatório: ' + esc(e.message) + '</p>');
       console.error(e);
@@ -346,7 +422,13 @@
     // --- fires seen by satellites since the map's start (Dec 2025), inside the area or within 500 m
     const fires = [];
     const pad = 0.006;
-    for (let i = 0; i < F.t.length; i++) {
+    if (L.anoFires) { // ano: focos do satélite de referência daquele ano (sem potência)
+      for (const f of L.anoFires) {
+        const inside = inRings(f.lon, f.lat, area.rings);
+        if (!inside && Math.min(...area.rings.map(r => ringDistKm(f.lon, f.lat, r))) > 0.5) continue;
+        fires.push({ i: -1, inside, t: f.t, frp: null, sat: 'INPE (satélite de referência)', viirs: false });
+      }
+    } else for (let i = 0; i < F.t.length; i++) {
       const fl = F.lon[i], fa = F.lat[i];
       if (fl < area.box[0] - pad || fl > area.box[2] + pad || fa < area.box[1] - pad || fa > area.box[3] + pad) continue;
       const inside = inRings(fl, fa, area.rings);
@@ -363,7 +445,7 @@
       if (night / fires.length >= 0.3 && fires.length >= 3) flag(2, 'Fogo ativo também à noite (' + nf(night) + ' de ' + nf(fires.length) + ' detecções): queima que segue sem controle depois do dia, típico de incêndio.');
     }
     // official INPE fire events touching the area
-    R.inpe = (A.IN && A.IN.ev || []).filter(e => e.r && e.r.some(rr => { const b = boxOf([rr]); return boxHit(b, area.box) && (area.samples.some(p => pip(p[0], p[1], rr)) || inRings(e.c[0], e.c[1], area.rings)); }))
+    R.inpe = (A.IN && A.IN.ev || []).filter(e => (!L.ano || String(e.d0).slice(0, 4) === String(L.ano))).filter(e => e.r && e.r.some(rr => { const b = boxOf([rr]); return boxHit(b, area.box) && (area.samples.some(p => pip(p[0], p[1], rr)) || inRings(e.c[0], e.c[1], area.rings)); }))
       .map(e => ({ tipo: e.tipo, d0: e.d0, d1: e.d1, ha: e.ha, id: e.id, desm: e.desm, veg: e.veg }));
     R.inpe.forEach(e => { if (/inc[eê]ndio/i.test(e.tipo)) flag(2, 'O INPE classificou um evento de fogo nesta área como incêndio (' + br(e.d0) + ' a ' + br(e.d1) + ').'); });
 
@@ -373,7 +455,7 @@
       area.samples.forEach(p => set.add(Math.round((p[0] - ox) / G) + ',' + Math.round((p[1] - oy) / G)));
       let bits = 0; set.forEach(k => { bits |= cells.get(k) || 0; });
       const years = L.REC.anos.filter(y => bits & (1 << (y - L.REC.ano0)));
-      R.rec = { years, total: L.REC.anos.length, from: L.REC.anos[0], to: L.REC.anos[L.REC.anos.length - 1] };
+      R.rec = { years, total: L.REC.anos.length, from: L.REC.anos[0], to: L.REC.anos[L.REC.anos.length - 1], cells: [...set] };
       if (years.length >= 8) flag(2, 'Fogo recorrente: o local teve foco de calor em ' + years.length + ' dos ' + L.REC.anos.length + ' anos entre ' + R.rec.from + ' e ' + R.rec.to + '. Fogo que volta em muitos anos costuma indicar uso do fogo para manejo de pasto ou roça.');
       else if (years.length >= 4) flag(1, 'O local teve foco de calor em ' + years.length + ' dos ' + L.REC.anos.length + ' anos entre ' + R.rec.from + ' e ' + R.rec.to + '.');
     }
@@ -414,9 +496,9 @@
     if (L.ASV) {
       const codes = new Set(R.car.map(c => (c.cod || '').replace(/[^0-9A-Z]/gi, '').toUpperCase()));
       L.ASV.itens.forEach(a => { const k = (a[4] || '').replace(/[^0-9A-Z]/gi, '').toUpperCase(); const near = a[9] ? distKm(lon, lat, a[9][0], a[9][1]) : null;
-        if ((k && codes.has(k)) || (near != null && near <= 3)) R.asv.push({ num: a[0], em: a[1], val: a[2], car: a[4], fin: a[5], ha: a[6], sit: a[7], org: a[8], km: near, sameCar: k && codes.has(k) }); });
+        if (k && codes.has(k)) R.asv.push({ num: a[0], em: a[1], val: a[2], car: a[4], fin: a[5], ha: a[6], sit: a[7], org: a[8], km: near, sameCar: k && codes.has(k) }); });
       const ref = area.date1 || area.date;
-      R.asvValid = R.asv.filter(a => a.sameCar && a.em && a.val && a.em <= ref && a.val >= addDays(area.date, -365));
+      R.asvValid = R.asv.filter(a => a.sameCar && a.em && a.val && a.em <= ref && a.val >= area.date);
       if (R.desmAny && R.car.length && !R.asvValid.length) flag(3, 'Não há autorização de supressão de vegetação (SINAFLOR/IBAMA) registrada para ' + (R.car.length > 1 ? 'os imóveis do CAR atingidos' : 'o imóvel do CAR atingido') + ' no período. Autorizações emitidas só no sistema estadual podem não aparecer nessa base: confirmar com a FEMARH.');
       if (R.asvValid.length) flag(1, 'Há autorização de supressão de vegetação válida no período para o imóvel (nº ' + R.asvValid.map(a => a.num).join(', ') + '). Conferir se a área autorizada corresponde a esta.');
     }
@@ -518,7 +600,7 @@
       : mid ? ['medio', 'Pede atenção', mid + (mid === 1 ? ' ponto de atenção' : ' pontos de atenção')] : ['info', 'Sem indícios fortes nos dados', 'nenhum cruzamento de dados aponta irregularidade'];
     let h = '';
     h += '<div class="rep-actions"><button class="btn" data-a="print">🖨 Imprimir ou salvar em PDF</button><button class="btn" data-a="kml">Baixar contorno (KML)</button><button class="btn" data-a="geojson">GeoJSON</button><button class="btn" data-a="copy">Copiar resumo</button><button class="btn" data-a="close">Fechar</button></div>';
-    h += '<p class="rep-kick">Fogo em Roraima 3D · relatório técnico da área</p><h1>' + esc(area.title) + (R.mun ? ' · ' + esc(R.mun) : '') + '</h1>';
+    h += '<p class="rep-kick">Fogo em Roraima 3D · ' + (area.ano ? 'relatório técnico do ano ' + area.ano : 'relatório técnico da área') + '</p><h1>' + esc(area.title) + (R.mun ? ' · ' + esc(R.mun) : '') + '</h1>';
     h += '<p class="rep-sub">Relatório nº <b>' + esc(code) + '</b> · gerado em ' + esc(gen) + ' (horário de Roraima) · fogororaima.com.br<br>Fonte da área: ' + esc(area.source) + ' · data de referência <b>' + br(area.date) + '</b>' + (area.date1 && area.date1 !== area.date ? ' a <b>' + br(area.date1) + '</b>' : '') + '</p>';
     const main = R.img && (R.img.figs.post || R.img.figs.now || R.img.figs.pre);
     if (main) h += '<img class="ar-hero" src="' + main + '" alt="Imagem de satélite da área com o contorno em amarelo">';
@@ -528,9 +610,9 @@
     h += '<div class="ar-verdict ar-' + verdict[0] + '"><b>' + esc(verdict[1]) + '</b><span>' + esc(verdict[2]) + '</span></div>';
     const sumTxt = [];
     const clsTxt = area.cls && area.cls.toLowerCase() !== area.title.toLowerCase() ? area.cls : '';
-    sumTxt.push('Área de ' + haTxt(ha) + ' (' + esc(area.title.toLowerCase()) + (clsTxt ? ', ' + esc(clsTxt) : '') + ') ' + (R.mun ? 'em ' + esc(R.mun) : 'em Roraima') + ', registrada por ' + esc(area.source) + ' em ' + br(area.date) + '.');
+    sumTxt.push('Área de ' + haTxt(ha) + ' (' + esc(area.title.toLowerCase()) + (clsTxt ? ', ' + esc(clsTxt) : '') + ') ' + (R.mun ? 'em ' + esc(R.mun) : 'em Roraima') + (area.ano ? ', contorno de ' + esc(area.source) + ', com focos de ' + area.ano + ' neste local.' : ', registrada por ' + esc(area.source) + ' em ' + br(area.date) + '.'));
     if (R.burned != null && R.img.sev.cover >= 0.5) sumTxt.push('As imagens Sentinel-2 de ' + br(R.img.pre.date) + ' e ' + br(R.img.post.date) + ' mostram ' + (isDesm(area) ? 'perda de vegetação' : 'sinal de queima') + ' em cerca de ' + haTxt(R.burned) + ' dentro do contorno.');
-    if (R.fireStats) sumTxt.push('Satélites detectaram ' + nf(R.fireStats.n) + ' focos de calor na área ou a até 500 m, entre ' + esc(R.fireStats.first) + ' e ' + esc(R.fireStats.last) + '.');
+    if (R.fireStats) sumTxt.push(area.ano ? 'O satélite de referência do INPE registrou ' + nf(R.fireStats.n) + (R.fireStats.n === 1 ? ' foco de calor' : ' focos de calor') + ' em ' + area.ano + ' na área ou a até 500 m, entre ' + esc(R.fireStats.first) + ' e ' + esc(R.fireStats.last) + '.' : 'Satélites detectaram ' + nf(R.fireStats.n) + ' focos de calor na área ou a até 500 m, entre ' + esc(R.fireStats.first) + ' e ' + esc(R.fireStats.last) + '.');
     if (R.rec) sumTxt.push('Historicamente, o local teve fogo em ' + R.rec.years.length + ' dos ' + R.rec.total + ' anos entre ' + R.rec.from + ' e ' + R.rec.to + '.');
     if (R.car.length) sumTxt.push(nf(R.car[0].sh * 100, 0) + '% da área está no imóvel do CAR ' + esc(R.car[0].cod) + (R.car.length > 1 ? ' (e mais ' + (R.car.length - 1) + ')' : '') + '.');
     else if (R.carNone) sumTxt.push('A área não está dentro de nenhum imóvel declarado no CAR.');
@@ -541,6 +623,7 @@
     // 2. identification
     h += H2(2, 'Identificação e localização');
     h += T([['Tipo', esc(area.title) + (clsTxt ? ' · ' + esc(clsTxt) : '')], ['Fonte do contorno', esc(area.source)], ['Data de referência', br(area.date) + (area.date1 && area.date1 !== area.date ? ' a ' + br(area.date1) : '')],
+      area.ano ? ['Relatório do ano', 'focos e datas de ' + area.ano + ' nos quadrados de ~1 km que tocam esta área; o contorno é o da área atual'] : null,
       ['Área informada pela fonte', area.ha != null ? haTxt(area.ha) : '–'], ['Área medida no contorno', haTxt(area.haCalc)], ['Perímetro', kmTxt(area.perim)],
       ['Centro (graus decimais)', nf(lat, 5) + ', ' + nf(lon, 5)], ['Centro (graus, min, seg)', gms(lat, 'N', 'S') + ' · ' + gms(lon, 'L', 'O')],
       ['Município', esc(R.mun || '–')], R.where ? ['Referência', esc(R.where)] : null, ['Distância de Boa Vista', kmTxt(R.bvKm)],
@@ -573,6 +656,7 @@
         h += '<table class="ar-sev"><tr><th>' + (isDesm(area) ? 'Mudança na vegetação (dNBR)' : 'Gravidade da queima (dNBR)') + '</th><th>Área</th><th>% medido</th></tr>' + s.classes.map(c => '<tr><td><i style="background:' + c.color + '"></i>' + esc(isDesm(area) ? (DESM_NAME[c.name] || c.name) : c.name) + '</td><td>' + haTxt(c.ha) + '</td><td>' + nf(c.pct * 100, 0) + '%</td></tr>').join('') + '</table>';
         h += note((isDesm(area) ? 'Em desmatamento, o dNBR mede a troca da floresta por solo exposto ou palha, com ou sem fogo; a queima se confirma pelos focos de calor e pela cor escura na imagem do depois. ' : '') + 'dNBR médio na área: <b>' + nf(s.mean, 2) + '</b>. Medido em ' + nf(s.cover * 100, 0) + '% dos pixels da área (o resto estava sob nuvem, sombra ou sem dado). Classes de Key e Benson (USGS FIREMON). Em lavrado e pasto a queima rebrota em semanas, então imagens distantes da data mostram gravidade menor que a real.');
       } else if (I.pre && !I.post) h += note('Não há imagem sem nuvem depois da data para medir a gravidade.');
+      if (I.ls && I.pre && I.post) h += note('Antes de 2017 o Sentinel-2 não cobre esta área de forma contínua, então as imagens são Landsat (30 m). A gravidade (dNBR) não é medida nestas imagens: compare-as visualmente.');
       if (I.post && !I.post.during && pasto && I.sev && I.sev.cover >= 0.3) {
         const dias = dayDiff(fimFogo, I.post.date);
         h += note(dias > 15
@@ -580,7 +664,7 @@
           : 'Leitura confiável para lavrado e pasto: a imagem de depois é de ' + dias + ' dias após o fim do fogo (até 15 dias).');
       }
       if (I.post && I.post.during) h += note('<b>Ainda não há imagem limpa depois do fim do fogo.</b> A segunda imagem é a de menos nuvem sobre a área desde o início do incêndio (' + br(I.post.date) + '), mesmo com nuvem ou fumaça. A gravidade medida com ela pode estar <b>subestimada</b>: gere o relatório de novo em alguns dias para ter a imagem do depois.');
-      h += note('Sentinel-2 nível 2A (10 m), Copernicus/ESA, via Microsoft Planetary Computer.' + (I.hls ? ' Imagens de reserva: NASA HLS (30 m), via GIBS.' : '') + ' Contorno da área em amarelo; partes listradas em cinza ficaram fora da passagem do satélite (sem dado). Imagens escolhidas pela menor cobertura de nuvem sobre a própria área.');
+      h += note((I.ls ? 'Landsat (30 m), USGS, via Microsoft Planetary Computer.' : 'Sentinel-2 nível 2A (10 m), Copernicus/ESA, via Microsoft Planetary Computer.') + (I.hls ? ' Imagens de reserva: NASA HLS (30 m), via GIBS.' : '') + ' Contorno da área em amarelo; partes listradas em cinza ficaram fora da passagem do satélite (sem dado). Imagens escolhidas pela menor cobertura de nuvem sobre a própria área.');
     }
 
     // 4. fire history
@@ -588,13 +672,13 @@
     if (R.fireStats) {
       const f = R.fireStats;
       const inPer = R.fires.filter(x => { const d = A.dayOf(x.t); return d >= addDays(area.date, -3) && d <= addDays(area.date1 || area.date, 3); }).length;
-      h += T([['Focos de calor desde dez/2025 (na área ou a até 500 m)', nf(f.n) + ' (' + nf(f.inside) + ' dentro do contorno)'], ['No período da área (' + br(addDays(area.date, -3)) + ' a ' + br(addDays(area.date1 || area.date, 3)) + ')', nf(inPer)], ['Primeiro e último', esc(f.first) + ' · ' + esc(f.last)], ['Dias com fogo', nf(f.days)],
-        ['Detecções à noite (19h às 6h)', nf(f.night)], ['Maior potência (FRP)', nf(f.frpMax, 1) + ' MW'], ['Satélites', esc(f.sats.join(', '))]]);
+      h += T([[area.ano ? 'Focos de calor de ' + area.ano + ' (satélite de referência, na área ou a até 500 m)' : 'Focos de calor desde dez/2025 (na área ou a até 500 m)', nf(f.n) + ' (' + nf(f.inside) + ' dentro do contorno)'], ['No período da área (' + br(addDays(area.date, -3)) + ' a ' + br(addDays(area.date1 || area.date, 3)) + ')', nf(inPer)], ['Primeiro e último', esc(f.first) + ' · ' + esc(f.last)], ['Dias com fogo', nf(f.days)],
+        ['Detecções à noite (19h às 6h)', nf(f.night)], (area.ano ? null : ['Maior potência (FRP)', nf(f.frpMax, 1) + ' MW']), ['Satélites', esc(f.sats.join(', '))]]);
     } else h += '<p>Nenhum foco de calor registrado na área desde dezembro de 2025 (início dos dados do mapa).</p>';
     if (R.inpe.length) h += '<p><b>Eventos de fogo do INPE na área:</b></p>' + T(R.inpe.map(e => [e.tipo + ' · nº ' + e.id, br(e.d0) + ' a ' + br(e.d1) + ' · ' + haTxt(e.ha) + (e.desm != null ? ' · ' + nf(e.desm, 0) + '% em área desmatada' : '')]));
     if (R.rec) {
       h += '<p><b>Anos com fogo no local, ' + R.rec.from + '–' + R.rec.to + '</b> (satélite de referência do INPE, quadrados de ~1 km):</p><div class="ar-years">' +
-        Array.from({ length: R.rec.to - R.rec.from + 1 }, (_, k) => R.rec.from + k).map(y => '<span class="' + (R.rec.years.includes(y) ? 'on' : '') + '" title="' + y + '">' + String(y).slice(2) + '</span>').join('') + '</div>' +
+        Array.from({ length: R.rec.to - R.rec.from + 1 }, (_, k) => R.rec.from + k).map(y => R.rec.years.includes(y) ? '<button type="button" class="on" data-ano="' + y + '" title="Abrir o relatório de ' + y + '">' + String(y).slice(2) + '</button>' : '<span title="' + y + '">' + String(y).slice(2) + '</span>').join('') + '</div>' +
         note('Teve fogo em <b>' + R.rec.years.length + '</b> de ' + R.rec.total + ' anos. O satélite de referência passa uma vez por tarde e não vê todo fogo: é um índice de recorrência, não a contagem completa.');
     }
 
@@ -614,8 +698,9 @@
     h += H2(6, 'Situação fundiária e áreas protegidas');
     if (R.car.length) h += '<p><b>Imóveis do CAR atingidos</b> (dados públicos do SICAR, sem nome do dono):</p>' + T(R.car.map(c => [esc(c.cod), esc(A.CAR_TIPO[c.tipo] || c.tipo || '') + ' · ' + nf(c.area, 0) + ' ha declarados · ' + esc(c.cond || 'situação não informada') + ' · <b>' + haTxt(c.haIn) + ' desta área (' + nf(c.sh * 100, 0) + '%)</b>']));
     else h += '<p>' + (R.carNone ? 'Nenhum imóvel do CAR sobre a área.' : 'Não foi possível consultar o CAR agora.') + '</p>';
-    if (R.asv.length) h += '<p><b>Autorizações de supressão de vegetação (SINAFLOR) no imóvel ou a até 3 km:</b></p>' + T(R.asv.slice(0, 6).map(a => ['Nº ' + esc(a.num) + (a.sameCar ? ' · mesmo imóvel' : ' · a ' + kmTxt(a.km)), 'emitida ' + br(a.em) + ', válida até ' + br(a.val) + ' · ' + esc(a.fin) + (a.ha ? ' · ' + nf(a.ha, 1) + ' ha' : '') + ' · ' + esc(a.sit)]));
-    else h += '<p>Nenhuma autorização de supressão de vegetação (SINAFLOR/IBAMA) registrada para o imóvel ou a até 3 km.</p>';
+    const sitFogo = a => a.val < area.date ? 'vencida antes do fogo' : a.em > (area.date1 || area.date) ? 'emitida depois do fogo' : 'vigente na data do fogo';
+    if (R.asv.length) h += '<p><b>Autorizações de supressão de vegetação (SINAFLOR) do imóvel do CAR:</b></p>' + T(R.asv.slice(0, 6).map(a => ['Nº ' + esc(a.num), 'emitida ' + br(a.em) + ', válida até ' + br(a.val) + ' · <b>' + sitFogo(a) + '</b> · ' + esc(a.fin) + (a.ha ? ' · ' + nf(a.ha, 1) + ' ha' : '') + ' · ' + esc(a.sit)])) + '<p class="ar-note">O SINAFLOR registra autorização para retirar vegetação (supressão), não para queimar: a autorização de queima é da FEMARH. Esta base pode não trazer todas as autorizações estaduais.</p>';
+    else h += '<p>Nenhuma autorização de supressão de vegetação (SINAFLOR/IBAMA) registrada para o imóvel do CAR.</p>';
     if (R.fp.length) h += '<p><b>Florestas públicas (CNFP 2025):</b></p>' + T(R.fp.slice(0, 5).map(f => [esc(f.nome || f.cat), esc(f.cat) + ' · ' + esc(f.gov.toLowerCase()) + ' · ' + esc(f.prot.toLowerCase().replace('sustentavel', 'sustentável').replace('destinacao', 'destinação')) + ' · ' + (f.sh > 0 ? '<b>' + nf(f.sh * 100, 0) + '% da área</b>' : 'a ' + kmTxt(f.km))]));
     else h += '<p>A área não está em floresta pública cadastrada (CNFP 2025).</p>';
     h += T([['Unidades de Conservação', R.uc.length ? R.uc.slice(0, 3).map(u => esc(u.nome) + ' (' + esc(u.cat) + ', ' + esc(u.grupo.toLowerCase()) + ') · ' + (u.sh > 0 ? '<b>' + nf(u.sh * 100, 0) + '% da área</b>' : 'a ' + kmTxt(u.km))).join('<br>') : 'nenhuma a até 10 km'],
@@ -638,6 +723,7 @@
       h += T([['Chuva nos 30 dias antes', nf(X.rain30, 0) + ' mm'], ['Dias seguidos sem chuva (≥ 5 mm) antes da data', nf(X.dry)],
         X.at ? ['No dia ' + br(X.at.t), 'máx. ' + nf(X.at.tmax, 0) + ' °C · umidade mín. ' + nf(X.at.rh, 0) + '% · vento até ' + nf(X.at.wind, 0) + ' km/h vindo do ' + dirName(X.at.dir)] : null,
         X.air ? ['Pior dia de fumaça (PM2,5, média do dia)', nf(X.air.pm, 0) + ' µg/m³ em ' + br(X.air.day) + (X.air.pm > 15 ? ' · <b>acima do limite diário da OMS (15)</b>' : '')] : null,
+        !X.air && area.ano ? ['Qualidade do ar (PM2,5)', 'sem dados deste período no modelo usado (começa em 2013)'] : null,
         R.smoke ? ['Fumaça seguiu para', dirName(R.smoke.to) + (R.smoke.towns.length ? ' · em direção a ' + R.smoke.towns.map(t => esc(t.name) + ' (' + kmTxt(t.km) + ')').join(', ') : '')] : null]);
       h += '<div class="ar-rain">' + X.days.filter(d => d.t <= (area.date1 || area.date)).slice(-30).map(d => '<span title="' + br(d.t) + ': ' + nf(d.rain || 0, 1) + ' mm" style="height:' + Math.min(40, 2 + (d.rain || 0) * 1.2) + 'px"></span>').join('') + '</div>';
       h += note('Chuva diária nos 30 dias antes da data (cada barra é um dia). Modelo meteorológico (Open-Meteo), não estação: valores aproximados.');
@@ -694,6 +780,8 @@
       geometry: { type: 'MultiPolygon', coordinates: area.rings.map(r => [Array.from({ length: r.length / 2 }, (_, k) => [+r[2 * k].toFixed(6), +r[2 * k + 1].toFixed(6)])]) } });
     const save = (txt, name, type) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); };
     el.onclick = async e => {
+      const yb = e.target.closest && e.target.closest('[data-ano]');
+      if (yb && R.rec) { openYearReport(area, R.rec, +yb.dataset.ano); return; }
       const a = e.target.dataset && e.target.dataset.a; if (!a) return;
       if (a === 'close') el.remove();
       else if (a === 'print') window.print();
@@ -717,12 +805,490 @@
     '.ar-photowarn{margin:6px 0 10px;padding:10px 12px;border-radius:8px;background:#fffaeb;border:1px solid #f5d38a;border-left:5px solid #dc6803;font-size:13.5px;line-height:1.45;color:#3d3833}.ar-photowarn b{color:#93370d}.ar-photos figcaption b{color:#93370d}' +
     '.ar-grid figcaption,.ar-photos figcaption{font-size:11.5px;color:#5a534b;margin-top:3px}.ar-photos{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}' +
     '.ar-sev{margin-top:8px}.ar-sev th{text-align:left;font-size:12px;color:#5a534b;border-bottom:1px solid #d9d3ca;padding:4px 0}.ar-sev td:first-child{text-align:left;font-weight:400;white-space:normal}.ar-sev i{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:6px;vertical-align:-1px}' +
-    '.ar-years{display:flex;flex-wrap:wrap;gap:3px;margin:4px 0}.ar-years span{font:600 11px var(--f-data,monospace);padding:3px 4px;border-radius:3px;background:#eee9e2;color:#8a8279}.ar-years span.on{background:#c2410c;color:#fff}' +
+    '.ar-years{display:flex;flex-wrap:wrap;gap:3px;margin:4px 0}.ar-years span{font:600 11px var(--f-data,monospace);padding:3px 4px;border-radius:3px;background:#eee9e2;color:#8a8279}.ar-years span.on{background:#c2410c;color:#fff}.ar-years button{font:600 11px var(--f-data,monospace);padding:3px 4px;border-radius:3px;border:0;cursor:pointer;background:#c2410c;color:#fff}.ar-ano{margin:8px 0;padding:10px 12px;border-radius:8px;background:#f9f6f2;border-left:4px solid #c2410c}.ar-anofig{margin:8px 0 0}.ar-anofig img{width:100%;max-width:520px;display:block;border-radius:6px}.ar-anofig figcaption{font-size:11.5px;color:#5a534b;margin-top:3px}' +
     '.ar-rain{display:flex;align-items:flex-end;gap:2px;height:44px;margin-top:8px;border-bottom:1px solid #d9d3ca}.ar-rain span{flex:1;background:#3f86c6;border-radius:2px 2px 0 0;min-width:3px}' +
     '.ar-page td:last-child{white-space:normal}.ar-page td{overflow-wrap:anywhere}.ar-law{font-size:13px}' +
-    '@media (max-width:560px){#report{padding:8px}.ar-page{padding:16px 14px 20px!important}.ar-page td{display:block;text-align:left!important;padding-left:0!important}.ar-page td:first-child{border-bottom:0;padding-bottom:0;color:#5a534b;font-size:12.5px}.ar-sev td{display:table-cell!important}.ar-page h1{font-size:22px}}' +
+    '@media (max-width:560px){#report{padding:8px}.ar-page{padding:16px 14px 20px!important}.ar-page td{display:block;text-align:left!important;padding-left:0!important}.ar-page td:first-child{border-bottom:0;padding-bottom:0;color:#5a534b;font-size:12.5px}.ar-sev td{display:table-cell!important}.ar-page h1{font-size:22px}.ar-verts{font-size:11px}.ar-verts td,.ar-verts th{display:table-cell!important;text-align:right!important;padding:4px 2px!important;white-space:nowrap}.ar-verts th{font-size:11px}.ar-verts td:first-child,.ar-verts th:first-child{text-align:left!important}}' +
     '@media print{.ar-page h2{break-after:avoid}.ar-grid,.ar-sev,.ar-flags,.ar-verdict,table{break-inside:avoid}.ar-hero{max-width:380px}}';
   document.head.appendChild(css);
 
-  window.FRR_AREA = { open, version: VERSION };
+  // ---------- memorial descritivo do CAR: the declared perimeter of a rural property (SICAR). It does not prove possession.
+  const AL_PAULISTA = 2.42, AL_GERAL = 4.84; // alqueire paulista = 2,42 ha; alqueirão (alqueire geral, mineiro, goiano) = 4,84 ha
+  // UTM zone 20 N, SIRGAS 2000 (GRS 80), central meridian -63°, scale 0,9996, northern hemisphere (Roraima)
+  function llToUtm(lat, lon) {
+    const a = 6378137, f = 1 / 298.257222101, k0 = 0.9996, e2 = f * (2 - f), ep2 = e2 / (1 - e2), lon0 = -63;
+    const phi = lat * Math.PI / 180, lam = (lon - lon0) * Math.PI / 180;
+    const N = a / Math.sqrt(1 - e2 * Math.sin(phi) ** 2), T = Math.tan(phi) ** 2, C = ep2 * Math.cos(phi) ** 2, A = lam * Math.cos(phi);
+    const M = a * ((1 - e2 / 4 - 3 * e2 ** 2 / 64 - 5 * e2 ** 3 / 256) * phi - (3 * e2 / 8 + 3 * e2 ** 2 / 32 + 45 * e2 ** 3 / 1024) * Math.sin(2 * phi) +
+      (15 * e2 ** 2 / 256 + 45 * e2 ** 3 / 1024) * Math.sin(4 * phi) - (35 * e2 ** 3 / 3072) * Math.sin(6 * phi));
+    const E = k0 * N * (A + (1 - T + C) * A ** 3 / 6 + (5 - 18 * T + T * T + 72 * C - 58 * ep2) * A ** 5 / 120) + 500000;
+    const Nn = k0 * (M + N * Math.tan(phi) * (A * A / 2 + (5 - T + 9 * C + 4 * C * C) * A ** 4 / 24 + (61 - 58 * T + T * T + 600 * C - 330 * ep2) * A ** 6 / 720));
+    return [Math.round(E), Math.round(Nn)];
+  }
+  const shTxt = sh => 'sobreposição de ' + (sh < 0.01 ? 'menos de 1%' : nf(sh * 100, 0) + '%');
+  const dmsTxt = (v, pos, neg) => { const x = Math.abs(v), d = Math.floor(x), mf = (x - d) * 60, m = Math.floor(mf), s = (mf - m) * 60;
+    return d + '° ' + String(m).padStart(2, '0') + '′ ' + s.toFixed(2).replace('.', ',') + '″ ' + (v >= 0 ? pos : neg); };
+  const decTxt = (v, d = 6) => v.toFixed(d).replace('.', ',');
+  async function openMemorial(c) {
+    if (running) { avisa('Aguarde o relatório atual terminar (ou cancele) e tente de novo.'); return; } running = true;
+    const A = window.FRR;
+    const el = document.getElementById('report') || document.body.appendChild(Object.assign(document.createElement('div'), { id: 'report' }));
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Memorial descritivo do CAR');
+    el.innerHTML = '<div class="rep-page ar-wait"><p class="rep-kick">Fogo em Roraima 3D · memorial descritivo do CAR</p><h1>Montando o memorial…</h1><p class="rep-sub">Juntando o contorno declarado, os cruzamentos com bases públicas e o relevo.</p></div>';
+    try {
+      const rings = c.rings.filter(r => r.length >= 6);
+      const area = { rings, box: boxOf(rings), title: 'Imóvel rural (CAR)', date: '2026-01-01', date1: today(), mun: c.mun, source: 'SICAR (CAR, declaração do proprietário)' };
+      area.samples = samplesOf(rings, area.box); area.edge = edgeOf(rings);
+      const cx = area.samples.reduce((a, p) => a + p[0], 0) / area.samples.length, cy = area.samples.reduce((a, p) => a + p[1], 0) / area.samples.length;
+      area.center = inRings(cx, cy, rings) ? [cx, cy] : area.samples[Math.floor(area.samples.length / 2)];
+      area.haCalc = rings.reduce((a, r) => a + ringHa(r), 0); area.perim = rings.reduce((a, r) => a + ringPerimKm(r), 0);
+      await Promise.all([A.loadCarTodos ? A.loadCarTodos() : null, A.loadProdes ? A.loadProdes() : null].filter(Boolean)).catch(() => {});
+      const [FP, UC, EMB, SOL, GEO] = await Promise.all(['florestas_publicas.json', 'ucs.json', 'embargos.json', 'solos.json', 'geologia.json'].map(polyLayer));
+      const [ASV, POP, SAU, REC] = await Promise.all(['asv.json', 'populacao.json', 'saude.json', 'recorrencia.json'].map(layer));
+      const R = analyse(area, A, { FP, UC, EMB, SOL, GEO, ASV, POP, SAU, REC, img: { figs: {}, sev: { cover: 0, classes: [], mean: null } }, lc: [], wx: {}, ph: [] });
+      renderMemorial(el, c, area, R);
+    } catch (e) {
+      el.querySelector('.rep-page').insertAdjacentHTML('beforeend', '<p style="color:#b42318">Não foi possível montar o memorial: ' + esc(e.message) + '</p>');
+      console.error(e);
+    } finally { running = false; }
+  }
+  function memoBody(c, area, R) {
+    const A = window.FRR, D = A.D, [lon, lat] = area.center, ha = area.haCalc, decl = c.area;
+    const tocados = (D.munis || []).map(m => [m.nome, area.samples.filter(p => (m.r || []).some(r => pip(p[0], p[1], r))).length / area.samples.length])
+      .filter(x => x[1] > 0).sort((x, y) => y[1] - x[1]);
+    const utm = llToUtm(lat, lon), verts = area.rings.reduce((a, r) => a + r.length / 2 - 1, 0); // the closing point repeats the first one
+    const dif = decl ? (ha - decl) / decl : null;
+    const linhas = rows => '<table>' + rows.filter(Boolean).map(([k, v]) => '<tr><td>' + esc(k) + '</td><td>' + v + '</td></tr>').join('') + '</table>';
+    let h = '';
+    h += '<div class="ar-photowarn"><b>Este é o contorno declarado pelo proprietário no CAR.</b> O contorno não comprova posse nem legaliza a ocupação. Os cruzamentos com outras bases são indícios, não prova de infração.</div>';
+    h += '<h2>1 Identificação</h2>' + linhas([['Código do CAR', esc(c.cod)], ['Tipo', esc(c.tipoNome)], ['Situação no CAR', esc(c.cond || '–')],
+      ['Município', esc(R.mun || c.mun || '–')], ['Outros municípios que a área toca', tocados.length > 1 ? tocados.slice(1).map(x => esc(x[0]) + ' (' + nf(x[1] * 100, 0) + '%)').join(', ') : 'nenhum']]);
+    h += '<h2>2 Área</h2>' + linhas([['Área declarada no CAR', nf(decl, 2) + ' ha'], ['Área medida pelo contorno', nf(ha, 2) + ' ha'],
+      ['Alqueire paulista (2,42 ha)', nf(ha / AL_PAULISTA, 2) + ' alqueires'], ['Alqueirão (4,84 ha)', nf(ha / AL_GERAL, 2) + ' alqueirões']]);
+    if (dif != null && Math.abs(dif) > 0.05) h += '<div class="ar-photowarn"><b>Atenção:</b> a área medida pelo contorno é ' + nf(Math.abs(dif) * 100, 0) + '% ' + (dif > 0 ? 'maior' : 'menor') + ' que a declarada no CAR. Confira o cadastro no SICAR.</div>';
+    h += '<h2>3 Localização</h2>' + linhas([['Centro (graus decimais)', decTxt(lat) + ' ; ' + decTxt(lon)], ['Centro (graus, minutos, segundos)', dmsTxt(lat, 'N', 'S') + ' ; ' + dmsTxt(lon, 'L', 'O')],
+      ['Centro (UTM 20 N, SIRGAS 2000)', 'E ' + nf(utm[0]) + ' m · N ' + nf(utm[1]) + ' m']]);
+    h += '<h2>4 Altitude</h2>' + (R.elev ? linhas([['No centro', nf(A.elevAt(lon, lat), 0) + ' m'], ['Mínima dentro do contorno', nf(R.elev.min, 0) + ' m'], ['Máxima dentro do contorno', nf(R.elev.max, 0) + ' m'], ['Média', nf(R.elev.mean, 0) + ' m']]) : '<p>Altitude indisponível.</p>');
+    // passivos: indícios from the public bases, each with its distance (0 = inside the perimeter)
+    const itens = [];
+    (R.emb || []).forEach(e => itens.push('<b>Embargo do IBAMA</b> ' + esc(e.termo) + ' (' + esc(e.sit || '–') + ', ' + esc(e.data || '–') + '): ' + (e.km === 0 ? 'dentro do perímetro' : 'a ' + nf(e.km, 1) + ' km')));
+    (R.ti || []).filter(t => t.sh > 0 || t.km <= 10).forEach(t => itens.push('<b>Terra Indígena</b> ' + esc(t.nome) + ' (' + esc(t.fase || '–') + '): ' + (t.sh > 0 ? shTxt(t.sh) + ' da área' : 'a ' + nf(t.km, 1) + ' km')));
+    (R.uc || []).forEach(u => itens.push('<b>Unidade de conservação</b> ' + esc(u.nome) + ' (' + esc(u.grupo || '–') + '): ' + (u.sh > 0 ? shTxt(u.sh) : 'a ' + nf(u.km, 1) + ' km')));
+    (R.fp || []).forEach(f => itens.push('<b>Floresta pública</b> ' + esc(f.nome) + ' (' + esc(f.tipo || '–') + '): ' + (f.sh > 0 ? shTxt(f.sh) : 'a ' + nf(f.km, 1) + ' km')));
+    (R.deter || []).forEach(d => itens.push('<b>Desmatamento (DETER)</b> ' + esc(br(d.d)) + ', ' + esc(d.cls || '–') + ': ' + nf(d.ha, 1) + ' ha dentro da área'));
+    (R.prodes || []).forEach(p => itens.push('<b>Desmatamento medido (PRODES)</b> ano ' + p.y + ': ' + nf(p.sh * 100, 0) + '% da área'));
+    if (R.fireStats && R.fireStats.n) itens.push('<b>Fogo em 2026</b>: ' + nf(R.fireStats.n) + ' focos de calor no imóvel desde 01/01 (' + nf(R.fireStats.inside) + ' dentro do perímetro).' + (R.asv && R.asv.length === 0 ? ' Nenhuma autorização de supressão de vegetação encontrada na base para o imóvel; a base pode estar incompleta.' : ''));
+    h += '<h2>5 Cruzamentos e passivos (indícios)</h2>' + (itens.length ? '<ul>' + itens.map(x => '<li>' + x + '</li>').join('') + '</ul>' : '<p>Nenhum cruzamento encontrado nas bases consultadas.</p>');
+    const dms = d => { d = ((d % 360) + 360) % 360; const g = Math.floor(d), m = Math.floor((d - g) * 60), sx = Math.round(((d - g) * 60 - m) * 60); return g + '°' + String(m).padStart(2, '0') + "'" + String(sx).padStart(2, '0') + '"'; };
+    const parts = area.rings.map(ring => { const V = []; for (let j = 0; j < ring.length - 2; j += 2) V.push([ring[j], ring[j + 1]]); return { V, U: V.map(p => llToUtm(p[1], p[0])) }; }).filter(pt => pt.U.length);
+    const lbl = k => 'P-' + String(k + 1).padStart(2, '0');
+    let rows = '', base = 0;
+    parts.forEach(pt => { const { V, U } = pt, m = U.length;
+      for (let i = 0; i < m; i++) { const j = (i + 1) % m, dE = U[j][0] - U[i][0], dN = U[j][1] - U[i][1], dist = Math.hypot(dE, dN), az = Math.atan2(dE, dN) * 180 / Math.PI, mc = (V[i][0] + 63) * Math.sin(V[i][1] * Math.PI / 180);
+        rows += '<tr><td>' + lbl(base + i) + '</td><td>' + lbl(base + j) + '</td><td>' + nf(dist, 2) + '</td><td>' + dms(az) + '</td><td>' + dms(mc) + '</td><td>' + nf(U[i][0]) + '</td><td>' + nf(U[i][1]) + '</td></tr>'; }
+      base += m; });
+    h += '<h2>6 Vértices e roteiro perimétrico</h2><p class="ar-note">Padrão do memorial descritivo (modelo do órgão fundiário). Azimutes de quadrícula, convergência do meridiano (MC) e coordenadas UTM zona 20 N, SIRGAS 2000. Confrontantes não constam nos dados públicos do CAR.' + (parts.length > 1 ? ' O imóvel tem ' + parts.length + ' partes: os vértices seguem uma numeração contínua, e cada parte fecha no seu primeiro vértice.' : '') + '</p>';
+    h += '<table class="ar-verts"><tr><th>De</th><th>Para</th><th>Dist. (m)</th><th>Azimute</th><th>MC</th><th>Leste (E)</th><th>Norte (N)</th></tr>' + rows + '</table>';
+    h += '<details class="more"><summary>Ver detalhes e fontes</summary><div>' + linhas([['Perímetro', nf(area.perim, 2) + ' km (soma das distâncias entre vértices seguidos)'], ['Vértices', nf(verts)], ['Partes do contorno', nf(area.rings.length)]]) +
+      '<p><b>Como cada valor foi calculado</b></p><ul>' +
+      '<li><b>Área:</b> fórmula da área de polígono (cadarço) sobre uma projeção local plana, usando a latitude média do contorno. Para áreas de algumas dezenas de quilômetros quadrados, o erro é pequeno.</li>' +
+      '<li><b>Alqueires:</b> alqueire paulista = 2,42 ha; alqueirão = 4,84 ha (alqueire geral, mineiro e goiano). Os valores usados aqui são os mais comuns, mas o alqueire tem variações regionais: confirme com o cartório ou o técnico.</li>' +
+      '<li><b>UTM:</b> projeção Transversa de Mercator, zona 20 Norte, meridiano central -63°, datum SIRGAS 2000 (GRS 80), fator de escala 0,9996.</li>' +
+      '<li><b>Altitude:</b> leitura do modelo de relevo usado pelo mapa do site, no centro e em pontos dentro do contorno.</li>' +
+      '<li><b>Cruzamentos:</b> sobreposição medida pela parte da área que cai dentro de cada polígono oficial; a distância é a menor distância até o contorno.</li></ul>' +
+      '<p><b>Fontes dos dados</b></p><ul>' +
+      '<li>Imóvel rural (CAR): SICAR, dados públicos, declarados pelo proprietário. Sem nome do dono, CPF ou CNPJ.</li>' +
+      '<li>Municípios: malha municipal do IBGE.</li><li>Embargos: IBAMA (termos de embargo).</li>' +
+      '<li>Terras indígenas: FUNAI. Unidades de conservação: MMA (CNUC). Florestas públicas: SFB (CNFP).</li>' +
+      '<li>Desmatamento: INPE (DETER e PRODES). Focos de fogo: INPE (satélites de referência e VIIRS, 375 m).</li>' +
+      '<li>Relevo: modelo de elevação do mapa do site.</li></ul>' +
+      '<p class="ar-note">Limitações: o CAR é declarado e pode ter erros de contorno; as bases têm atualizações diferentes; o satélite não vê fogo pequeno nem sob nuvem. Este memorial não substitui o memorial assinado por técnico habilitado, nem tem valor de cartório.</p></div></details>';
+    return { h, itens };
+  }
+  function renderMemorial(el, c, area, R) {
+    const A = window.FRR, [lon, lat] = area.center, ha = area.haCalc, decl = c.area;
+    const mb = memoBody(c, area, R), itens = mb.itens, tocados = [];
+    let h = '<p class="rep-kick">Fogo em Roraima 3D · memorial descritivo do CAR</p><h1>Memorial do imóvel rural</h1><p class="rep-sub">CAR ' + esc(c.cod) + ' · ' + esc(c.tipoNome) + '</p>' + mb.h;
+    h += '<div class="rep-actions"><button class="btn" data-a="print">🖨 Imprimir ou salvar em PDF</button><button class="btn" data-a="kml">Baixar contorno (KML)</button><button class="btn" data-a="geojson">GeoJSON</button><button class="btn" data-a="copy">Copiar resumo</button><button class="btn" data-a="close">Fechar</button></div>';
+    el.innerHTML = '<div class="rep-page ar-page">' + h + '</div>';
+    el.scrollTop = 0;
+    const summary = ['FOGO EM RORAIMA 3D · MEMORIAL DO CAR ' + c.cod, 'Área declarada pelo proprietário no CAR. O contorno não comprova posse nem legaliza a ocupação.',
+      'Área declarada: ' + nf(decl, 2) + ' ha · medida pelo contorno: ' + nf(ha, 2) + ' ha · ' + nf(ha / AL_PAULISTA, 2) + ' alqueires paulistas · ' + nf(ha / AL_GERAL, 2) + ' alqueirões',
+      'Município: ' + (R.mun || c.mun || '–') + ' · Centro: ' + decTxt(lat) + ', ' + decTxt(lon), 'Altitude no centro: ' + nf(A.elevAt(lon, lat), 0) + ' m', 'Cruzamentos (indícios):'].concat(itens.map(x => '• ' + x.replace(/<[^>]+>/g, '')), ['Fonte: fogororaima.com.br (dados públicos)']).join('\n');
+    const kml = () => '<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>CAR ' + esc(c.cod) + '</name><Placemark><name>CAR ' + esc(c.cod) + '</name><Polygon><outerBoundaryIs><LinearRing><coordinates>' +
+      area.rings.map(r => Array.from({ length: r.length / 2 }, (_, k) => r[2 * k].toFixed(6) + ',' + r[2 * k + 1].toFixed(6) + ',0').join(' ')).join(' ') + '</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Document></kml>';
+    const gj = () => JSON.stringify({ type: 'Feature', properties: { car: c.cod, tipo: c.tipo, area_declarada_ha: decl, area_contorno_ha: Math.round(ha * 100) / 100 },
+      geometry: { type: 'MultiPolygon', coordinates: area.rings.map(r => [Array.from({ length: r.length / 2 }, (_, k) => [+r[2 * k].toFixed(6), +r[2 * k + 1].toFixed(6)])]) } });
+    const save = (txt, name, type) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); };
+    el.onclick = async e => {
+      const a = e.target.dataset && e.target.dataset.a; if (!a) return;
+      if (a === 'close') el.remove();
+      else if (a === 'print') window.print();
+      else if (a === 'kml') save(kml(), 'CAR-' + c.cod + '.kml', 'application/vnd.google-earth.kml+xml');
+      else if (a === 'geojson') save(gj(), 'CAR-' + c.cod + '.geojson', 'application/geo+json');
+      else if (a === 'copy') { let ok = false; try { await navigator.clipboard.writeText(summary); ok = true; } catch (err) {} e.target.textContent = ok ? 'Resumo copiado' : 'Não deu para copiar'; }
+    };
+  }
+  // ---------- passivo ambiental no imóvel do CAR: the car's memorial, a sketch (croqui) and satellite images with both outlines
+  async function carPrep(c) {
+    const A = window.FRR;
+    const rings = c.rings.filter(r => r.length >= 6);
+    const area = { rings, box: boxOf(rings), title: 'Imóvel rural (CAR)', date: '2026-01-01', date1: today(), mun: c.mun, source: 'SICAR (CAR, declaração do proprietário)' };
+    area.samples = samplesOf(rings, area.box); area.edge = edgeOf(rings);
+    const cx = area.samples.reduce((a, p) => a + p[0], 0) / area.samples.length, cy = area.samples.reduce((a, p) => a + p[1], 0) / area.samples.length;
+    area.center = inRings(cx, cy, rings) ? [cx, cy] : area.samples[Math.floor(area.samples.length / 2)];
+    area.haCalc = rings.reduce((a, r) => a + ringHa(r), 0); area.perim = rings.reduce((a, r) => a + ringPerimKm(r), 0);
+    await Promise.all([A.loadCarTodos ? A.loadCarTodos() : null, A.loadProdes ? A.loadProdes() : null].filter(Boolean)).catch(() => {});
+    const [FP, UC, EMB, SOL, GEO] = await Promise.all(['florestas_publicas.json', 'ucs.json', 'embargos.json', 'solos.json', 'geologia.json'].map(polyLayer));
+    const [ASV, POP, SAU, REC] = await Promise.all(['asv.json', 'populacao.json', 'saude.json', 'recorrencia.json'].map(layer));
+    const R = analyse(area, A, { FP, UC, EMB, SOL, GEO, ASV, POP, SAU, REC, img: { figs: {}, sev: { cover: 0, classes: [], mean: null } }, lc: [], wx: {}, ph: [] });
+    return { area, R };
+  }
+  // ---------- rotulos dos croquis: nunca em cima de uma linha do contorno nem de outro rotulo
+  const cruza = (a, b, c, d) => { const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])); return o(a, b, c) !== o(a, b, d) && o(c, d, a) !== o(c, d, b); };
+  // a retangulo [x0, y0, x1, y1] (com folga de 3 px) toca o segmento a-b?
+  const retaToca = (r, a, b) => {
+    const x0 = r[0] - 3, y0 = r[1] - 3, x1 = r[2] + 3, y1 = r[3] + 3, dentro = p => p[0] >= x0 && p[0] <= x1 && p[1] >= y0 && p[1] <= y1;
+    if (dentro(a) || dentro(b)) return true;
+    return [[[x0, y0], [x1, y0]], [[x1, y0], [x1, y1]], [[x1, y1], [x0, y1]], [[x0, y1], [x0, y0]]].some(([p, q]) => cruza(a, b, p, q));
+  };
+  // coloca o texto em volta do ponto (ax, ay): primeiro do lado de fora (out) e depois em volta. So desenha onde nao toca linha nem rotulo.
+  function colocaRotulo(x, txt, ax, ay, out, raios, segs, usados, lim, cor) {
+    const w = x.measureText(txt).width, base = out ? Math.atan2(ay - out[1], ax - out[0]) : 0;
+    const dist = a => Math.abs(Math.atan2(Math.sin(a - base), Math.cos(a - base)));
+    const angs = Array.from({ length: 16 }, (_, k) => k * Math.PI / 8).sort((p, q) => dist(p) - dist(q));
+    for (const raio of raios) for (const a of angs) {
+      const c = Math.cos(a), sn = Math.sin(a), px = ax + raio * c - w * (1 - c) / 2, py = ay + raio * sn + 4;
+      const r = [px - 3, py - 14, px + w + 3, py + 5];
+      if (r[0] < lim[0] || r[1] < lim[1] || r[2] > lim[2] || r[3] > lim[3]) continue;
+      if (usados.some(b => r[0] < b[2] && r[2] > b[0] && r[1] < b[3] && r[3] > b[1])) continue;
+      if (segs.some(([p, q]) => retaToca(r, p, q))) continue;
+      usados.push(r);
+      x.fillStyle = '#fff'; x.fillRect(r[0], r[1], r[2] - r[0], r[3] - r[1]);
+      x.fillStyle = cor; x.fillText(txt, px, py);
+      return true;
+    }
+    return false;
+  }
+  // sketch (croqui): the property outlines (each in a blue-grey tint, so an overlap is darker), the passive area (orange), coordinates, scale, north arrow
+  function croqui(carsRings, fireRings, box, carLabels, fireLbl) {
+    const W = 900, H = 900, pad = 60; const [x0, y0, x1, y1] = box; const kx = kmx((y0 + y1) / 2);
+    const s = Math.min((W - 2 * pad) / (((x1 - x0) * kx)), (H - 2 * pad) / ((y1 - y0) * 110.57)); // pixels per km
+    const P = (lo, la) => [pad + (lo - x0) * kx * s, H - pad - (la - y0) * 110.57 * s];
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+    x.fillStyle = '#f5f3ef'; x.fillRect(0, 0, W, H);
+    x.strokeStyle = '#e0dad1'; x.lineWidth = 1; x.fillStyle = '#7a7168'; x.font = '18px system-ui, sans-serif';
+    for (let lo = Math.ceil(x0 / 0.02) * 0.02; lo <= x1; lo += 0.02) { const [px] = P(lo, y0); x.beginPath(); x.moveTo(px, pad); x.lineTo(px, H - pad); x.stroke(); x.fillText(decTxt(lo, 2), px - 22, H - pad + 22); }
+    for (let la = Math.ceil(y0 / 0.02) * 0.02; la <= y1; la += 0.02) { const [, py] = P(x0, la); x.beginPath(); x.moveTo(pad, py); x.lineTo(W - pad, py); x.stroke(); x.fillText(decTxt(la, 2), 4, py + 6); }
+    const draw = (rings, fill, stroke, lw) => { x.beginPath(); rings.forEach(r => { for (let j = 0; j < r.length; j += 2) { const [px, py] = P(r[j], r[j + 1]); j ? x.lineTo(px, py) : x.moveTo(px, py); } x.closePath(); }); if (fill) { x.fillStyle = fill; x.fill('evenodd'); } x.lineWidth = lw; x.strokeStyle = stroke; x.stroke(); };
+    const CARCOL = ['rgba(30,64,175,.22)', 'rgba(16,122,96,.22)', 'rgba(122,60,160,.22)', 'rgba(160,110,20,.22)'];
+    carsRings.forEach((rings, i) => draw(rings, CARCOL[i % CARCOL.length], i === 0 ? '#1b1917' : ['#1e40af', '#107a60', '#7a3ca0', '#a06e14'][i % 4], 4));
+    draw(fireRings, 'rgba(234,88,12,.55)', '#b42318', 3);
+    const cen = rr => { let a = 0, b = 0, n = 0; rr.forEach(r => { for (let j = 0; j < r.length; j += 2) { a += r[j]; b += r[j + 1]; n++; } }); return [a / n, b / n]; };
+    x.font = '600 20px system-ui, sans-serif';
+    const segsOf = rr => rr.flatMap(ring => { const o = []; for (let j = 2; j < ring.length; j += 2) o.push([P(ring[j - 2], ring[j - 1]), P(ring[j], ring[j + 1])]); return o; });
+    const SEGS = carsRings.flatMap(rr => segsOf(rr)).concat(segsOf(fireRings)), USADOS = [], RAIOS = [0, 18, 36, 54, 72, 96, 120, 150, 180, 220];
+    const lab = (txt, px, py, col) => colocaRotulo(x, txt, px, py, null, RAIOS, SEGS, USADOS, [0, 0, W, H], col);
+    carsRings.forEach((rings, i) => { const [cx, cy] = P(...cen(rings)); lab(carLabels[i], cx, cy, i === 0 ? '#1b1917' : ['#1e40af', '#107a60', '#7a3ca0', '#a06e14'][i % 4]); });
+    const [cfx, cfy] = P(...cen(fireRings)); lab(fireLbl, cfx, cfy, '#b42318');
+    const nice = [0.5, 1, 2, 5, 10, 20].find(v => v * s > 160) || 20, L = nice * s;
+    x.fillStyle = '#1b1917'; x.fillRect(pad, 36, L, 8); x.font = '600 18px system-ui, sans-serif'; x.fillText(nice + ' km', pad, 28);
+    x.beginPath(); x.moveTo(W - 40, 40); x.lineTo(W - 52, 74); x.lineTo(W - 28, 74); x.closePath(); x.fillStyle = '#1b1917'; x.fill(); x.fillText('N', W - 46, 96);
+    return c.toDataURL('image/png');
+  }
+  // area shared by two outlines, in hectares: counts points of a fine grid inside both
+  function overlapHa(ringsA, ringsB) {
+    const bA = boxOf(ringsA), bB = boxOf(ringsB);
+    const x0 = Math.max(bA[0], bB[0]), y0 = Math.max(bA[1], bB[1]), x1 = Math.min(bA[2], bB[2]), y1 = Math.min(bA[3], bB[3]);
+    if (x1 <= x0 || y1 <= y0) return 0;
+    const N = 160, dx = (x1 - x0) / N, dy = (y1 - y0) / N, kx = kmx((y0 + y1) / 2); let n = 0;
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const lo = x0 + (i + 0.5) * dx, la = y0 + (j + 0.5) * dy; if (inRings(lo, la, ringsA) && inRings(lo, la, ringsB)) n++; }
+    return n * (dx * kx) * (dy * 110.57) * 100; // km² → ha
+  }
+  // Croqui de situação in the layout used by the land agency (ITERAIMA / SIGEF examples): roteiro perimétrico table on top,
+  // the parcel with its vertices (P-01, P-02…) and sides measured, conventions, coordinate system, north, scale bar and the title block.
+  // No owner name, no CPF and no property name: the title block shows the CAR code.
+  function croquiSituacao(area, car) {
+    const W = 1000, H = 1440, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.strokeStyle = '#000'; x.fillStyle = '#000'; x.lineWidth = 2; x.strokeRect(20, 20, W - 40, H - 40);
+    const parts = area.rings.map(ring => { const V = []; for (let j = 0; j < ring.length - 2; j += 2) V.push([ring[j], ring[j + 1]]); return { V, U: V.map(p => llToUtm(p[1], p[0])) }; }).filter(pt => pt.U.length);
+    const allU = parts.flatMap(pt => pt.U), n = allU.length, lbl = k => 'P-' + String(k + 1).padStart(2, '0');
+    const minE = Math.min(...allU.map(u => u[0])), maxE = Math.max(...allU.map(u => u[0])), minN = Math.min(...allU.map(u => u[1])), maxN = Math.max(...allU.map(u => u[1]));
+    // roteiro perimétrico (top): De, Para, distância, azimute de quadrícula, convergência, E, N
+    const fmtAz = d => { d = ((d % 360) + 360) % 360; const g = Math.floor(d), m = Math.floor((d - g) * 60), s = Math.round(((d - g) * 60 - m) * 60); return g + '°' + String(m).padStart(2, '0') + "'" + String(s).padStart(2, '0') + '"'; };
+    const mcOf = p => (p[0] - -63) * Math.sin(p[1] * Math.PI / 180); // convergence of the meridian at the vertex, degrees
+    x.font = 'bold 16px sans-serif'; x.textAlign = 'center';
+    const cols = ['De', 'Para', 'Dist. (m)', 'Azimute', 'MC', 'Leste (E)', 'Norte (N)'], cx = [70, 150, 240, 360, 470, 580, 760];
+    let ty = 60; x.fillText('ROTEIRO PERIMÉTRICO', W / 2, ty); ty += 14; x.font = 'bold 14px sans-serif';
+    x.strokeRect(50, ty, 900, 18 * (n + 2) + 26); cols.forEach((t, i) => x.fillText(t, cx[i], ty + 16)); ty += 22;
+    x.font = '14px sans-serif';
+    let base = 0;
+    parts.forEach(pt => { const { V, U } = pt, m = U.length;
+      for (let i = 0; i < m; i++) {
+        const a = U[i], b = U[(i + 1) % m], dE = b[0] - a[0], dN = b[1] - a[1], dist = Math.hypot(dE, dN), az = Math.atan2(dE, dN) * 180 / Math.PI;
+        const row = [lbl(base + i), lbl(base + ((i + 1) % m)), dist.toFixed(2).replace('.', ','), fmtAz(az), fmtAz(mcOf(V[i])), nf(a[0]), nf(a[1])];
+        row.forEach((t, k) => x.fillText(t, cx[k], ty + 14)); ty += 18;
+      }
+      base += m; });
+    const area_ha = area.haCalc, perim = area.perim * 1000;
+    x.font = 'bold 14px sans-serif'; x.fillText('Área (SGL): ' + nf(area_ha, 4) + ' ha     Perímetro: ' + nf(perim, 2) + ' m', W / 2, ty + 18);
+    // parcel drawing
+    // the drawing starts below the roteiro table, whatever the number of vertices
+    const top = 74 + 18 * (n + 2) + 26 + 50, bot = 1000, left = 90, right = 910, dw = right - left, dh = bot - top;
+    const sc = Math.min(dw / Math.max(1, maxE - minE), dh / Math.max(1, maxN - minN));
+    const ox = left + (dw - (maxE - minE) * sc) / 2, oy = top + (dh - (maxN - minN) * sc) / 2;
+    const P = u => [ox + (u[0] - minE) * sc, oy + (maxN - u[1]) * sc];
+    x.lineWidth = 3; parts.forEach(pt => { x.beginPath(); pt.U.forEach((u, i) => { const [px, py] = P(u); i ? x.lineTo(px, py) : x.moveTo(px, py); }); x.closePath(); x.stroke(); });
+    // rotulos: sempre fora das linhas e sem bater em outro rotulo
+    const SEGS = parts.flatMap(pt => pt.U.map((u, i) => [P(u), P(pt.U[(i + 1) % pt.U.length])]));
+    const CENTRO = [allU.reduce((acc, u) => acc + P(u)[0], 0) / n, allU.reduce((acc, u) => acc + P(u)[1], 0) / n];
+    const USADOS = [], LIM = [30, top - 6, W - 30, bot - 6];
+    x.textAlign = 'left';
+    x.font = 'bold 15px sans-serif';
+    let base2 = 0;
+    parts.forEach(pt => { const U = pt.U, m = U.length;
+      U.forEach((u, i) => { const [px, py] = P(u); x.beginPath(); x.arc(px, py, 5, 0, 7); x.fill(); colocaRotulo(x, lbl(base2 + i), px, py, CENTRO, [9, 16, 26, 38, 52, 70, 90], SEGS, USADOS, LIM, '#000'); });
+      base2 += m; });
+    x.font = '13px sans-serif';
+    parts.forEach(pt => { const U = pt.U, m = U.length;
+      for (let i = 0; i < m; i++) {
+        const a = P(U[i]), b = P(U[(i + 1) % m]), d = Math.hypot(U[(i + 1) % m][0] - U[i][0], U[(i + 1) % m][1] - U[i][1]);
+        colocaRotulo(x, d.toFixed(2).replace('.', ',') + ' m', (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, CENTRO, [12, 20, 30, 42, 60, 80], SEGS, USADOS, LIM, '#000');
+      } });
+    x.textAlign = 'center';
+    // conventions, coordinate system and north
+    const by = 1020, bh = 150;
+    x.strokeRect(40, by, 290, bh); x.strokeRect(340, by, 330, bh); x.strokeRect(680, by, 280, bh);
+    x.font = 'bold 14px sans-serif'; x.fillText('CONVENÇÕES', 185, by + 20); x.font = '13px sans-serif';
+    x.fillText('● Vértice do perímetro (P-nn)', 175, by + 50); x.fillText('— Contorno do imóvel', 175, by + 75); x.fillText('▨ Área do passivo (incêndio)', 175, by + 100);
+    x.font = 'bold 14px sans-serif'; x.fillText('SISTEMA DE COORDENADAS', 505, by + 20); x.font = '13px sans-serif';
+    x.fillText('SIRGAS 2000 · UTM zona 20 Norte', 505, by + 50); x.fillText('Meridiano central -63°, fator 0,9996', 505, by + 72); x.fillText('Azimutes: de quadrícula (com MC)', 505, by + 94); x.fillText('Coordenadas planas (E, N) em metros', 505, by + 116);
+    x.font = 'bold 14px sans-serif'; x.fillText('ORIENTAÇÃO', 820, by + 20);
+    x.beginPath(); x.moveTo(820, by + 50); x.lineTo(810, by + 92); x.lineTo(830, by + 92); x.closePath(); x.fill(); x.font = 'bold 14px sans-serif'; x.fillText('N', 820, by + 110);
+    // graphic scale
+    const dens = Math.round((1 / sc) / 0.00026458);
+    x.font = 'bold 14px sans-serif'; x.fillText('ESCALA GRÁFICA', W / 2, 1192);
+    x.font = '12px sans-serif';
+    const pxPerM = sc, stepM = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000].reverse().find(v => v * pxPerM <= 480) || 1, bar = stepM * pxPerM;
+    x.fillRect(120, 1200, bar, 8); x.fillText('0', 120, 1222); x.fillText(nf(stepM) + ' m', 120 + bar - 30, 1222);
+    // title block
+    x.strokeRect(40, 1260, 920, 150); x.font = 'bold 15px sans-serif'; x.textAlign = 'left';
+    x.fillText('PROJETO: CROQUI DE SITUAÇÃO', 55, 1282);
+    x.font = '14px sans-serif';
+    x.fillText('IMÓVEL (código CAR): ' + (car ? car.cod : '–'), 55, 1306);
+    x.fillText('MUNICÍPIO: ' + (car ? car.mun : '–') + ' · UF: RR', 55, 1328); x.fillText('PERÍMETRO (m): ' + nf(perim, 2), 560, 1328);
+    x.fillText('ÁREA (ha): ' + nf(area_ha, 4), 55, 1350); x.fillText('DATA: ' + br(today()), 560, 1350);
+    x.fillText('ESCALA: 1 / ' + nf(dens), 55, 1372);
+    x.fillText('Proprietário: ____________________________', 55, 1394); x.fillText('Responsável técnico: ____________________', 560, 1394);
+    x.textAlign = 'left';
+    return c.toDataURL('image/png');
+  }
+  async function carBlock(el, car, area, R, n, total) {
+    const A = window.FRR, root = el.querySelector('.rep-page');
+    const cp = await carPrep(car);
+    // satellite images with both outlines (the property and the fire); same method as the report
+    const bx = [Math.min(cp.area.box[0], area.box[0]), Math.min(cp.area.box[1], area.box[1]), Math.max(cp.area.box[2], area.box[2]), Math.max(cp.area.box[3], area.box[3])];
+    const combo = { rings: cp.area.rings.concat(area.rings), box: bx, date: area.date, date1: area.date1, center: cp.area.center, samples: cp.area.samples.concat(area.samples), edge: cp.area.edge.concat(area.edge) };
+    const imgC = await imagery(combo, A, () => {}).catch(e => ({ err: e.message, figs: {} }));
+    const mg = 0.01, cb = [bx[0] - mg, bx[1] - mg, bx[2] + mg, bx[3] + mg];
+    const fireLbl = (area.title || 'Passivo') + (area.date ? ' · ' + br(area.date) : '');
+    const cro = croqui([cp.area.rings], area.rings, cb, ['Imóvel ' + n + ' do CAR'], fireLbl);
+    const head = total > 1 ? '<h3>7.' + n + ' Imóvel do CAR ' + n + ' de ' + total + '</h3>' : '<h2><span class="ar-n">7</span>Passivo ambiental no imóvel do CAR</h2>';
+    let h = head;
+    h += '<div class="ar-photowarn"><b>O contorno do CAR é o declarado pelo proprietário.</b> Estar dentro dele não prova quem causou o fogo. Os cruzamentos são indícios de bases públicas, não prova de infração.</div>';
+    const sit = croquiSituacao(cp.area, car);
+    h += '<figure style="margin:8px 0"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><img style="display:block;width:100%;min-width:720px;height:auto" src="' + sit + '" alt="Croqui de situação do imóvel"></div><figcaption class="ar-note">Croqui de situação no padrão do memorial: roteiro perimétrico, vértices P-01, P-02…, convenções, sistema de coordenadas, escala e norte. Sem nome do proprietário. No celular, deslize o croqui para o lado para ler.</figcaption></figure>';
+    h += '<figure style="margin:8px 0"><img style="max-width:100%;height:auto" src="' + cro + '" alt="Croqui da área"><figcaption class="ar-note">Croqui: contorno do imóvel em preto e área do passivo em laranja. Escala e norte no desenho. Coordenadas em graus decimais (SIRGAS 2000).</figcaption></figure>';
+    const figs = imgC.figs || {};
+    if (Object.keys(figs).length) {
+      h += '<div class="ar-grid">' + ['pre', 'post', 'now', 'sev'].filter(k => figs[k]).map(k => '<figure><img style="max-width:100%;height:auto" src="' + figs[k] + '" alt="Imagem de satélite com o contorno do CAR e do passivo"></figure>').join('') + '</div>';
+      h += '<p class="ar-note">Imagens de satélite com os dois contornos: amarelo para o imóvel do CAR e para a área do passivo. Sentinel-2 (10 m), Copernicus/ESA, via Microsoft Planetary Computer.</p>';
+    } else h += '<p>Não foi possível obter imagens de satélite agora. Tente gerar o relatório de novo mais tarde.</p>';
+    h += memoBody(car, cp.area, cp.R).h;
+    const sec = document.createElement('div'); sec.className = 'ar-carblock'; sec.innerHTML = h; root.appendChild(sec);
+    return cp;
+  }
+  // when the passive touches more than one CAR property: one sketch with all of them, and the shared area between each pair
+  async function overlapBlock(el, cars, preps, area) {
+    const root = el.querySelector('.rep-page');
+    const rings = preps.map(p => p.area.rings);
+    const bx = preps.reduce((b, p) => [Math.min(b[0], p.area.box[0]), Math.min(b[1], p.area.box[1]), Math.max(b[2], p.area.box[2]), Math.max(b[3], p.area.box[3])], area.box);
+    const mg = 0.01, cb = [bx[0] - mg, bx[1] - mg, bx[2] + mg, bx[3] + mg];
+    const cro = croqui(rings, area.rings, cb, preps.map((p, i) => 'Imóvel ' + (i + 1) + ' do CAR'), (area.title || 'Passivo') + (area.date ? ' · ' + br(area.date) : ''));
+    const pares = [];
+    for (let i = 0; i < preps.length; i++) for (let j = i + 1; j < preps.length; j++) {
+      const ha = overlapHa(rings[i], rings[j]);
+      if (ha > 0.01) pares.push({ i: i + 1, j: j + 1, ha, pa: ha / preps[i].area.haCalc, pb: ha / preps[j].area.haCalc });
+    }
+    let h = '<h2><span class="ar-n">8</span>Sobreposição entre cadastros do CAR</h2>';
+    h += '<div class="ar-photowarn"><b>Sobreposição de cadastro é um indício, não prova de irregularidade.</b> Pode ser erro de digitalização ou de contorno. Confira os imóveis no SICAR e com o órgão ambiental.</div>';
+    h += '<figure style="margin:8px 0"><img style="max-width:100%;height:auto" src="' + cro + '" alt="Croqui com os imóveis do CAR"><figcaption class="ar-note">Croqui com todos os imóveis do CAR que tocam o passivo. Onde os contornos se cruzam, a cor fica mais escura.</figcaption></figure>';
+    if (pares.length) {
+      h += '<table class="ar-sev"><tr><th>Par</th><th>Área em comum</th><th>% do imóvel 1</th><th>% do imóvel 2</th></tr>' + pares.map(p =>
+        '<tr><td>Imóvel ' + p.i + ' × Imóvel ' + p.j + '</td><td>' + haTxt(p.ha) + '</td><td>' + nf(p.pa * 100, 1) + '%</td><td>' + nf(p.pb * 100, 1) + '%</td></tr>').join('') + '</table>';
+    } else h += '<p>Não há sobreposição medida entre os imóveis do CAR que tocam o passivo.</p>';
+    h += '<p class="ar-note">Área medida pela sobreposição dos contornos declarados (grade de pontos). Os imóveis estão identificados por número; os códigos estão na seção de cada imóvel.</p>';
+    const sec = document.createElement('div'); sec.className = 'ar-carblock'; sec.innerHTML = h; root.appendChild(sec);
+  }
+  // ---------- documento de prejuizo: quanto a lei preve, quanto custa cada dano por hectare, o gasto do combate, os imoveis do CAR
+  // com o memorial e um texto formal para o orgao. Ordem de grandeza, com as fontes. Rascunho: a revisao da FEMARH esta pendente.
+  const PJ_MULTA = { pasto: 3000, nativa: 10000 };     // Decreto 6.514/2008, arts. 58 (pasto e roça) e 58-A (vegetação nativa)
+  const PJ_PASTO = [630, 800], PJ_REFORMA = [1500, 4700]; // R$/ha: recuperação de pasto; reforma (faixa de consultoria até valor de boletim)
+  const PJ_CO2_T = 18, PJ_USD_T = 190;                 // t de CO2 por ha de floresta queimada; US$ por t (social do carbono)
+  const PJ_MSG = 'Aguarde o relatório atual terminar (ou cancele) e tente de novo.';
+  async function openPrejuizo(area0, cars) {
+    if (running) { avisa(PJ_MSG); return; }
+    const A = window.FRR, el = document.getElementById('report') || document.body.appendChild(Object.assign(document.createElement('div'), { id: 'report' }));
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Documento de prejuízo estimado');
+    if (!document.getElementById('pjCss')) { const st = document.createElement('style'); st.id = 'pjCss';
+      st.textContent = '.pj-form{display:grid;gap:8px;margin:8px 0}.pj-form label{font-size:14px;display:grid;gap:3px}.pj-form input{font:inherit;padding:6px 8px;border:1px solid #d9d3ca;border-radius:6px;max-width:340px}.pj-ck{display:flex!important;align-items:center;gap:6px}.ar-page table td.v{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}.pj-texto{width:100%;min-height:320px;font:13.5px/1.5 system-ui,sans-serif;padding:10px;border:1px solid #d9d3ca;border-radius:6px;box-sizing:border-box}';
+      document.head.appendChild(st); }
+    const rings = area0.rings.filter(r => r.length >= 6), box = boxOf(rings), samples = samplesOf(rings, box), n = samples.length || 1;
+    const ha0 = area0.ha || rings.reduce((a, r) => a + ringHa(r), 0);
+    const cnt = new Array(8).fill(0); samples.forEach(p => cnt[A.lcAt(p[0], p[1])]++);
+    const sh = cnt.map(c => c / n), shPasto = sh[2] + sh[3], shFlor = sh[0], shLav = sh[1], shOut = Math.max(0, 1 - shPasto - shFlor - shLav);
+    const ti = (A.D.tis || []).some(t => { const b = t.box || boxOf(t.r); return boxHit(b, box) && samples.some(p => t.r.some(r => pip(p[0], p[1], r))); });
+    // SINAFLOR: o mesmo cruzamento do relatorio da area, so com as autorizacoes do proprio CAR
+    const ASVJ = await layer('asv.json').catch(() => null);
+    const cxLL = samples.reduce((a, p) => a + p[0], 0) / n, cyLL = samples.reduce((a, p) => a + p[1], 0) / n;
+    const normC = t => (t || '').replace(/[^0-9A-Z]/gi, '').toUpperCase();
+    const codesCar = new Set((cars || []).map(c => normC(c.cod)));
+    const asvL = ASVJ && ASVJ.itens ? ASVJ.itens.map(a => { const k = normC(a[4]), km = a[9] ? distKm(cxLL, cyLL, a[9][0], a[9][1]) : null;
+      return { num: a[0], em: a[1], val: a[2], car: a[4], fin: a[5], ha: a[6], sit: a[7], org: a[8], km, k, sameCar: !!(k && codesCar.has(k)) }; })
+      .filter(x => x.sameCar) : [];
+    const asvValid = asvL.filter(x => x.sameCar && x.em && x.val && x.em <= (area0.date1 || area0.date) && x.val >= area0.date);
+    const asvGerado = ASVJ && ASVJ.gerado ? br(ASVJ.gerado) : null;
+    const carsL = (cars || []).map(c => { const cc = normC(c.cod); return { c, shIn: samples.filter(p => c.rings.some(r => pip(p[0], p[1], r))).length / n, auts: asvL.filter(x => x.sameCar && x.k === cc) }; });
+    const data = (area0.date1 && area0.date1 !== area0.date) ? br(area0.date) + ' a ' + br(area0.date1) : br(area0.date);
+    const cell = (k, v) => '<tr><td>' + k + '</td><td class="v">' + v + '</td></tr>';
+    const h = [];
+    h.push('<div class="rep-page ar-page">');
+    h.push('<div class="rep-actions"><button class="btn" data-a="print">🖨 Imprimir ou salvar em PDF</button><button class="btn" data-a="close">Fechar</button></div>');
+    h.push('<p class="rep-kick">Fogo em Roraima 3D · documento de prejuízo estimado · rascunho</p>');
+    h.push('<h1>Quanto a lei prevê e quanto custa o fogo nesta área</h1>');
+    h.push('<p class="rep-sub">' + esc(area0.title || '') + ' · ' + esc(area0.source || '') + ' · data ' + esc(data) + (area0.mun ? ' · ' + esc(area0.mun) : '') + '</p>');
+    h.push('<div class="ar-photowarn"><b>Simulação de ordem de grandeza, não é multa nem laudo.</b> O documento não diz quem causou o fogo: a multa depende de identificar o responsável, da falta de autorização e de um processo com direito de defesa. <b>Antes de enviar a qualquer órgão</b>, o enquadramento do lavrado e os valores precisam da revisão técnica da FEMARH (ainda pendente).</div>');
+    h.push('<h2>1 Dados que você pode ajustar</h2><div class="pj-form">');
+    h.push('<label>Área queimada (ha)<input id="pjHa" type="number" min="0" step="1" value="' + Math.round(ha0) + '"></label>');
+    h.push('<label class="pj-ck"><input type="checkbox" id="pjTi"' + (ti ? ' checked' : '') + '> Área em Terra Indígena (multa em dobro, art. 60)</label></div>');
+    h.push('<p class="ar-note">A composição vem do mapa de vegetação (MODIS, 2023). Os valores mudam quando você altera os dados.</p>');
+    h.push('<h2>2 Composição da área</h2><table><tr><th>Tipo de terreno</th><th class="v">Área</th><th class="v">Parte</th></tr>');
+    h.push('<tr><td>Pasto, roça e agricultura</td><td class="v" id="pjPastoHa"></td><td class="v" id="pjPastoPct"></td></tr>');
+    h.push('<tr><td>Floresta</td><td class="v" id="pjFlorHa"></td><td class="v" id="pjFlorPct"></td></tr>');
+    h.push('<tr><td>Lavrado / savana</td><td class="v" id="pjLavHa"></td><td class="v" id="pjLavPct"></td></tr>');
+    h.push('<tr><td>Outros (área alagável, água, urbana)</td><td class="v" id="pjOutHa"></td><td class="v" id="pjOutPct"></td></tr></table>');
+    h.push('<h2>3 Multa prevista na lei (simulação)</h2>');
+    h.push('<p>O lavrado é vegetação nativa, mas o enquadramento dele para a queima é uma questão em aberto. Por isso a multa aparece nas duas possibilidades:</p>');
+    h.push('<table><tr><th>Tipo de terreno (arredondado para cima)</th><th class="v">Lavrado como campo (art. 58, R$ 3.000/ha)</th><th class="v">Lavrado como vegetação nativa (art. 58-A, R$ 10.000/ha)</th></tr>');
+    h.push('<tr><td>Pasto, roça e agricultura · R$ 3.000/ha</td><td class="v" id="pjMPasto"></td><td class="v" id="pjMPasto2"></td></tr>');
+    h.push('<tr><td>Lavrado / savana</td><td class="v" id="pjMLavA"></td><td class="v" id="pjMLavB"></td></tr>');
+    h.push('<tr><td>Floresta · R$ 10.000/ha (art. 58-A)</td><td class="v" id="pjMFlorA"></td><td class="v" id="pjMFlorB"></td></tr>');
+    h.push('<tr><td>Terra Indígena (multa em dobro, art. 60)</td><td class="v" id="pjMultTi" colspan="2"></td></tr>');
+    h.push('<tr class="tot"><td>Multa prevista</td><td class="v" id="pjMultaA"></td><td class="v" id="pjMultaB"></td></tr></table>');
+    h.push('<h2>4 Quanto custa cada dano, por hectare, com a fonte</h2>');
+    h.push('<table><tr><th>Dano</th><th>Valor por hectare</th><th>Fonte</th><th class="v">Nesta área</th></tr>');
+    h.push('<tr><td>Recuperar o pasto e a roça queimados</td><td>R$ 630 a R$ 800</td><td>Scot Consultoria (2021), publicado pela Corteva</td><td class="v" id="pjRec"></td></tr>');
+    h.push('<tr><td>Reforma completa do pasto (referência)</td><td>de R$ 1.500 (consultoria) a R$ 4.700 (boletim IFAG)</td><td>Agrolink (2026), citando boletim do IFAG e consultor</td><td class="v" id="pjReforma"></td></tr>');
+    h.push('<tr><td>Carbono da floresta queimada</td><td>18 t de CO₂ × US$ 190 = cerca de US$ 3.420</td><td>IPAM, via IHU On-Line (2024); EPA (2023)</td><td class="v" id="pjCo2"></td></tr>');
+    h.push('<tr><td>Lavrado e área alagável</td><td>sem valor confiável por hectare</td><td>não há dado para Roraima</td><td class="v">não calculado</td></tr></table>');
+    h.push('<p class="ar-note">O carbono é o custo para o clima, em dólares, e não entra na soma em reais. A reforma completa aparece só como referência.</p>');
+    h.push('<h2>5 Total em reais</h2><table><tr><th>Cenário</th><th class="v">Multa</th><th class="v">Recuperação do pasto</th><th class="v">Total</th></tr>');
+    h.push('<tr><td>Lavrado como campo (art. 58)</td><td class="v" id="pjTA_m"></td><td class="v" id="pjTA_r"></td><td class="v" id="pjTA_t"></td></tr>');
+    h.push('<tr><td>Lavrado como vegetação nativa (art. 58-A)</td><td class="v" id="pjTB_m"></td><td class="v" id="pjTB_r"></td><td class="v" id="pjTB_t"></td></tr></table>');
+    h.push('<p class="ar-note">A soma só mostra a ordem de grandeza. A multa é uma sanção prevista na lei, e não um custo que o fogo causa diretamente.</p>');
+    h.push('<h2>6 Imóveis do CAR que tocam a área</h2>');
+    if (carsL.length) {
+      h.push('<p>Dados públicos do SICAR, declarados pelos proprietários. Não é prova de que o imóvel tem relação com o fogo.</p>');
+      h.push('<table><tr><th>Código do CAR</th><th>Tipo e situação</th><th class="v">Área declarada</th><th class="v">Parte da área queimada no imóvel</th><th class="v">Autorizações SINAFLOR</th></tr>');
+      h.push(carsL.map(x => '<tr><td>' + esc(x.c.cod) + '</td><td>' + esc(x.c.tipoNome || '') + ' · ' + esc(x.c.cond || 'situação não informada') + '</td><td class="v">' + nf(x.c.area, 0) + ' ha</td><td class="v">' + nf(x.shIn * 100, 0) + '%</td><td class="v">' + (x.auts.length ? x.auts.length + (x.auts.length === 1 ? ' autorização' : ' autorizações') : 'nenhuma') + '</td></tr>').join(''));
+      h.push('</table><p class="ar-note">Os memoriais de cada imóvel estão logo abaixo.</p><div id="pjCars"></div>');
+    } else h.push('<p>Nenhum imóvel do CAR toca a área, ou o CAR não foi consultado.</p>');
+    h.push('<h3>Autorizações de supressão de vegetação (SINAFLOR)</h3>');
+    const sitF = x => x.val < area0.date ? 'vencida antes do fogo' : x.em > (area0.date1 || area0.date) ? 'emitida depois do fogo' : 'vigente na data do fogo';
+    h.push(asvL.length ? '<table><tr><th>Nº</th><th>Emitida</th><th>Válida até</th><th>Situação no fogo</th><th class="v">Área (ha)</th></tr>' + asvL.slice(0, 8).map(x => '<tr><td>' + esc(String(x.num)) + '</td><td>' + br(x.em) + '</td><td>' + br(x.val) + '</td><td>' + sitF(x) + '</td><td class="v">' + nf(x.ha, 1) + '</td></tr>').join('') + '</table>' : '<p>Nenhuma autorização do imóvel do CAR na base SINAFLOR.</p>');
+    h.push('<p class="ar-note">Base SINAFLOR (dados abertos do IBAMA)' + (asvGerado ? ', atualizada em ' + asvGerado : '') + '. A base não traz, em todos os casos, autorizações emitidas pelo sistema estadual (FEMARH); por isso a falta de registro não prova que não houve autorização.</p>');
+    h.push('<h2>7 O que fica de fora</h2>');
+    h.push('<p>Gado morto, cercas, casas e galpões, gastos com saúde e remédios, dias de trabalho e de aula perdidos, voos e estradas afetados pela fumaça, perda de turismo, de frutos e de caça para as comunidades, e o custo do combate ao fogo. Sem dado confiável para Roraima; por isso o prejuízo real tende a ser maior.</p>');
+    h.push('<h2>8 Texto para enviar ao órgão</h2>');
+    h.push('<div class="ar-photowarn"><b>Rascunho.</b> Preencha os campos entre colchetes e confira os números. Não envie antes da revisão técnica da FEMARH. O texto não identifica responsáveis pelo fogo.</div>');
+    h.push('<textarea class="pj-texto" id="pjTexto" aria-label="Texto para o órgão"></textarea>');
+    h.push('<div class="rep-actions"><button class="btn" data-a="copy-texto">Copiar texto</button></div>');
+    h.push('<h2>9 Fontes</h2><ul class="ar-src">');
+    h.push('<li>INPE, Programa Queimadas: focos de calor e eventos de fogo. https://terrabrasilis.dpi.inpe.br/queimadas/portal/</li>');
+    h.push('<li>SICAR: Cadastro Ambiental Rural, dados públicos declarados pelos proprietários.</li>');
+    h.push('<li>MODIS MCD12Q1 (classes IGBP), 2023, via NASA GIBS: composição da vegetação.</li>');
+    h.push('<li>Brasil. Decreto nº 6.514, de 22 de julho de 2008, arts. 58, 58-A e 60 (redação de 2024).</li>');
+    h.push('<li>SCOT CONSULTORIA. Custos de reforma e recuperação de pastagem. Bebedouro: Scot Consultoria, 2021. Publicado em: https://www.corteva.com/br/coeficiente-agro/artigos/planejamento-custos-de-reforma-e-recuperacao-de-pastagens.html</li>');
+    h.push('<li>AGROLINK. Valorização do boi favorece reforma de pastagens (2026), citando boletim do IFAG. https://www.agrolink.com.br/noticias/valorizacao-do-boi-favorece-reforma-de-pastagens_518959.html</li>');
+    h.push('<li>AGROLINK. Recuperar pastagens pode custar até R$ 4,5 mil por hectare (2026). https://www.agrolink.com.br/noticias/recuperar-pastagens-pode-custar-ate-r--4-5-mil-por-hectare--diz-ubirajara-fontoura_520859.html</li>');
+    h.push('<li>IHU On-Line. Emissão de CO2 por queimadas na Amazônia cresce 60% (2024), com dados do IPAM. https://www.ihu.unisinos.br/643716-emissao-de-co2-por-queimadas-na-amazonia-cresce-60</li>');
+    h.push('<li>UNITED STATES. Environmental Protection Agency. Report on the social cost of greenhouse gases. Washington, DC: EPA, 2023 (US$ 190 por tonelada de CO₂).</li>');
+    h.push('<h2>10 Limites</h2><p class="ar-note">Ordem de grandeza. Satélites não veem fogo pequeno nem o que está sob nuvem; a composição é aproximada; os preços variam por região e por ano. Não é parecer técnico nem jurídico.</p>');
+    h.push('</div>');
+    el.innerHTML = h.join('');
+    const q = id => el.querySelector('#' + id);
+    const put = (id, txt) => { const x = q(id); if (x) x.textContent = txt; };
+    const haIn = q('pjHa'), tiIn = q('pjTi'), texto = q('pjTexto');
+    let dirty = false, V = {};
+    texto.addEventListener('input', () => { dirty = true; });
+    const brlR = v => brl(Math.round(v));
+    const asvTexto = () => asvValid.length
+      ? 'Na base SINAFLOR (IBAMA, dados abertos), há autorização de supressão válida na data do fogo para o imóvel do CAR (nº ' + asvValid.map(x => x.num).join(', ') + '). Pedimos conferir se a área autorizada corresponde à área queimada, e as providências cabíveis.'
+      : asvL.length
+        ? 'Na base SINAFLOR (IBAMA, dados abertos) há autorização vinculada ao imóvel do CAR (nº ' + asvL.map(x => x.num).join(', ') + '), mas nenhuma válida na data do fogo. Pedimos verificar a situação dessa autorização e as providências cabíveis.'
+        : 'Na base SINAFLOR (IBAMA, dados abertos) não encontramos autorização de supressão vinculada aos imóveis citados. A base pode não trazer autorizações emitidas pelo sistema estadual (FEMARH); pedimos verificar com o órgão e as providências cabíveis.';
+    const textoOrgao = () => [
+      'À [ÓRGÃO: FEMARH ou Ministério Público]', '',
+      'Assunto: fogo em área de cerca de ' + nf(V.ha) + ' hectares em ' + (area0.mun || 'Roraima') + ' e pedido de verificação', '',
+      'Senhor(a),', '',
+      'Com base em dados públicos do INPE (Programa Queimadas) e do Cadastro Ambiental Rural (SICAR), identificamos fogo em área de cerca de ' + nf(V.ha) + ' hectares em ' + (area0.mun || 'Roraima') + ', registrado entre ' + br(area0.date) + ' e ' + br(area0.date1 || area0.date) + ' (' + (area0.source || '') + '). Segundo o mapa de vegetação (MODIS, 2023), cerca de ' + nf(V.hP) + ' ha são de pasto e roça, ' + nf(V.hL) + ' ha de lavrado e ' + nf(V.hF) + ' ha de floresta. Imóveis do CAR que tocam a área: ' + (carsL.length ? carsL.map(x => x.c.cod).join(', ') : 'nenhum identificado') + '.', '',
+      asvTexto(), '',
+      'Estimativa de ordem de grandeza, sem apuração: multa prevista na legislação (Decreto 6.514/2008) entre ' + brlR(V.mA) + ' e ' + brlR(V.mB) + ', conforme o enquadramento do lavrado; custo de recuperação do pasto entre ' + brlR(V.rLo) + ' e ' + brlR(V.rHi) + '; e emissão de carbono estimada em cerca de ' + nf(V.tCo2) + ' t de CO₂. As contas e as fontes estão no documento anexo.', '',
+      'Este texto não identifica responsáveis pelo fogo.', '',
+      'Atenciosamente,', '[NOME DE QUEM ENVIA]', '[CONTATO E INSTITUIÇÃO]', '[DATA]', '',
+      'Anexo: documento "Quanto a lei prevê e quanto custa o fogo nesta área" (Fogo em Roraima 3D).'
+    ].join('\n');
+    const upd = () => {
+      const ha = Math.max(0, +haIn.value || 0), mult = tiIn.checked ? 2 : 1;
+      const hP = Math.ceil(ha * shPasto), hL = Math.ceil(ha * shLav), hF = Math.ceil(ha * shFlor);
+      const mP = hP * PJ_MULTA.pasto, mLA = hL * PJ_MULTA.pasto, mLB = hL * PJ_MULTA.nativa, mF = hF * PJ_MULTA.nativa;
+      const mA = (mP + mLA + mF) * mult, mB = (mP + mLB + mF) * mult;
+      const rLo = ha * shPasto * PJ_PASTO[0], rHi = ha * shPasto * PJ_PASTO[1], refLo = ha * shPasto * PJ_REFORMA[0], refHi = ha * shPasto * PJ_REFORMA[1];
+      const tCo2 = ha * shFlor * PJ_CO2_T, usd = tCo2 * PJ_USD_T;
+      put('pjPastoHa', nf(ha * shPasto, 1) + ' ha'); put('pjPastoPct', nf(shPasto * 100, 0) + '%');
+      put('pjFlorHa', nf(ha * shFlor, 1) + ' ha'); put('pjFlorPct', nf(shFlor * 100, 0) + '%');
+      put('pjLavHa', nf(ha * shLav, 1) + ' ha'); put('pjLavPct', nf(shLav * 100, 0) + '%');
+      put('pjOutHa', nf(ha * shOut, 1) + ' ha'); put('pjOutPct', nf(shOut * 100, 0) + '%');
+      put('pjMPasto', brlR(mP)); put('pjMPasto2', brlR(mP));
+      put('pjMLavA', brlR(mLA)); put('pjMLavB', brlR(mLB));
+      put('pjMFlorA', brlR(mF)); put('pjMFlorB', brlR(mF));
+      put('pjMultTi', mult > 1 ? 'multa dobrada (× 2)' : 'não se aplica');
+      put('pjMultaA', brlR(mA)); put('pjMultaB', brlR(mB));
+      put('pjRec', brlR(rLo) + ' a ' + brlR(rHi));
+      put('pjReforma', brlR(refLo) + ' a ' + brlR(refHi) + ' (referência)');
+      put('pjCo2', 'cerca de US$ ' + nf(usd) + ' (' + nf(tCo2) + ' t de CO₂)');
+      put('pjTA_m', brlR(mA)); put('pjTA_r', brlR(rLo) + ' a ' + brlR(rHi)); put('pjTA_t', brlR(mA + rLo) + ' a ' + brlR(mA + rHi));
+      put('pjTB_m', brlR(mB)); put('pjTB_r', brlR(rLo) + ' a ' + brlR(rHi)); put('pjTB_t', brlR(mB + rLo) + ' a ' + brlR(mB + rHi));
+      V = { ha, hP, hL, hF, mA, mB, rLo, rHi, tCo2 };
+      if (!dirty) texto.value = textoOrgao();
+    };
+    haIn.addEventListener('input', upd); tiIn.addEventListener('change', upd); upd();
+    el.scrollTop = 0;
+    el.onclick = async e => {
+      const a = e.target.dataset && e.target.dataset.a;
+      if (a === 'close') el.remove();
+      else if (a === 'print') window.print();
+      else if (a === 'copy-texto') { let ok = false; try { await navigator.clipboard.writeText(texto.value); ok = true; } catch (err) {} e.target.textContent = ok ? 'Texto copiado' : 'Não deu para copiar: selecione o texto e copie'; }
+    };
+    // memorial de cada imovel do CAR (monta em seguida, como no relatorio da area)
+    const caixaCars = q('pjCars');
+    for (let k = 0; caixaCars && k < carsL.length; k++) {
+      const c = carsL[k].c;
+      try {
+        const cp = await carPrep(c);
+        caixaCars.insertAdjacentHTML('beforeend', '<div class="ar-carblock"><h3>6.' + (k + 1) + ' Imóvel ' + (k + 1) + ' do CAR · ' + esc(c.cod) + '</h3>' + memoBody(c, cp.area, cp.R).h + '</div>');
+      } catch (err) { caixaCars.insertAdjacentHTML('beforeend', '<p style="color:#b42318">Não foi possível montar o memorial de ' + esc(c.cod) + ': ' + esc(err.message) + '</p>'); }
+    }
+  }
+  window.FRR_AREA = { open, memorial: openMemorial, prejuizo: openPrejuizo, version: VERSION };
 })();
