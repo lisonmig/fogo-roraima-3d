@@ -206,6 +206,71 @@
     return out;
   }
 
+  // ---------- fire of one year at the area (tap on an orange year of the recurrence strip): INPE reference-satellite fires
+  // of that year in the ~1 km cells of the area, and the first clear image after the last fire (Sentinel-2 from 2017, Landsat before)
+  const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  async function lsSearch(bbox, from, to) {
+    const u = PC + '/stac/v1/search?collections=landsat-c2-l2&bbox=' + bbox.map(v => v.toFixed(5)).join(',') + '&datetime=' + from + 'T00:00:00Z/' + to + 'T23:59:59Z&limit=60';
+    const J = await getJSON(u, 30000);
+    return (J.features || []).map(f => ({ id: f.id, date: f.properties.datetime.slice(0, 10), cloud: f.properties['eo:cloud_cover'], plat: f.properties.platform || '' }));
+  }
+  const lsCrop = (id, b, w, h) => PC + '/data/v1/item/bbox/' + b.map(v => v.toFixed(5)).join(',') + '/' + w + 'x' + h + '.png?collection=landsat-c2-l2&item=' + encodeURIComponent(id) +
+    '&dst_crs=epsg:4326&assets=red&assets=green&assets=blue&rescale=7300,14000&nodata=0';
+  async function yearImage(area, from, to) {
+    const frame = frameOf(area), mask = maskOf(area, frame);
+    if (to >= '2017-01-01') {
+      const c = await s2Search(frame.b, from < '2017-01-01' ? '2017-01-01' : from, to).catch(() => []);
+      const sc = await bestScene(c, frame, mask, from);
+      if (sc && sc.clear >= 0.5) {
+        const p = await loadPixels(cropUrl(sc.id, frame.b, frame.w, frame.h, Q_RGB));
+        return { fig: figure(p.canvas, area, frame, 'SENTINEL-2 · ' + br(sc.date)), txt: 'Sentinel-2 (10 m) de ' + br(sc.date) + ', ' + Math.round(sc.clear * 100) + '% da área sem nuvem.' };
+      }
+    }
+    const c = await lsSearch(frame.b, from, to).catch(() => []);
+    if (!c.length) return null;
+    // Landsat gives the cloud only for the whole scene: measure it inside the area (very bright pixels) on the best candidates
+    const score = s => s.cloud + (s.plat === 'landsat-7' && s.date > '2003-05-31' ? 30 : 0) + Math.abs(dayDiff(from, s.date)) / 10;
+    const w = Math.min(frame.w, 600), h = Math.min(frame.h, 600), m = maskOf(area, { b: frame.b, w, h });
+    let best = null;
+    for (const sc of c.sort((a, b) => score(a) - score(b)).slice(0, 4)) {
+      try {
+        const p = await loadPixels(lsCrop(sc.id, frame.b, w, h), 30000); let n = 0, cl = 0;
+        for (let k = 0; k < m.length; k++) { if (!m[k]) continue; n++; if (!p.data[k * 4 + 3] || (p.data[k * 4] > 200 && p.data[k * 4 + 1] > 200 && p.data[k * 4 + 2] > 200)) cl++; }
+        const clear = n ? 1 - cl / n : 0;
+        if (!best || clear > best.clear + 0.02) best = { sc, p, clear };
+        if (clear >= 0.95) break;
+      } catch (e) { /* next one */ }
+    }
+    if (!best) return null;
+    const sc = best.sc, nome = sc.plat.replace('landsat-', 'Landsat ');
+    return { fig: figure(best.p.canvas, area, frame, nome.toUpperCase() + ' · ' + br(sc.date)),
+      txt: nome + ' (30 m) de ' + br(sc.date) + ', cerca de ' + Math.round(best.clear * 100) + '% da área visível (sem nuvem e sem falha).' + (sc.plat === 'landsat-7' && sc.date > '2003-05-31' ? ' O Landsat 7 tem faixas sem dado (defeito do sensor desde maio de 2003).' : '') };
+  }
+  async function yearBlock(area, rec, y, box) {
+    box.dataset.ano = y;
+    box.innerHTML = '<p class="ar-note">Buscando o fogo de ' + y + '…</p>';
+    const J = await fetch('rel/anos/' + y + '.json', { cache: 'force-cache' }).then(r => r.ok ? r.json() : null).catch(() => null);
+    if (box.dataset.ano != y) return;
+    if (!J) { box.innerHTML = '<p class="ar-note">Não foi possível carregar os focos de ' + y + '. Tente de novo com internet.</p>'; return; }
+    const cells = new Set(rec.cells), f = J.f, days = new Set(), mon = new Array(12).fill(0); let n = 0, d0 = 999, d1 = 0;
+    for (let k = 0; k < f.length; k += 4) {
+      if (!cells.has(f[k] + ',' + f[k + 1])) continue;
+      n++; const d = f[k + 2]; days.add(d); if (d < d0) d0 = d; if (d > d1) d1 = d; mon[new Date(Date.UTC(y, 0, d)).getUTCMonth()]++;
+    }
+    const iso = d => new Date(Date.UTC(y, 0, d)).toISOString().slice(0, 10), row = (k, v) => '<tr><td>' + esc(k) + '</td><td>' + v + '</td></tr>';
+    const h = '<div class="ar-ano"><h3>Fogo em ' + y + ' no local</h3>';
+    if (!n) { box.innerHTML = h + '<p>Nenhum foco do satélite de referência nos quadrados da área em ' + y + '.</p></div>'; return; }
+    box.innerHTML = h + '<table>' + row('Focos (satélite de referência)', n.toLocaleString('pt-BR')) + row('Dias com fogo', days.size) +
+      row('Primeiro e último', br(iso(d0)) + ' · ' + br(iso(d1))) + row('Meses com fogo', mon.map((c, i) => c ? MESES[i] + ' (' + c + ')' : '').filter(Boolean).join(', ')) + '</table>' +
+      '<p class="ar-note">Satélite de referência do INPE: passa uma vez por tarde e não vê todo fogo. Serve para comparar os anos, não é a contagem completa. Conta os quadrados de ~1 km que tocam a área.</p>' +
+      '<p class="ar-note" data-img>Buscando imagem de satélite depois do fogo…</p></div>';
+    const from = addDays(iso(d1), 1); let to = addDays(iso(d1), 75); if (to > today()) to = today();
+    let im = null; try { im = await withTimeout(yearImage(area, from, to), 90000); } catch (e) {}
+    const slot = box.dataset.ano == y && box.querySelector('[data-img]'); if (!slot) return;
+    slot.outerHTML = im ? '<figure class="ar-anofig"><img src="' + im.fig + '" alt="Imagem de satélite depois do fogo de ' + y + '"><figcaption>' + esc(im.txt) + ' Imagem com menos nuvem nos 75 dias depois do último foco de ' + y + ' no local.</figcaption></figure>'
+      : '<p class="ar-note">Não há imagem de satélite sem nuvem nos 75 dias depois do último foco de ' + y + '.</p>';
+  }
+
   // ---------- land cover history: MODIS IGBP 2001–2023 (NASA GIBS), majority class inside the area
   const LC_NAMES = ['Floresta', 'Lavrado / savana', 'Campo ou pasto', 'Agricultura', 'Área alagável', 'Área urbana', 'Água', 'Outros'];
   const IGBP = [[[33, 138, 33], 0], [[49, 204, 49], 0], [[152, 204, 49], 0], [[150, 250, 150], 0], [[141, 186, 141], 0], [[186, 141, 141], 1], [[245, 222, 179], 1], [[218, 235, 157], 1], [[255, 213, 0], 1],
@@ -364,7 +429,7 @@
       area.samples.forEach(p => set.add(Math.round((p[0] - ox) / G) + ',' + Math.round((p[1] - oy) / G)));
       let bits = 0; set.forEach(k => { bits |= cells.get(k) || 0; });
       const years = L.REC.anos.filter(y => bits & (1 << (y - L.REC.ano0)));
-      R.rec = { years, total: L.REC.anos.length, from: L.REC.anos[0], to: L.REC.anos[L.REC.anos.length - 1] };
+      R.rec = { years, total: L.REC.anos.length, from: L.REC.anos[0], to: L.REC.anos[L.REC.anos.length - 1], cells: [...set] };
       if (years.length >= 8) flag(2, 'Fogo recorrente: o local teve foco de calor em ' + years.length + ' dos ' + L.REC.anos.length + ' anos entre ' + R.rec.from + ' e ' + R.rec.to + '. Fogo que volta em muitos anos costuma indicar uso do fogo para manejo de pasto ou roça.');
       else if (years.length >= 4) flag(1, 'O local teve foco de calor em ' + years.length + ' dos ' + L.REC.anos.length + ' anos entre ' + R.rec.from + ' e ' + R.rec.to + '.');
     }
@@ -566,8 +631,9 @@
     if (R.inpe.length) h += '<p><b>Eventos de fogo do INPE na área:</b></p>' + T(R.inpe.map(e => [e.tipo + ' · nº ' + e.id, br(e.d0) + ' a ' + br(e.d1) + ' · ' + haTxt(e.ha) + (e.desm != null ? ' · ' + nf(e.desm, 0) + '% em área desmatada' : '')]));
     if (R.rec) {
       h += '<p><b>Anos com fogo no local, ' + R.rec.from + '–' + R.rec.to + '</b> (satélite de referência do INPE, quadrados de ~1 km):</p><div class="ar-years">' +
-        Array.from({ length: R.rec.to - R.rec.from + 1 }, (_, k) => R.rec.from + k).map(y => '<span class="' + (R.rec.years.includes(y) ? 'on' : '') + '" title="' + y + '">' + String(y).slice(2) + '</span>').join('') + '</div>' +
-        note('Teve fogo em <b>' + R.rec.years.length + '</b> de ' + R.rec.total + ' anos. O satélite de referência passa uma vez por tarde e não vê todo fogo: é um índice de recorrência, não a contagem completa.');
+        Array.from({ length: R.rec.to - R.rec.from + 1 }, (_, k) => R.rec.from + k).map(y => R.rec.years.includes(y) ? '<button type="button" class="on" data-ano="' + y + '" title="Ver o fogo de ' + y + '">' + String(y).slice(2) + '</button>' : '<span title="' + y + '">' + String(y).slice(2) + '</span>').join('') + '</div>' +
+        note('Teve fogo em <b>' + R.rec.years.length + '</b> de ' + R.rec.total + ' anos. O satélite de referência passa uma vez por tarde e não vê todo fogo: é um índice de recorrência, não a contagem completa.') +
+        note('<b>Toque num ano em laranja</b> para ver o fogo daquele ano no local, com imagem de satélite.') + '<div id="arAno" aria-live="polite"></div>';
     }
 
     // 5. vegetation and land use
@@ -666,6 +732,8 @@
       geometry: { type: 'MultiPolygon', coordinates: area.rings.map(r => [Array.from({ length: r.length / 2 }, (_, k) => [+r[2 * k].toFixed(6), +r[2 * k + 1].toFixed(6)])]) } });
     const save = (txt, name, type) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); };
     el.onclick = async e => {
+      const yb = e.target.closest && e.target.closest('[data-ano]');
+      if (yb && R.rec) { el.querySelectorAll('.ar-years button').forEach(b => b.classList.toggle('sel', b === yb)); yearBlock(area, R.rec, +yb.dataset.ano, el.querySelector('#arAno')); return; }
       const a = e.target.dataset && e.target.dataset.a; if (!a) return;
       if (a === 'close') el.remove();
       else if (a === 'print') window.print();
@@ -689,7 +757,7 @@
     '.ar-photowarn{margin:6px 0 10px;padding:10px 12px;border-radius:8px;background:#fffaeb;border:1px solid #f5d38a;border-left:5px solid #dc6803;font-size:13.5px;line-height:1.45;color:#3d3833}.ar-photowarn b{color:#93370d}.ar-photos figcaption b{color:#93370d}' +
     '.ar-grid figcaption,.ar-photos figcaption{font-size:11.5px;color:#5a534b;margin-top:3px}.ar-photos{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}' +
     '.ar-sev{margin-top:8px}.ar-sev th{text-align:left;font-size:12px;color:#5a534b;border-bottom:1px solid #d9d3ca;padding:4px 0}.ar-sev td:first-child{text-align:left;font-weight:400;white-space:normal}.ar-sev i{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:6px;vertical-align:-1px}' +
-    '.ar-years{display:flex;flex-wrap:wrap;gap:3px;margin:4px 0}.ar-years span{font:600 11px var(--f-data,monospace);padding:3px 4px;border-radius:3px;background:#eee9e2;color:#8a8279}.ar-years span.on{background:#c2410c;color:#fff}' +
+    '.ar-years{display:flex;flex-wrap:wrap;gap:3px;margin:4px 0}.ar-years span{font:600 11px var(--f-data,monospace);padding:3px 4px;border-radius:3px;background:#eee9e2;color:#8a8279}.ar-years span.on{background:#c2410c;color:#fff}.ar-years button{font:600 11px var(--f-data,monospace);padding:3px 4px;border-radius:3px;border:0;cursor:pointer;background:#c2410c;color:#fff}.ar-years button.sel{outline:2px solid #1b1917;outline-offset:1px}.ar-ano{margin:8px 0;padding:10px 12px;border-radius:8px;background:#f9f6f2;border-left:4px solid #c2410c}.ar-ano h3{margin:0 0 6px;font-size:15px}.ar-anofig{margin:8px 0 0}.ar-anofig img{width:100%;max-width:520px;display:block;border-radius:6px}.ar-anofig figcaption{font-size:11.5px;color:#5a534b;margin-top:3px}' +
     '.ar-rain{display:flex;align-items:flex-end;gap:2px;height:44px;margin-top:8px;border-bottom:1px solid #d9d3ca}.ar-rain span{flex:1;background:#3f86c6;border-radius:2px 2px 0 0;min-width:3px}' +
     '.ar-page td:last-child{white-space:normal}.ar-page td{overflow-wrap:anywhere}.ar-law{font-size:13px}' +
     '@media (max-width:560px){#report{padding:8px}.ar-page{padding:16px 14px 20px!important}.ar-page td{display:block;text-align:left!important;padding-left:0!important}.ar-page td:first-child{border-bottom:0;padding-bottom:0;color:#5a534b;font-size:12.5px}.ar-sev td{display:table-cell!important}.ar-page h1{font-size:22px}}' +
