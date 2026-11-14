@@ -2,11 +2,9 @@
 usage: python prep_relatorio.py <raw_dir> <out_dir> [--fixas] [--dinamicas]
   --fixas      layers that change rarely (run by hand, about once a year): public forests (SFB/CNFP),
                conservation units (MMA/CNUC), soils and geology (IBGE), population grid (IBGE Census 2022),
-               health units (CNES), fire recurrence 2003-2025 (INPE reference satellite), and the fires of each year
-               (rel/anos/<ano>.json, used when a year is clicked in the report).
+               health units (CNES), fire recurrence 2003-2025 (INPE reference satellite).
                Needs the raw files already in <raw_dir> (see RAW_FILES) and the packages pyshp and pyproj.
   --dinamicas  IBAMA embargoes and SINAFLOR vegetation removal permits; downloaded again every 30 days.
-  --anos       only the fires of each year 2003-2025 (rel/anos/), from the raw INPE reference-satellite files.
 With no option, runs both. Personal data (names, CPF/CNPJ, property names, free-text descriptions) is never written."""
 import csv, io, json, os, re, sys, time, zipfile, urllib.request, datetime as dt
 from shapely.geometry import shape, Polygon, MultiPolygon, box
@@ -15,9 +13,8 @@ from shapely import wkt
 RAW, OUT = sys.argv[1], os.path.join(sys.argv[2], 'rel')
 os.makedirs(RAW, exist_ok=True); os.makedirs(OUT, exist_ok=True)
 ARGS = set(sys.argv[3:])
-DO_FIX = '--fixas' in ARGS or not ARGS & {'--fixas', '--dinamicas', '--anos'}
-DO_DYN = '--dinamicas' in ARGS or not ARGS & {'--fixas', '--dinamicas', '--anos'}
-DO_ANOS = DO_FIX or '--anos' in ARGS
+DO_FIX = '--fixas' in ARGS or not ARGS & {'--fixas', '--dinamicas'}
+DO_DYN = '--dinamicas' in ARGS or not ARGS & {'--fixas', '--dinamicas'}
 W, E, S, N = -64.85, -58.85, -1.6, 5.3
 BB = box(W, S, E, N)
 UA = {'User-Agent': 'uerr-extensao-fire-map/1.0'}
@@ -81,31 +78,6 @@ def get(url, path, max_age_days=None, timeout=1800):
 TODAY = dt.date.today().isoformat()
 
 # ======================= fixed layers =======================
-def fire_years():
-    """Fires of the INPE reference satellite in Roraima, one file per year (rel/anos/2003.json ... 2025.json).
-    Each fire is 4 integers: ~1 km cell (ix, iy, same grid as recorrencia.json), day of the year and hour (UTC).
-    The report loads only the year that is clicked and sums the fires inside the area."""
-    G = 0.01; d = os.path.join(OUT, 'anos'); os.makedirs(d, exist_ok=True)
-    for y in range(2003, 2026):
-        zp = os.path.join(RAW, f'focos_ref_{y}.zip')
-        if not os.path.exists(zp): continue
-        f = []; z = zipfile.ZipFile(zp)
-        with z.open(z.namelist()[0]) as fh:
-            for r in csv.DictReader(io.TextIOWrapper(fh, encoding='utf-8', errors='replace')):
-                if 'RORAIMA' not in (r.get('estado') or '').upper(): continue
-                lat, lon = num(r['lat']), num(r['lon'])
-                if lat is None or lon is None: continue
-                try: t = dt.datetime.strptime((r.get('data_pas') or '').strip()[:16], '%Y-%m-%d %H:%M')
-                except ValueError: continue
-                f += [round((lon - W) / G), round((lat - S) / G), t.timetuple().tm_yday, t.hour]
-        json.dump({'ano': y, 'fonte': 'INPE, Programa Queimadas, focos do satélite de referência', 'gerado': TODAY, 'g': G, 'origin': [W, S],
-                   'campos': ['ix', 'iy', 'dia_do_ano', 'hora_utc'], 'f': f}, open(os.path.join(d, f'{y}.json'), 'w', encoding='utf-8'), separators=(',', ':'))
-        print(f'anos/{y}.json: {len(f) // 4} focos, {os.path.getsize(os.path.join(d, f"{y}.json")) // 1024} KB')
-
-if DO_ANOS:
-    try: fire_years()
-    except Exception as e: print('fire years failed:', e)
-
 if DO_FIX:
     import shapefile  # pyshp
 
