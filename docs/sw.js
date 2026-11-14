@@ -2,7 +2,7 @@
 // Página e dados: primeiro a rede (sempre o mais novo); sem internet, a última cópia guardada.
 // Arquivos que quase não mudam (biblioteca 3D, letras, ícones, relevo, imagem): primeiro a cópia guardada.
 // Outros sites (imagem nítida da EOX, previsão do tempo) não passam por aqui.
-const CACHE = 'fogo-rr-v3';
+const CACHE = 'fogo-rr-v4';
 const SHELL = ['./', 'index.html', 'termos.html', 'sobre.html', 'impacto.html', 'fonts.css', 'vendor/three.min.js', 'vendor/OrbitControls.js', 'manifest.webmanifest', 'icone-192.png', 'icone.svg', 'favicon.ico', 'relevo.png', 'imagem.webp', 'cobertura.png'];
 const STATIC = /\.(js|css|woff2|png|webp|jpg|svg|ico|webmanifest)$/;
 
@@ -15,6 +15,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== location.origin) return;
+  if (url.pathname.endsWith('.mp4')) return; // video: the browser asks for it in parts, straight from the network
   const isStatic = STATIC.test(url.pathname) && !url.pathname.endsWith('sw.js');
   if (isStatic) {
     e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => { if (res.ok) caches.open(CACHE).then(c => c.put(req, res.clone())); return res; })));

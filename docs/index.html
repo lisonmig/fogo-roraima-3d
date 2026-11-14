@@ -147,6 +147,7 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .tour-card h2 { margin: 0 0 6px; font: 700 21px var(--f-display); text-transform: none; letter-spacing: 0; color: var(--ink); }
 .tour-card p { margin: 0 0 14px; font-size: 15px; line-height: 1.45; }
 .tour-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 14px; } .tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); } .tour-dots i.on { background: var(--accent); }
+.tour-vid { width: 100%; margin-top: 8px; min-height: 40px; } .tour-video { display: block; width: 100%; max-height: 62vh; border-radius: 10px; background: #000; }
 .tour-row { display: flex; gap: 8px; } .tour-row .btn { flex: 1; min-height: 44px; font-size: 15px; } .tour-next { background: var(--accent) !important; color: #fff !important; border-color: transparent !important; }
 .flist { list-style: none; margin: 4px 0 8px; padding: 0; } .flist li button { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--ink); padding: 7px 2px; cursor: pointer; font: 14px var(--f-body); }
 .flist .km { font-weight: 600; } .flist .dt { grid-column: 1 / -1; font-size: 12px; color: var(--muted); } .flist li.empty { padding: 8px 2px; color: var(--muted); font-size: 13px; }
@@ -4181,10 +4182,18 @@ body.measuring #labels > * { pointer-events: none; }
     const [ic, t, x] = TOUR[tourK], last = tourK === TOUR.length - 1;
     el.innerHTML = '<div class="tour-card"><div class="tour-ic" aria-hidden="true">' + ic + '</div><h2>' + t + '</h2><p>' + x + '</p>' +
       '<div class="tour-dots" aria-hidden="true">' + TOUR.map((_, k) => '<i' + (k === tourK ? ' class="on"' : '') + '></i>').join('') + '</div>' +
-      '<div class="tour-row"><button class="btn" data-t="skip">' + (last ? 'Fechar' : 'Pular') + '</button><button class="btn tour-next" data-t="next">' + (last ? 'Começar' : 'Próximo') + '</button></div></div>';
+      '<div class="tour-row"><button class="btn" data-t="skip">' + (last ? 'Fechar' : 'Pular') + '</button><button class="btn tour-next" data-t="next">' + (last ? 'Começar' : 'Próximo') + '</button></div>' +
+      '<button class="btn tour-vid" data-t="video">▶ Ver o tutorial em vídeo (2 min)</button></div>';
     el.onclick = e => {
       const a = e.target.dataset && e.target.dataset.t; if (!a && e.target !== el) return;
       if (a === 'next' && !last) { tourK++; showTour(); return; }
+      if (a === 'video') { // the video is only downloaded when the person asks for it (5,5 MB)
+        el.innerHTML = '<div class="tour-card"><h2>Como usar o site</h2><video class="tour-video" controls autoplay playsinline preload="metadata" poster="tutorial.jpg" src="tutorial.mp4"></video>' +
+          '<p class="note" style="margin:6px 0 10px">Tutorial em 8 passos (2 min 22 s, 5,5 MB). Narração com voz sintetizada por IA.</p><div class="tour-row"><button class="btn" data-t="back">Voltar</button><button class="btn tour-next" data-t="skip">Fechar</button></div></div>';
+        return;
+      }
+      if (a === 'back') { showTour(); return; }
+      if (e.target.closest && e.target.closest('video')) return;
       el.remove(); try { localStorage.setItem('rr3d-tour', '1'); } catch (err) {}
     };
     el.querySelector('.tour-next').focus();
