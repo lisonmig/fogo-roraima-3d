@@ -182,7 +182,7 @@
     step('Procurando imagens Sentinel-2 sem nuvem (antes e depois)');
     const [preC, postC, nowC] = await Promise.all([
       s2Search(frame.b, addDays(d, -150), addDays(d, -2)).catch(() => []),
-      s2Search(frame.b, addDays(area.date1 || d, 0), addDays(area.date1 || d, 75) > t ? t : addDays(area.date1 || d, 75)).catch(() => []),
+      s2Search(frame.b, addDays(area.date1 || d, 1), addDays(area.date1 || d, 75) > t ? t : addDays(area.date1 || d, 75)).catch(() => []),
       dayDiff(addDays(area.date1 || d, 75), t) > 20 ? s2Search(frame.b, addDays(t, -90), t).catch(() => []) : Promise.resolve([])]);
     step('Conferindo nuvens sobre a área em cada imagem');
     let [pre, post, now] = await Promise.all([bestScene(preC, frame, mask, addDays(d, -10)), bestScene(postC, frame, mask, addDays(area.date1 || d, 10)), bestScene(nowC, frame, mask, t)]);
@@ -192,8 +192,9 @@
       step('Sem imagem limpa depois do fogo: buscando a de menos nuvem desde o início do incêndio');
       const durC = await s2Search(frame.b, d, t).catch(() => []);
       post = await bestScene(durC, frame, mask, t);
-      if (post) post.during = post.date <= (area.date1 || d);
     }
+    // 'depois' only for images taken after the last day of the fire; on or before it, with fire in the area, the image is 'durante'
+    if (post) post.during = post.date <= (area.date1 || d);
     const out = { frame, pre, post, now, figs: {} };
     step('Baixando as imagens recortadas na área');
     const jobs = [];
@@ -553,13 +554,31 @@
     if (!I || I.err || !Object.keys(I.figs || {}).length) h += '<p>Não foi possível obter imagens de satélite agora' + (I && I.err ? ' (' + esc(I.err) + ')' : '') + '. Tente gerar o relatório de novo mais tarde.</p>';
     else {
       const fig = (k, cap) => I.figs[k] ? '<figure><img src="' + I.figs[k] + '" alt="' + esc(cap) + '"><figcaption>' + cap + '</figcaption></figure>' : '';
-      const capOf = (sc, lab) => sc ? lab + ': ' + br(sc.date) + ' · ' + nf(sc.clear * 100, 0) + '% da área sem nuvem' : lab;
+      const fimFogo = area.date1 || area.date;
+      // every image shows how many days it is from the start (before/during) or from the end of the fire (after)
+      const diasTxt = (sc, lab) => {
+        if (!sc) return '';
+        if (lab === 'Antes') return ' · ' + Math.abs(dayDiff(sc.date, area.date)) + ' dias antes do início do fogo';
+        if (sc.during) return ' · ' + Math.abs(dayDiff(area.date, sc.date)) + ' dias depois do início do fogo';
+        return ' · ' + dayDiff(fimFogo, sc.date) + ' dias depois do fim do fogo';
+      };
+      const capOf = (sc, lab) => sc ? lab + ': ' + br(sc.date) + diasTxt(sc, lab) + ' · ' + nf(sc.clear * 100, 0) + '% da área sem nuvem' : lab;
+      // pasture and grassland (lavrado) turn green again in weeks: the reading is reliable only up to 15 days after the fire
+      const pasto = (R.lcNow || []).filter(x => x[0] === 1 || x[0] === 2).reduce((a, x) => a + x[1], 0) >= 0.5;
       h += '<div class="ar-grid">' + fig('pre', capOf(I.pre, 'Antes')) + fig('post', capOf(I.post, I.post && I.post.during ? 'Durante o fogo' : 'Depois')) + fig('now', capOf(I.now, 'Hoje')) + fig('sev', (isDesm(area) ? 'Perda de vegetação' : 'Gravidade da queima') + ' (dNBR) dentro do contorno') + '</div>';
-      if (I.sev) {
+      if (I.sev && I.sev.cover < 0.3) {
+        h += note('<b>Não foi possível medir a gravidade:</b> ' + nf(I.sev.cover * 100, 0) + '% da área sem nuvem nas duas imagens (mínimo: 30%). Por isso o relatório não mostra as classes de gravidade. Gere o relatório de novo em alguns dias.');
+      } else if (I.sev) {
         const s = I.sev;
         h += '<table class="ar-sev"><tr><th>' + (isDesm(area) ? 'Mudança na vegetação (dNBR)' : 'Gravidade da queima (dNBR)') + '</th><th>Área</th><th>% medido</th></tr>' + s.classes.map(c => '<tr><td><i style="background:' + c.color + '"></i>' + esc(isDesm(area) ? (DESM_NAME[c.name] || c.name) : c.name) + '</td><td>' + haTxt(c.ha) + '</td><td>' + nf(c.pct * 100, 0) + '%</td></tr>').join('') + '</table>';
         h += note((isDesm(area) ? 'Em desmatamento, o dNBR mede a troca da floresta por solo exposto ou palha, com ou sem fogo; a queima se confirma pelos focos de calor e pela cor escura na imagem do depois. ' : '') + 'dNBR médio na área: <b>' + nf(s.mean, 2) + '</b>. Medido em ' + nf(s.cover * 100, 0) + '% dos pixels da área (o resto estava sob nuvem, sombra ou sem dado). Classes de Key e Benson (USGS FIREMON). Em lavrado e pasto a queima rebrota em semanas, então imagens distantes da data mostram gravidade menor que a real.');
       } else if (I.pre && !I.post) h += note('Não há imagem sem nuvem depois da data para medir a gravidade.');
+      if (I.post && !I.post.during && pasto && I.sev && I.sev.cover >= 0.3) {
+        const dias = dayDiff(fimFogo, I.post.date);
+        h += note(dias > 15
+          ? '<b>Gravidade subestimada pela rebrota:</b> a imagem de depois é de ' + dias + ' dias após o fim do fogo. Em lavrado e pasto o capim volta a crescer em semanas, então a queimada aparece menor do que foi.'
+          : 'Leitura confiável para lavrado e pasto: a imagem de depois é de ' + dias + ' dias após o fim do fogo (até 15 dias).');
+      }
       if (I.post && I.post.during) h += note('<b>Ainda não há imagem limpa depois do fim do fogo.</b> A segunda imagem é a de menos nuvem sobre a área desde o início do incêndio (' + br(I.post.date) + '), mesmo com nuvem ou fumaça. A gravidade medida com ela pode estar <b>subestimada</b>: gere o relatório de novo em alguns dias para ter a imagem do depois.');
       h += note('Sentinel-2 nível 2A (10 m), Copernicus/ESA, via Microsoft Planetary Computer.' + (I.hls ? ' Imagens de reserva: NASA HLS (30 m), via GIBS.' : '') + ' Contorno da área em amarelo; partes listradas em cinza ficaram fora da passagem do satélite (sem dado). Imagens escolhidas pela menor cobertura de nuvem sobre a própria área.');
     }
