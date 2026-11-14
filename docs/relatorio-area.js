@@ -909,6 +909,7 @@
     const A = window.FRR, [lon, lat] = area.center, ha = area.haCalc, decl = c.area;
     const mb = memoBody(c, area, R), itens = mb.itens, tocados = [];
     let h = '<p class="rep-kick">Fogo em Roraima 3D · memorial descritivo do CAR</p><h1>Memorial do imóvel rural</h1><p class="rep-sub">CAR ' + esc(c.cod) + ' · ' + esc(c.tipoNome) + '</p>' + mb.h;
+    h += '<h2>Croqui de situação</h2><figure style="margin:8px 0"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><img style="display:block;width:100%;min-width:720px;height:auto" src="' + croquiSituacao(area, c) + '" alt="Croqui de situação do imóvel"></div><figcaption class="ar-note">Croqui de situação no padrão do memorial: roteiro perimétrico, vértices P-01, P-02…, convenções, sistema de coordenadas, escala e norte. Sem nome do proprietário. No celular, deslize o croqui para o lado para ler.</figcaption></figure>';
     h += '<div class="rep-actions"><button class="btn" data-a="print">🖨 Imprimir ou salvar em PDF</button><button class="btn" data-a="kml">Baixar contorno (KML)</button><button class="btn" data-a="geojson">GeoJSON</button><button class="btn" data-a="copy">Copiar resumo</button><button class="btn" data-a="close">Fechar</button></div>';
     el.innerHTML = '<div class="rep-page ar-page">' + h + '</div>';
     el.scrollTop = 0;
