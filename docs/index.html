@@ -1248,6 +1248,35 @@ body.measuring #labels > * { pointer-events: none; }
   controls.enableDamping = true; controls.dampingFactor = 0.08;
   controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 6; controls.maxDistance = 1000;
   controls.screenSpacePanning = false;
+  // toque (como no Google Earth): um dedo move e gira a vista; dois dedos dão zoom pela pinça. O mouse não muda.
+  controls.touches = { ONE: THREE.TOUCH.PAN, TWO: null };
+  let tchPrev = null, tchD = 0;
+  const tchPinch = e => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  renderer.domElement.addEventListener('touchstart', e => {
+    tchPrev = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+    if (e.touches.length === 2) tchD = tchPinch(e);
+  }, { passive: true });
+  renderer.domElement.addEventListener('touchend', e => {
+    tchPrev = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+  }, { passive: true });
+  renderer.domElement.addEventListener('touchmove', e => {
+    if (e.touches.length === 1 && tchPrev) {
+      const x = e.touches[0].clientX, y = e.touches[0].clientY, k = 2 * Math.PI / Math.max(1, renderer.domElement.clientHeight);
+      const off = camera.position.clone().sub(controls.target), sph = new THREE.Spherical().setFromVector3(off);
+      sph.theta -= (x - tchPrev.x) * k;
+      sph.phi = Math.max(0.05, Math.min(controls.maxPolarAngle, sph.phi - (y - tchPrev.y) * k));
+      camera.position.copy(controls.target).add(off.setFromSpherical(sph));
+      tchPrev = { x, y };
+    } else if (e.touches.length === 2) {
+      const d = tchPinch(e);
+      if (tchD > 0 && d > 0) {
+        const off = camera.position.clone().sub(controls.target), len = off.length();
+        const nl = Math.max(controls.minDistance, Math.min(controls.maxDistance, len * tchD / d));
+        camera.position.copy(controls.target).add(off.setLength(nl));
+      }
+      tchD = d;
+    }
+  }, { passive: true });
   function orbitPose(x, z, dist, az, pol) {
     return { pos: new THREE.Vector3(x + dist * Math.sin(pol) * Math.sin(az), dist * Math.cos(pol), z + dist * Math.sin(pol) * Math.cos(az)), tgt: new THREE.Vector3(x, 0, z) };
   }
