@@ -384,7 +384,21 @@ url = 'https://historical-forecast-api.open-meteo.com/v1/forecast?' + urllib.par
     'latitude': ','.join(str(p[0]) for p in pts), 'longitude': ','.join(str(p[1]) for p in pts),
     'hourly': 'wind_speed_10m,wind_direction_10m,relative_humidity_2m,temperature_2m,precipitation',
     'start_date': T0.strftime('%Y-%m-%d'), 'end_date': TEND.strftime('%Y-%m-%d'), 'timezone': 'GMT'})
-wx = json.loads(get(url, timeout=600))  # always fresh
+# the weather site often answers 429/504: try 3 times, then use the copy kept from the last good run
+WX_CACHE = os.path.join(RAW, 'open_meteo_wx.json')
+wx = None
+for _k in range(3):
+    try:
+        _raw = get(url, timeout=600)
+        wx = json.loads(_raw); open(WX_CACHE, 'wb').write(_raw)
+        break
+    except Exception as _e:
+        print('weather try', _k + 1, 'failed:', _e, flush=True)
+        if _k < 2: import time; time.sleep(30 * (_k + 1))
+if wx is None:
+    if not os.path.exists(WX_CACHE): raise SystemExit('weather unavailable and no saved copy')
+    print('weather: using the saved copy from the last good run', flush=True)
+    wx = json.load(open(WX_CACHE, encoding='utf-8'))
 nh = len(wx[0]['hourly']['time'])
 steps = list(range(0, nh, 3))
 def series(key, scale):

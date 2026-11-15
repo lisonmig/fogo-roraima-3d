@@ -49,7 +49,7 @@ jobs:
           restore-keys: dados-3d-
 
       - name: Focos do INPE, tempo, CAR e DETER
-        run: python -I scripts/prep_rr.py dados-3d docs || echo "::warning::falhou a atualização dos focos; o site fica com os dados anteriores"
+        run: python -I scripts/prep_rr.py dados-3d docs || echo "::error::falhou a atualização dos focos (o arquivo roraima3d.json não foi gerado nesta execução; veja o erro acima)"
 
       - name: Eventos de fogo do INPE
         run: python -I scripts/prep_eventos_inpe.py dados-3d docs || echo "::warning::falharam os eventos do INPE"

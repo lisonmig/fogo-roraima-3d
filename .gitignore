@@ -21,3 +21,7 @@ atualizacao.log
 # arquivos grandes do IBAMA com o Brasil inteiro (o relatório da área guarda só Roraima, em docs/rel/)
 dados-3d/ibama_embargo.csv
 dados-3d/sinaflor_asv.csv
+
+# arquivo de focos gerado pelo robô a cada execução (não versionar: uma cópia antiga no git
+# era publicada quando a geração falhava)
+docs/roraima3d.json
