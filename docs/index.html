@@ -4194,16 +4194,10 @@ body.measuring #labels > * { pointer-events: none; }
     const [ic, t, x] = TOUR[tourK], last = tourK === TOUR.length - 1;
     el.innerHTML = '<div class="tour-card"><div class="tour-ic" aria-hidden="true">' + ic + '</div><h2>' + t + '</h2><p>' + x + '</p>' +
       '<div class="tour-dots" aria-hidden="true">' + TOUR.map((_, k) => '<i' + (k === tourK ? ' class="on"' : '') + '></i>').join('') + '</div>' +
-      '<div class="tour-row"><button class="btn" data-t="skip">' + (last ? 'Fechar' : 'Pular') + '</button><button class="btn tour-next" data-t="next">' + (last ? 'Começar' : 'Próximo') + '</button></div>' +
-      '<button class="btn tour-vid" data-t="video">▶ Ver o tutorial em vídeo (2 min)</button></div>';
+      '<div class="tour-row"><button class="btn" data-t="skip">' + (last ? 'Fechar' : 'Pular') + '</button><button class="btn tour-next" data-t="next">' + (last ? 'Começar' : 'Próximo') + '</button></div>';
     el.onclick = e => {
       const a = e.target.dataset && e.target.dataset.t; if (!a && e.target !== el) return;
       if (a === 'next' && !last) { tourK++; showTour(); return; }
-      if (a === 'video') { // the video is only downloaded when the person asks for it (5,5 MB)
-        el.innerHTML = '<div class="tour-card"><h2>Como usar o site</h2><video class="tour-video" controls autoplay playsinline preload="metadata" poster="tutorial.jpg" src="tutorial.mp4"></video>' +
-          '<p class="note" style="margin:6px 0 10px">Tutorial em 8 passos (2 min 22 s, 5,5 MB). Narração com voz sintetizada por IA.</p><div class="tour-row"><button class="btn" data-t="back">Voltar</button><button class="btn tour-next" data-t="skip">Fechar</button></div></div>';
-        return;
-      }
       if (a === 'back') { showTour(); return; }
       if (e.target.closest && e.target.closest('video')) return;
       el.remove(); try { localStorage.setItem('rr3d-tour', '1'); } catch (err) {}
