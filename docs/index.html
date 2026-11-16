@@ -4491,10 +4491,5 @@ body.measuring #labels > * { pointer-events: none; }
   secaP.then(J => { SECA_HY0 = J && J.hy0; initSeca(J); initGauges(J); renderPeek(); drawChart(); });
   riosP.then(initRios);
   requestAnimationFrame(frame);
-})();
-// clicar fora do relatório (na parte escura) fecha o relatório
-{ let dn = null; document.addEventListener('mousedown', e => { dn = e.target; });
-  document.addEventListener('click', e => { const r = e.target; if (!r || r.id !== 'report' || dn !== r) return;
-    const c = r.querySelector('#arCancel, [data-a="close"]'); if (c) c.click(); else r.remove(); }); }
-</script>
+})();</script>
 </html>
