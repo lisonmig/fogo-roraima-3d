@@ -409,6 +409,7 @@
   }
 
   // ---------- photos near the area (Wikimedia Commons, free licences)
+  const photosHtml = list => list.length ? '<div class="ar-photos">' + list.map(p => '<figure><a href="' + esc(p.page) + '" target="_blank" rel="noopener"><img src="' + esc(p.thumb) + '" alt="' + esc(p.title) + '" loading="lazy"></a><figcaption><b>Foto de terceiros, não é do evento</b>' + (p.km != null ? ' · tirada a ' + kmTxt(p.km) + ' do centro da área' : '') + '<br>' + esc(p.title) + '<br>' + esc(p.author) + ' · ' + esc(p.lic) + '</figcaption></figure>').join('') + '</div>' + '<p class="ar-note">Fonte: Wikimedia Commons, fotos livres enviadas por voluntários. Para ver o local de verdade, use as imagens de satélite da seção 3, que têm data e contorno da área.</p>' : '<p class="ar-note">Nenhuma foto pública com localização a até 10 km daqui.</p>';
   async function photos(area) {
     const [lon, lat] = area.center;
     const J = await getJSON('https://commons.wikimedia.org/w/api.php?action=query&generator=geosearch&ggscoord=' + lat.toFixed(5) + '%7C' + lon.toFixed(5) + '&ggsradius=10000&ggsnamespace=6&ggslimit=8&prop=imageinfo%7Ccoordinates&iiprop=url%7Cextmetadata&iiurlwidth=320&format=json&origin=*', 20000);
@@ -482,7 +483,7 @@
         img: imagery(area, A, step).catch(e => ({ err: e.message })),
         lc: (step('Buscando a vegetação de 2001 a 2023 (MODIS)'), landHistory(area).catch(() => [])),
         wx: (step('Buscando chuva, umidade, vento e fumaça do período'), weather(area).catch(e => ({ err: e.message }))),
-        ph: photos(area).catch(() => [])
+        ph: Promise.resolve([]) // fotos de referência só quando a pessoa pede (botão na seção 11)
       };
       const [img, lc, wx, ph] = await Promise.all([tasks.img, tasks.lc, tasks.wx, tasks.ph]);
       if (cancelled) return;
@@ -706,7 +707,7 @@
     h += '<p class="rep-sub">Relatório nº <b>' + esc(code) + '</b> · gerado em ' + esc(gen) + ' (horário de Roraima) · fogororaima.com.br<br>Fonte da área: ' + esc(area.source) + ' · data de referência <b>' + br(area.date) + '</b>' + (area.date1 && area.date1 !== area.date ? ' a <b>' + br(area.date1) + '</b>' : '') + '</p>';
     const mainK = R.img && R.img.figs && ['post', 'now', 'pre'].find(k => R.img.figs[k]), main = mainK && R.img.figs[mainK];
     const temIA = !!(R.img && R.img.raw && Object.keys(R.img.raw).length && !navigator.connection?.saveData);
-    if (temIA) h = h.replace('<button class="btn" data-a="close">', '<button class="btn" data-a="ia" disabled>Realçando as imagens com IA…</button><button class="btn" data-a="close">');
+    if (temIA) h = h.replace('<button class="btn" data-a="close">', '<button class="btn" data-a="ia">✨ Realçar imagens com IA</button><button class="btn" data-a="close">');
     if (main) h += '<img class="ar-hero" data-k="' + mainK + '" src="' + main + '" alt="Imagem de satélite da área com o contorno em amarelo">';
 
     // 1. summary
@@ -856,18 +857,15 @@
     else h += T([['Área considerada', nf(hb) + ' ha (arredondado para cima, como na lei)'], ['Se fosse queima sem autorização em pasto ou roça (art. 58)', esc(brl(hb * 3000 * mult))], ['Se fosse incêndio em vegetação nativa (art. 58-A)', esc(brl(hb * 10000 * mult))], R.fine.ti ? ['Terra Indígena', 'valores já em dobro (art. 60)'] : null]);
     h += note('Simulação para entender a lei. Não é multa aplicada nem parecer jurídico: a autuação depende de identificar quem causou o fogo, de não haver autorização e do processo administrativo, com direito de defesa (em geral 20 dias após a ciência do auto de infração). <b>Multa e embargo são coisas diferentes:</b> a multa é uma sanção em dinheiro; o embargo proíbe usar a área até ela ser regularizada (art. 15-A e 16 do Decreto 6.514/2008).');
 
-    // 11. photos
-    if (R.ph && R.ph.length) {
-      h += H2(11, 'Fotos de referência perto do local');
+    // 11. photos (só quando a pessoa pede: busca a mais e as fotos são só ilustrativas)
+    h += H2(11, 'Fotos de referência perto do local');
       h += '<div class="ar-photowarn"><b>⚠️ Estas fotos não são do evento.</b> Não mostram esta queimada nem este desmatamento, e podem não mostrar nem a própria área. ' +
         'Foram encontradas <b>automaticamente</b> num banco público de imagens (Wikimedia Commons), que busca qualquer foto publicada por terceiros com localização a até 10 km daqui. ' +
         'O sistema não sabe o que cada foto mostra: servem <b>só para conhecer a paisagem da região</b> e podem ter sido tiradas anos antes, em outro ponto, por qualquer pessoa.</div>';
-      h += '<div class="ar-photos">' + R.ph.map(p => '<figure><a href="' + esc(p.page) + '" target="_blank" rel="noopener"><img src="' + esc(p.thumb) + '" alt="' + esc(p.title) + '" loading="lazy"></a><figcaption><b>Foto de terceiros, não é do evento</b>' + (p.km != null ? ' · tirada a ' + kmTxt(p.km) + ' do centro da área' : '') + '<br>' + esc(p.title) + '<br>' + esc(p.author) + ' · ' + esc(p.lic) + '</figcaption></figure>').join('') + '</div>';
-      h += note('Fonte: Wikimedia Commons, fotos livres enviadas por voluntários. Para ver o local de verdade, use as imagens de satélite da seção 3, que têm data e contorno da área.');
-    }
+      h += '<div id="arPhotos"><button type="button" class="btn" data-a="fotos">🖼 Mostrar fotos de referência (Wikimedia Commons)</button></div>';
 
     // 12. sources
-    h += H2(R.ph && R.ph.length ? 12 : 11, 'Métodos, fontes e limitações');
+    h += H2(12, 'Métodos, fontes e limitações');
     h += '<ul class="ar-src"><li>Contorno: ' + esc(area.source) + '. Área medida no contorno por projeção local.</li>' +
       '<li>Imagens: Copernicus Sentinel-2 L2A (ESA), via Microsoft Planetary Computer; gravidade pelo índice dNBR = NBR(antes) − NBR(depois), NBR = (B8 − B12)/(B8 + B12); nuvens pela classificação de cena (SCL).</li>' +
       '<li>Focos de calor e eventos de fogo: INPE, Programa Queimadas. Recorrência: focos do satélite de referência ' + (R.rec ? R.rec.from + '–' + R.rec.to : '') + '.</li>' +
@@ -897,16 +895,17 @@
       else if (a === 'kml') save(kml(), code + '.kml', 'application/vnd.google-earth.kml+xml');
       else if (a === 'geojson') save(gj(), code + '.geojson', 'application/geo+json');
       else if (a === 'copy') { let ok = false; try { await navigator.clipboard.writeText(summary); ok = true; } catch (err) {} e.target.textContent = ok ? 'Resumo copiado' : 'Não deu para copiar'; }
-      else if (a === 'ia') { iaOn = !iaOn; mostra(); }
+      else if (a === 'ia') { if (!temIA) return; if (!iaStarted) { iaStarted = true; iaOn = true; e.target.disabled = true; e.target.textContent = 'Realçando as imagens com IA…'; iaRun(); } else { iaOn = !iaOn; mostra(); } }
+      else if (a === 'fotos') { const box = el.querySelector('#arPhotos'); e.target.disabled = true; e.target.textContent = 'Buscando fotos…'; const list = await photos(area).catch(() => null); if (box) box.innerHTML = list ? photosHtml(list) : '<p class="ar-note">Não foi possível buscar as fotos agora.</p>'; }
     };
     // realce por IA depois que o relatório já está na tela: começa ligado; o botão alterna entre as fotos reais e as realçadas
-    let iaOn = true; const figsIA = {};
+    let iaOn = false, iaStarted = false; const figsIA = {};
     const bt = el.querySelector('[data-a="ia"]');
     const mostra = () => {
       el.querySelectorAll('img[data-k]').forEach(im => { const k = im.dataset.k; im.src = iaOn && figsIA[k] ? figsIA[k] : R.img.figs[k]; });
       if (bt && !bt.disabled) bt.textContent = iaOn ? 'Ver imagens reais' : 'Ver imagens realçadas por IA';
     };
-    if (temIA) (async () => {
+    const iaRun = async () => {
       try {
         if (!window.FRR_IA) await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = 'ia-realce.js?v=' + IA_VERSION; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
         const ks = Object.keys(R.img.raw), fr = R.img.frame;
@@ -923,7 +922,7 @@
         console.warn('realce por IA', err);
         if (bt) { bt.textContent = 'Realce por IA indisponível'; }
       }
-    })();
+    };
   }
   const brl =v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
