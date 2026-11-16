@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   const PC = 'https://planetarycomputer.microsoft.com/api';
-  const IA_VERSION = '2026111601'; // ia-realce.js?v=...: trocar a cada mudança daquele arquivo (o sw.js guarda .js pelo endereço)
+  const IA_VERSION = '2026111602'; // ia-realce.js?v=...: trocar a cada mudança daquele arquivo (o sw.js guarda .js pelo endereço)
   const GIBS = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
   const OM = 'https://historical-forecast-api.open-meteo.com/v1/forecast';
   const OMAQ = 'https://air-quality-api.open-meteo.com/v1/air-quality';
@@ -92,6 +92,14 @@
   const Q_RGB = 'assets=visual&asset_bidx=visual%7C1,2,3&nodata=0';
   const Q_NBR = 'expression=' + encodeURIComponent('(B08-B12)/(B08+B12)') + '&asset_as_band=true&rescale=-1,1';
   const Q_SCL = 'assets=SCL';
+  // foto pedida no tamanho real do satélite (nw x nh) e ampliada suave no navegador até w x h: o servidor amplia repetindo pixels (quadradinhos)
+  async function loadSmooth(url, nw, nh, w, h, ms = 45000) {
+    const p = await loadPixels(url, ms);
+    if (nw >= w * 0.9) return p;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d', { willReadFrequently: true }); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high'; x.drawImage(p.canvas, 0, 0, w, h);
+    return { w, h, data: x.getImageData(0, 0, w, h).data, canvas: c };
+  }
   async function loadPixels(url, ms = 45000) {
     const r = await withTimeout(fetch(url), ms); if (!r.ok) throw new Error('HTTP ' + r.status);
     const bmp = await createImageBitmap(await r.blob());
@@ -105,12 +113,12 @@
   // para a medida (dNBR) cada pixel usa a primeira data em que ficou limpo, entre as melhores datas (só pixels reais, nada inventado)
   // fontes: Sentinel-2 (nuvem pela classificação SCL) e Landsat (nuvem pela banda QA_PIXEL: 1 = chão ou água limpos)
   const SRC_S2 = { mask: (c, f) => cropUrl(c.id, f.b, f.w, f.h, Q_SCL), rgb: (c, f) => cropUrl(c.id, f.b, f.w, f.h, Q_RGB), nbr: (c, f) => cropUrl(c.id, f.b, f.w, f.h, Q_NBR),
-    refl: (c, f, k) => cropUrl(c.id, f.b, f.w, f.h, k === 'rgb' ? 'assets=B04&assets=B03&assets=B02&rescale=0,4000&nodata=0' : 'assets=B08&rescale=0,7000&nodata=0'),
+    res: 10, refl: (c, f, k) => cropUrl(c.id, f.b, f.w, f.h, k === 'rgb' ? 'assets=B04&assets=B03&assets=B02&rescale=0,4000&nodata=0' : 'assets=B08&rescale=0,7000&nodata=0'),
     has: (d, k) => d[k * 4 + 3] && d[k * 4] !== 0, ok: (d, k) => { const v = d[k * 4]; return d[k * 4 + 3] && v !== 0 && v !== 1 && v !== 3 && v !== 8 && v !== 9 && v !== 10; } };
   // 2 = chão/água limpos, 1 = nuvem, sombra ou névoa, 0 = sem dado; com rescale 0,2 vira 255 / ~127 / 0 no PNG
   const Q_LSQA = 'expression=' + encodeURIComponent('where((qa_pixel==21824)|(qa_pixel==21952)|(qa_pixel==5440)|(qa_pixel==5504),2,where(qa_pixel==1,0,1))') + '&asset_as_band=true&rescale=0,2';
   const SRC_LS = { mask: (c, f) => PC + '/data/v1/item/bbox/' + f.b.map(v => v.toFixed(5)).join(',') + '/' + f.w + 'x' + f.h + '.png?collection=landsat-c2-l2&item=' + encodeURIComponent(c.id) + '&dst_crs=epsg:4326&' + Q_LSQA,
-    rgb: (c, f) => lsCrop(c.id, f.b, f.w, f.h), nbr: null, has: (d, k) => d[k * 4 + 3] > 0 && d[k * 4] > 60, ok: (d, k) => d[k * 4 + 3] > 0 && d[k * 4] > 200 };
+    rgb: (c, f) => lsCrop(c.id, f.b, f.w, f.h), nbr: null, res: 30, has: (d, k) => d[k * 4 + 3] > 0 && d[k * 4] > 60, ok: (d, k) => d[k * 4 + 3] > 0 && d[k * 4] > 200 };
   async function composeScenes(cands, frame, mask, pref, src = SRC_S2, measure = true) {
     const list = cands.slice().sort((a, b) => Math.abs(dayDiff(pref, a.date)) - Math.abs(dayDiff(pref, b.date))).slice(0, 14);
     const sc = [];
@@ -132,7 +140,10 @@
     if (!days.length) return null;
     const best = days[0];
     // foto mostrada: só a data escolhida (as faixas do mesmo dia juntas); nuvem aparece como nuvem, cinza só onde o satélite não passou
-    const rgbs = await Promise.all(best.items.map(s => loadPixels(src.rgb(s, frame)).catch(() => null)));
+    // tamanho real do satélite (10 m Sentinel-2, 30 m Landsat): em áreas pequenas a foto vem nesse tamanho e é ampliada suave aqui
+    const nw = Math.max(16, Math.min(frame.w, Math.round(frame.km * 1000 / (src.res || 10)))), nat = { b: frame.b, w: nw, h: nw, km: frame.km };
+    const rgbOf = s => loadSmooth(src.rgb(s, nat), nw, nw, frame.w, frame.h);
+    const rgbs = await Promise.all(best.items.map(s => rgbOf(s).catch(() => null)));
     const cv = document.createElement('canvas'); cv.width = frame.w; cv.height = frame.h;
     const cx = cv.getContext('2d'), R = cx.createImageData(frame.w, frame.h);
     const who = new Int16Array(n).fill(-1), usedIt = []; // de qual cena veio cada ponto (para o realce por IA buscar as bandas certas)
@@ -147,7 +158,7 @@
       const gaps = () => { let g = 0; for (let k = 0; k < n; k++) if (mask[k] && !R.data[k * 4 + 3]) g++; return g; };
       for (const o of days.slice(1).filter(x => Math.abs(dayDiff(best.date, x.date)) <= 32).sort((a, b) => Math.abs(dayDiff(best.date, a.date)) - Math.abs(dayDiff(best.date, b.date))).slice(0, 3)) {
         if (!gaps()) break;
-        const px = await Promise.all(o.items.map(s => loadPixels(src.rgb(s, frame)).catch(() => null)));
+        const px = await Promise.all(o.items.map(s => rgbOf(s).catch(() => null)));
         let used = 0;
         for (let k = 0; k < n; k++) {
           if (R.data[k * 4 + 3]) continue;
@@ -160,16 +171,18 @@
     cx.putImageData(R, 0, 0);
     const shown = { id: best.items[0].id, date: best.date, clear: best.clear, data: best.data, fill, rgb: { w: frame.w, h: frame.h, data: R.data, canvas: cv } };
     // reflectância (R, G, B, NIR) dos mesmos pontos da foto, só quando o realce por IA pedir; Sentinel-2 desde a versão 04.00 soma 1000 aos números
+    // sempre no tamanho real do Sentinel-2 (10 m), que é o que o modelo de IA espera; a cena de cada ponto vem do quadro da foto (who)
     if (src.refl) shown.reflOf = async () => {
-      const got = await Promise.all(usedIt.map(s => Promise.all([loadPixels(src.refl(s, frame, 'rgb')), loadPixels(src.refl(s, frame, 'nir'))]).catch(() => null)));
-      const out = new Float32Array(4 * n);
-      for (let k = 0; k < n; k++) {
+      const got = await Promise.all(usedIt.map(s => Promise.all([loadPixels(src.refl(s, nat, 'rgb')), loadPixels(src.refl(s, nat, 'nir'))]).catch(() => null)));
+      const m = nw * nw, out = new Float32Array(4 * m);
+      for (let y = 0; y < nw; y++) for (let x = 0; x < nw; x++) {
+        const q = y * nw + x, k = Math.min(frame.h - 1, Math.floor((y + 0.5) * frame.h / nw)) * frame.w + Math.min(frame.w - 1, Math.floor((x + 0.5) * frame.w / nw));
         const u = who[k]; if (u < 0 || !got[u]) continue;
         const off = usedIt[u].pb >= '04.00' ? 1000 : 0, [a, b] = got[u];
-        for (let c = 0; c < 3; c++) out[c * n + k] = (a.data[k * 4 + c] / 255 * 4000 - off) / 1e4;
-        out[3 * n + k] = (b.data[k * 4] / 255 * 7000 - off) / 1e4;
+        for (let c = 0; c < 3; c++) out[c * m + q] = (a.data[q * 4 + c] / 255 * 4000 - off) / 1e4;
+        out[3 * m + q] = (b.data[q * 4] / 255 * 7000 - off) / 1e4;
       }
-      return out;
+      return { data: out, w: nw, h: nw };
     };
     if (!measure || !src.nbr) return shown;
     // medida: até 4 datas boas, cada pixel na melhor data em que estava limpo
@@ -263,6 +276,7 @@
       step('Sem imagem limpa depois do fogo: buscando a de menos nuvem desde o início do incêndio');
       const durC = await s2Search(frame.b, d, t).catch(() => []);
       post = await composeScenes(durC, frame, mask, t);
+      if (post && post.clear < 0.15) post = null; // foto toda branca de nuvem não ilustra nada
     }
     // 'depois' only for images taken after the last day of the fire; on or before it, with fire in the area, the image is 'durante'
     if (post) post.during = post.date <= (area.date1 || d);
@@ -740,7 +754,7 @@
         const s = I.sev;
         h += '<table class="ar-sev"><tr><th>' + (isDesm(area) ? 'Mudança na vegetação (dNBR)' : 'Gravidade da queima (dNBR)') + '</th><th>Área</th><th>% medido</th></tr>' + s.classes.map(c => '<tr><td><i style="background:' + c.color + '"></i>' + esc(isDesm(area) ? (DESM_NAME[c.name] || c.name) : c.name) + '</td><td>' + haTxt(c.ha) + '</td><td>' + nf(c.pct * 100, 0) + '%</td></tr>').join('') + '</table>';
         h += note((isDesm(area) ? 'Em desmatamento, o dNBR mede a troca da floresta por solo exposto ou palha, com ou sem fogo; a queima se confirma pelos focos de calor e pela cor escura na imagem do depois. ' : '') + 'dNBR médio na área: <b>' + nf(s.mean, 2) + '</b>. Medido em ' + nf(s.cover * 100, 0) + '% dos pixels da área (o resto estava sob nuvem, sombra ou sem dado). Classes de Key e Benson (USGS FIREMON). Em lavrado e pasto a queima rebrota em semanas, então imagens distantes da data mostram gravidade menor que a real.');
-      } else if (I.pre && !I.post) h += note('Não há imagem sem nuvem depois da data para medir a gravidade.');
+      } else if (I.pre && !I.post) h += note('<b>Ainda não há imagem sem nuvem depois do fogo:</b> em todas as passagens do satélite desde o início, a nuvem cobriu mais de 85% da área. Por isso não há foto do depois nem medida da gravidade. Gere o relatório de novo em alguns dias.');
       if (I.ls && I.pre && I.post) h += note('Antes de 2017 o Sentinel-2 não cobre esta área de forma contínua, então as imagens são Landsat (30 m). A gravidade (dNBR) não é medida nestas imagens: compare-as visualmente.');
       if (I.post && !I.post.during && pasto && I.sev && I.sev.cover >= 0.3) {
         const dias = dayDiff(fimFogo, I.post.date);
@@ -892,7 +906,7 @@
         for (let i = 0; i < ks.length; i++) {
           const k = ks[i], r = R.img.raw[k];
           const refl = await r.reflOf();
-          const cv = await window.FRR_IA.realce(r.canvas, refl, fr.w, fr.h, 1800, p => { if (bt) bt.textContent = 'Realçando as imagens com IA… ' + Math.round((i + p) / ks.length * 100) + '%'; });
+          const cv = await window.FRR_IA.realce(r.canvas, refl.data, refl.w, refl.h, 1800, p => { if (bt) bt.textContent = 'Realçando as imagens com IA… ' + Math.round((i + p) / ks.length * 100) + '%'; });
           figsIA[k] = figure(cv, area, fr, r.label + ' · REALÇADA POR IA');
           if (!el.isConnected) return;
           mostra();

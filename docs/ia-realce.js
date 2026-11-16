@@ -39,7 +39,10 @@
     const s = await session();
     const D = maxOut / Math.max(w, h) >= 4 ? 4 : 2; // 4x quando cabe; senão 2x (média dos detalhes de cada 2x2)
     const out = document.createElement('canvas'); out.width = w * D; out.height = h * D;
-    const ox = out.getContext('2d'); ox.imageSmoothingEnabled = true; ox.imageSmoothingQuality = 'high'; ox.drawImage(tci, 0, 0, out.width, out.height);
+    // base: a foto real reduzida ao tamanho real do satélite (desfaz pixels repetidos) e ampliada suave; a IA só soma os detalhes
+    const sm = document.createElement('canvas'); sm.width = w; sm.height = h;
+    const sx = sm.getContext('2d'); sx.imageSmoothingEnabled = true; sx.imageSmoothingQuality = 'high'; sx.drawImage(tci, 0, 0, w, h);
+    const ox = out.getContext('2d'); ox.imageSmoothingEnabled = true; ox.imageSmoothingQuality = 'high'; ox.drawImage(sm, 0, 0, out.width, out.height);
     const base = ox.getImageData(0, 0, out.width, out.height), bd = base.data;
     const T = 112, M = 8, K = 9, GAIN = 255 / 0.2; // 0,2 de reflectância = 255 na foto 'visual' do Sentinel-2
     const tiles = []; for (let ty = 0; ty < h; ty += T) for (let tx = 0; tx < w; tx += T) tiles.push([tx, ty]);
