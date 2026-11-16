@@ -148,7 +148,9 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 .tour-card p { margin: 0 0 14px; font-size: 15px; line-height: 1.45; }
 .tour-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 14px; } .tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); } .tour-dots i.on { background: var(--accent); }
 .tour-vid { width: 100%; margin-top: 8px; min-height: 40px; } .tour-video { display: block; width: 100%; max-height: 62vh; border-radius: 10px; background: #000; }
-.tour-row { display: flex; gap: 8px; } .tour-row .btn { flex: 1; min-height: 44px; font-size: 15px; } .tour-next { background: var(--accent) !important; color: #fff !important; border-color: transparent !important; }
+.tour-row { display: flex; gap: 8px; } .tour-row .btn { flex: 1; min-height: 44px; font-size: 15px; }
+.tut-leg { margin: 8px 0 6px !important; min-height: 4.6em; font-size: 14px !important; line-height: 1.35 !important; text-align: left; } .tut-leg b { display: block; margin-bottom: 2px; font-size: 12px; letter-spacing: .02em; color: var(--accent); }
+.tour-row a.btn { display: inline-flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; } .tour-next { background: var(--accent) !important; color: #fff !important; border-color: transparent !important; }
 .flist { list-style: none; margin: 4px 0 8px; padding: 0; } .flist li button { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--ink); padding: 7px 2px; cursor: pointer; font: 14px var(--f-body); }
 .flist .km { font-weight: 600; } .flist .dt { grid-column: 1 / -1; font-size: 12px; color: var(--muted); } .flist li.empty { padding: 8px 2px; color: var(--muted); font-size: 13px; }
 #flExport { flex-wrap: wrap; gap: 6px; } #flExport .btn { flex: 1 1 auto; }
@@ -4209,10 +4211,22 @@ body.measuring #labels > * { pointer-events: none; }
     const [ic, t, x] = TOUR[tourK], last = tourK === TOUR.length - 1;
     el.innerHTML = '<div class="tour-card"><div class="tour-ic" aria-hidden="true">' + ic + '</div><h2>' + t + '</h2><p>' + x + '</p>' +
       '<div class="tour-dots" aria-hidden="true">' + TOUR.map((_, k) => '<i' + (k === tourK ? ' class="on"' : '') + '></i>').join('') + '</div>' +
-      '<div class="tour-row"><button class="btn" data-t="skip">' + (last ? 'Fechar' : 'Pular') + '</button><button class="btn tour-next" data-t="next">' + (last ? 'Começar' : 'Próximo') + '</button></div>';
+      '<div class="tour-row"><button class="btn" data-t="skip">' + (last ? 'Fechar' : 'Pular') + '</button><button class="btn tour-next" data-t="next">' + (last ? 'Começar' : 'Próximo') + '</button></div>' +
+      '<button class="btn tour-vid" data-t="video">▶ Ver o tutorial em vídeo (2 min)</button></div>';
     el.onclick = e => {
       const a = e.target.dataset && e.target.dataset.t; if (!a && e.target !== el) return;
       if (a === 'next' && !last) { tourK++; showTour(); return; }
+      if (a === 'video') { // the video is only downloaded when the person asks for it (6,4 MB); the captions come from tutorial.vtt and are shown under the video, not on it
+        el.innerHTML = '<div class="tour-card"><h2>Como usar o site</h2><video class="tour-video" controls autoplay playsinline preload="metadata" poster="tutorial.jpg" src="tutorial.mp4"><track kind="captions" src="tutorial.vtt" srclang="pt" label="Português"></video>' +
+          '<p class="tut-leg" id="tutLeg" aria-live="polite"><b></b><span></span></p>' +
+          '<p class="note" style="margin:0 0 10px">Tutorial em 8 passos (1 min 59 s). Narração com voz sintetizada por IA. Os dados do vídeo são de 14/11/2026.</p>' +
+          '<div class="tour-row"><a class="btn" href="tutorial.mp4" download="fogo-roraima-3d-tutorial.mp4">Baixar sem legenda (6,4 MB)</a><a class="btn" href="tutorial_legendado.mp4" download="fogo-roraima-3d-tutorial-com-legenda.mp4">Baixar com legenda (6,3 MB)</a></div>' +
+          '<div class="tour-row" style="margin-top:8px"><button class="btn" data-t="back">Voltar</button><button class="btn tour-next" data-t="skip">Fechar</button></div></div>';
+        const tv = el.querySelector('video'), leg = el.querySelector('#tutLeg'), tr = tv.textTracks[0];
+        if (tr) { tr.mode = 'hidden'; // we draw the line ourselves, under the video; the CC button of the player still offers the captions on the video
+          tr.addEventListener('cuechange', () => { const c = tr.activeCues && tr.activeCues[0]; const p = c ? c.text.split('\n') : ['', '']; leg.firstChild.textContent = p[0] || ''; leg.lastChild.textContent = p.slice(1).join(' '); }); }
+        return;
+      }
       if (a === 'back') { showTour(); return; }
       if (e.target.closest && e.target.closest('video')) return;
       el.remove(); try { localStorage.setItem('rr3d-tour', '1'); } catch (err) {}
