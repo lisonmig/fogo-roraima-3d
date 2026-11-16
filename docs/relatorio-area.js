@@ -1221,15 +1221,13 @@
     x.textAlign = 'left';
     return c.toDataURL('image/png');
   }
-  const CAR_IMG_MAX = 4; // imóveis do CAR com imagem de satélite própria; os demais entram com croqui e memorial
   async function carBlock(el, car, area, R, n, total) {
     const A = window.FRR, root = el.querySelector('.rep-page');
     const cp = await carPrep(car);
     // satellite images with both outlines (the property and the fire); same method as the report
     const bx = [Math.min(cp.area.box[0], area.box[0]), Math.min(cp.area.box[1], area.box[1]), Math.max(cp.area.box[2], area.box[2]), Math.max(cp.area.box[3], area.box[3])];
     const combo = { rings: cp.area.rings.concat(area.rings), box: bx, date: area.date, date1: area.date1, center: cp.area.center, samples: cp.area.samples.concat(area.samples), edge: cp.area.edge.concat(area.edge) };
-    // imagem de satélite própria só nos 4 primeiros imóveis: com muitos imóveis o relatório ficaria lento demais
-    const imgC = n > CAR_IMG_MAX ? { figs: {}, skip: true } : await imagery(combo, A, () => {}).catch(e => ({ err: e.message, figs: {} }));
+    // imagem de satélite de cada imóvel só quando a pessoa pede (botão): deixa o relatório com CAR bem mais rápido
     const mg = 0.01, cb = [bx[0] - mg, bx[1] - mg, bx[2] + mg, bx[3] + mg];
     const fireLbl = (area.title || 'Passivo') + (area.date ? ' · ' + br(area.date) : '');
     const cro = croqui([cp.area.rings], area.rings, cb, ['Imóvel ' + n + ' do CAR'], fireLbl);
@@ -1239,15 +1237,26 @@
     const sit = croquiSituacao(cp.area, car);
     h += '<figure style="margin:8px 0"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><img style="display:block;width:100%;min-width:720px;height:auto" src="' + sit + '" alt="Croqui de situação do imóvel"></div><figcaption class="ar-note">Croqui de situação no padrão do memorial: roteiro perimétrico, vértices P-01, P-02…, convenções, sistema de coordenadas, escala e norte. Sem nome do proprietário. No celular, deslize o croqui para o lado para ler.</figcaption></figure>';
     h += '<figure style="margin:8px 0"><img style="max-width:100%;height:auto" src="' + cro + '" alt="Croqui da área"><figcaption class="ar-note">Croqui: contorno do imóvel em preto e área do passivo em laranja. Escala e norte no desenho. Coordenadas em graus decimais (SIRGAS 2000).</figcaption></figure>';
+    h += '<div class="ar-carimg"><button type="button" class="btn" data-carimg="1">🛰 Carregar imagem de satélite deste imóvel</button><p class="ar-note">Imagens de antes e depois com o contorno do imóvel e do passivo. Leva de 20 a 60 segundos.</p></div>';
+    h += memoBody(car, cp.area, cp.R).h;
+    const sec = document.createElement('div'); sec.className = 'ar-carblock'; sec.innerHTML = h; root.appendChild(sec);
+    const bt = sec.querySelector('[data-carimg]');
+    bt.addEventListener('click', async ev => {
+      ev.stopPropagation(); bt.disabled = true; bt.textContent = '🛰 Buscando imagens de satélite…';
+      const imgC = await imagery(combo, A, () => {}).catch(e => ({ err: e.message, figs: {} }));
+      const box = sec.querySelector('.ar-carimg'); if (!box) return;
+      box.innerHTML = carImgHtml(imgC);
+    });
+    return cp;
+  }
+  function carImgHtml(imgC) {
+    let h = '';
     const figs = imgC.figs || {};
     if (Object.keys(figs).length) {
       h += '<div class="ar-grid">' + ['pre', 'post', 'now', 'sev'].filter(k => figs[k]).map(k => '<figure><img style="max-width:100%;height:auto" src="' + figs[k] + '" alt="Imagem de satélite com o contorno do CAR e do passivo"></figure>').join('') + '</div>';
       h += '<p class="ar-note">Imagens de satélite com os dois contornos: amarelo para o imóvel do CAR e para a área do passivo. Sentinel-2 (10 m), Copernicus/ESA, via Microsoft Planetary Computer.</p>';
-    } else if (imgC.skip) h += '<p class="ar-note">Imagem de satélite própria só nos ' + CAR_IMG_MAX + ' primeiros imóveis, para o relatório não ficar lento. Este imóvel aparece no croqui acima e no croqui de sobreposição com todos os imóveis.</p>';
-    else h += '<p>Não foi possível obter imagens de satélite agora. Tente gerar o relatório de novo mais tarde.</p>';
-    h += memoBody(car, cp.area, cp.R).h;
-    const sec = document.createElement('div'); sec.className = 'ar-carblock'; sec.innerHTML = h; root.appendChild(sec);
-    return cp;
+    } else h += '<p>Não foi possível obter imagens de satélite agora. Tente de novo mais tarde.</p>';
+    return h;
   }
   // when the passive touches more than one CAR property: one sketch with all of them, and the shared area between each pair
   async function overlapBlock(el, cars, preps, area) {
