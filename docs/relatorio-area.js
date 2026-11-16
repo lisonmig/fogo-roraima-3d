@@ -6,6 +6,7 @@
 (function () {
   'use strict';
   const PC = 'https://planetarycomputer.microsoft.com/api';
+  const IA_VERSION = '2026111601'; // ia-realce.js?v=...: trocar a cada mudança daquele arquivo (o sw.js guarda .js pelo endereço)
   const GIBS = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
   const OM = 'https://historical-forecast-api.open-meteo.com/v1/forecast';
   const OMAQ = 'https://air-quality-api.open-meteo.com/v1/air-quality';
@@ -85,7 +86,7 @@
   async function s2Search(bbox, from, to) {
     const u = PC + '/stac/v1/search?collections=sentinel-2-l2a&bbox=' + bbox.map(v => v.toFixed(5)).join(',') + '&datetime=' + from + 'T00:00:00Z/' + to + 'T23:59:59Z&limit=60';
     const J = await getJSON(u, 30000);
-    return (J.features || []).map(f => ({ id: f.id, date: f.properties.datetime.slice(0, 10), cloud: f.properties['eo:cloud_cover'] }));
+    return (J.features || []).map(f => ({ id: f.id, date: f.properties.datetime.slice(0, 10), cloud: f.properties['eo:cloud_cover'], pb: f.properties['s2:processing_baseline'] || '' }));
   }
   const cropUrl = (id, b, w, h, q) => PC + '/data/v1/item/bbox/' + b.map(v => v.toFixed(5)).join(',') + '/' + w + 'x' + h + '.png?collection=sentinel-2-l2a&item=' + encodeURIComponent(id) + '&dst_crs=epsg:4326&' + q;
   const Q_RGB = 'assets=visual&asset_bidx=visual%7C1,2,3&nodata=0';
@@ -100,21 +101,87 @@
   }
   // share of the area's pixels that are clear (not cloud, shadow, or missing) in a scene, from the scene classification (SCL)
   function clearShare(scl, mask) { let n = 0, ok = 0; for (let k = 0; k < mask.length; k++) if (mask[k]) { n++; const v = scl.data[k * 4], a = scl.data[k * 4 + 3]; if (a && v !== 0 && v !== 1 && v !== 3 && v !== 8 && v !== 9 && v !== 10) ok++; } return n ? ok / n : 0; }
-  async function bestScene(cands, frame, mask, prefer) {
-    if (!cands.length) return null;
-    cands.sort((a, b) => (a.cloud - b.cloud) || (Math.abs(dayDiff(prefer, a.date)) - Math.abs(dayDiff(prefer, b.date))));
-    const near = cands.slice().sort((a, b) => Math.abs(dayDiff(prefer, a.date)) - Math.abs(dayDiff(prefer, b.date))).filter(c => c.cloud < 60).slice(0, 3);
-    const order = [...new Map(near.concat(cands.slice(0, 4)).map(c => [c.id, c])).values()].slice(0, 6);
-    let best = null;
-    for (const c of order) {
-      try {
-        const scl = await loadPixels(cropUrl(c.id, frame.b, frame.w, frame.h, Q_SCL), 30000);
-        const cs = clearShare(scl, mask);
-        if (!best || cs > best.clear + 0.02) best = Object.assign({}, c, { clear: cs, scl });
-        if (cs >= 0.9) break;
-      } catch (e) { /* try the next one */ }
+  // escolhe a melhor DATA (cenas do mesmo dia juntas, para tapar a faixa sem dado) e mostra a foto real daquele dia, com a nuvem que houver;
+  // para a medida (dNBR) cada pixel usa a primeira data em que ficou limpo, entre as melhores datas (só pixels reais, nada inventado)
+  // fontes: Sentinel-2 (nuvem pela classificação SCL) e Landsat (nuvem pela banda QA_PIXEL: 1 = chão ou água limpos)
+  const SRC_S2 = { mask: (c, f) => cropUrl(c.id, f.b, f.w, f.h, Q_SCL), rgb: (c, f) => cropUrl(c.id, f.b, f.w, f.h, Q_RGB), nbr: (c, f) => cropUrl(c.id, f.b, f.w, f.h, Q_NBR),
+    refl: (c, f, k) => cropUrl(c.id, f.b, f.w, f.h, k === 'rgb' ? 'assets=B04&assets=B03&assets=B02&rescale=0,4000&nodata=0' : 'assets=B08&rescale=0,7000&nodata=0'),
+    has: (d, k) => d[k * 4 + 3] && d[k * 4] !== 0, ok: (d, k) => { const v = d[k * 4]; return d[k * 4 + 3] && v !== 0 && v !== 1 && v !== 3 && v !== 8 && v !== 9 && v !== 10; } };
+  // 2 = chão/água limpos, 1 = nuvem, sombra ou névoa, 0 = sem dado; com rescale 0,2 vira 255 / ~127 / 0 no PNG
+  const Q_LSQA = 'expression=' + encodeURIComponent('where((qa_pixel==21824)|(qa_pixel==21952)|(qa_pixel==5440)|(qa_pixel==5504),2,where(qa_pixel==1,0,1))') + '&asset_as_band=true&rescale=0,2';
+  const SRC_LS = { mask: (c, f) => PC + '/data/v1/item/bbox/' + f.b.map(v => v.toFixed(5)).join(',') + '/' + f.w + 'x' + f.h + '.png?collection=landsat-c2-l2&item=' + encodeURIComponent(c.id) + '&dst_crs=epsg:4326&' + Q_LSQA,
+    rgb: (c, f) => lsCrop(c.id, f.b, f.w, f.h), nbr: null, has: (d, k) => d[k * 4 + 3] > 0 && d[k * 4] > 60, ok: (d, k) => d[k * 4 + 3] > 0 && d[k * 4] > 200 };
+  async function composeScenes(cands, frame, mask, pref, src = SRC_S2, measure = true) {
+    const list = cands.slice().sort((a, b) => Math.abs(dayDiff(pref, a.date)) - Math.abs(dayDiff(pref, b.date))).slice(0, 14);
+    const sc = [];
+    for (let i = 0; i < list.length; i += 4) {
+      const part = await Promise.all(list.slice(i, i + 4).map(c => loadPixels(src.mask(c, frame), 30000).then(scl => Object.assign({}, c, { scl })).catch(() => null)));
+      part.forEach(p => { if (p) sc.push(p); });
     }
-    return best;
+    if (!sc.length) return null;
+    const n = frame.w * frame.h;
+    const has = (s, k) => src.has(s.scl.data, k);
+    const okAt = (s, k) => src.ok(s.scl.data, k);
+    const byDate = new Map(); sc.forEach(s => { if (!byDate.has(s.date)) byDate.set(s.date, []); byDate.get(s.date).push(s); });
+    const days = [...byDate].map(([date, items]) => {
+      let nIn = 0, clr = 0, dat = 0;
+      for (let k = 0; k < n; k++) { if (!mask[k]) continue; nIn++; const it = items.find(s => has(s, k)); if (it) { dat++; if (okAt(it, k)) clr++; } }
+      const clear = nIn ? clr / nIn : 0;
+      return { date, items, clear, data: nIn ? dat / nIn : 0, score: clear - Math.abs(dayDiff(pref, date)) / 60 };
+    }).filter(x => x.data > 0.05).sort((a, b) => b.score - a.score);
+    if (!days.length) return null;
+    const best = days[0];
+    // foto mostrada: só a data escolhida (as faixas do mesmo dia juntas); nuvem aparece como nuvem, cinza só onde o satélite não passou
+    const rgbs = await Promise.all(best.items.map(s => loadPixels(src.rgb(s, frame)).catch(() => null)));
+    const cv = document.createElement('canvas'); cv.width = frame.w; cv.height = frame.h;
+    const cx = cv.getContext('2d'), R = cx.createImageData(frame.w, frame.h);
+    const who = new Int16Array(n).fill(-1), usedIt = []; // de qual cena veio cada ponto (para o realce por IA buscar as bandas certas)
+    const idx = s => { let u = usedIt.indexOf(s); if (u < 0) { usedIt.push(s); u = usedIt.length - 1; } return u; };
+    for (let k = 0; k < n; k++) {
+      const i = best.items.findIndex((s, j) => rgbs[j] && has(s, k));
+      if (i >= 0) { for (let c = 0; c < 4; c++) R.data[k * 4 + c] = rgbs[i].data[k * 4 + c]; who[k] = idx(best.items[i]); }
+    }
+    // onde o satélite não passou naquele dia (faixa fora da órbita, listras do Landsat 7), completa só esses pontos com a data boa mais próxima
+    const fill = [];
+    if (best.data < 0.98) {
+      const gaps = () => { let g = 0; for (let k = 0; k < n; k++) if (mask[k] && !R.data[k * 4 + 3]) g++; return g; };
+      for (const o of days.slice(1).filter(x => Math.abs(dayDiff(best.date, x.date)) <= 32).sort((a, b) => Math.abs(dayDiff(best.date, a.date)) - Math.abs(dayDiff(best.date, b.date))).slice(0, 3)) {
+        if (!gaps()) break;
+        const px = await Promise.all(o.items.map(s => loadPixels(src.rgb(s, frame)).catch(() => null)));
+        let used = 0;
+        for (let k = 0; k < n; k++) {
+          if (R.data[k * 4 + 3]) continue;
+          const i = o.items.findIndex((s, j) => px[j] && has(s, k));
+          if (i >= 0) { for (let c = 0; c < 4; c++) R.data[k * 4 + c] = px[i].data[k * 4 + c]; who[k] = idx(o.items[i]); if (mask[k]) used++; }
+        }
+        if (used) fill.push(o.date);
+      }
+    }
+    cx.putImageData(R, 0, 0);
+    const shown = { id: best.items[0].id, date: best.date, clear: best.clear, data: best.data, fill, rgb: { w: frame.w, h: frame.h, data: R.data, canvas: cv } };
+    // reflectância (R, G, B, NIR) dos mesmos pontos da foto, só quando o realce por IA pedir; Sentinel-2 desde a versão 04.00 soma 1000 aos números
+    if (src.refl) shown.reflOf = async () => {
+      const got = await Promise.all(usedIt.map(s => Promise.all([loadPixels(src.refl(s, frame, 'rgb')), loadPixels(src.refl(s, frame, 'nir'))]).catch(() => null)));
+      const out = new Float32Array(4 * n);
+      for (let k = 0; k < n; k++) {
+        const u = who[k]; if (u < 0 || !got[u]) continue;
+        const off = usedIt[u].pb >= '04.00' ? 1000 : 0, [a, b] = got[u];
+        for (let c = 0; c < 3; c++) out[c * n + k] = (a.data[k * 4 + c] / 255 * 4000 - off) / 1e4;
+        out[3 * n + k] = (b.data[k * 4] / 255 * 7000 - off) / 1e4;
+      }
+      return out;
+    };
+    if (!measure || !src.nbr) return shown;
+    // medida: até 4 datas boas, cada pixel na melhor data em que estava limpo
+    const mItems = [].concat(...days.filter(x => x.clear > 0.02).slice(0, 4).map(x => x.items));
+    const nbrs = await Promise.all(mItems.map(s => loadPixels(src.nbr(s, frame)).catch(() => null)));
+    const N = new Uint8ClampedArray(n * 4), S = new Uint8ClampedArray(n * 4), dates = new Set(); let nIn = 0, clr = 0;
+    for (let k = 0; k < n; k++) {
+      const i = mItems.findIndex((s, j) => nbrs[j] && okAt(s, k));
+      if (i >= 0) { for (let c = 0; c < 4; c++) N[k * 4 + c] = nbrs[i].data[k * 4 + c]; S[k * 4] = mItems[i].scl.data[k * 4]; S[k * 4 + 3] = 255; if (mask[k]) dates.add(mItems[i].date); }
+      if (mask[k]) { nIn++; if (i >= 0) clr++; }
+    }
+    return Object.assign(shown, { dates: [...dates].sort(), clearMeas: nIn ? clr / nIn : 0, scl: { w: frame.w, h: frame.h, data: S }, nbr: { w: frame.w, h: frame.h, data: N } });
   }
   function frameOf(area) {
     const b = area.box, cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, kx = kmx(cy);
@@ -186,32 +253,59 @@
       s2Search(frame.b, addDays(d, -150), addDays(d, -2)).catch(() => []),
       s2Search(frame.b, addDays(area.date1 || d, 1), addDays(area.date1 || d, 75) > t ? t : addDays(area.date1 || d, 75)).catch(() => []),
       dayDiff(addDays(area.date1 || d, 75), t) > 20 ? s2Search(frame.b, addDays(t, -90), t).catch(() => []) : Promise.resolve([])]);
-    step('Conferindo nuvens sobre a área em cada imagem');
-    let [pre, post, now] = await Promise.all([bestScene(preC, frame, mask, addDays(d, -10)), bestScene(postC, frame, mask, addDays(area.date1 || d, 10)), bestScene(nowC, frame, mask, t)]);
+    step('Conferindo a nuvem sobre a área em cada data (pode levar até 1 minuto)');
+    // a melhor data perto do alvo (10 dias antes do início / 10 dias depois do fim); o 'depois' precisa de pelo menos 15% da área limpa
+    let [pre, post, now] = await Promise.all([composeScenes(preC, frame, mask, addDays(d, -10)), composeScenes(postC, frame, mask, addDays(area.date1 || d, 10)), composeScenes(nowC, frame, mask, t, SRC_S2, false)]);
+    if (post && post.clear < 0.15) post = null;
     // fire ended a few days ago (or still burning): no clear image after it yet, so take the one with the least cloud over the area
     // since the fire started, even if cloudy, and say it is from during the fire
     if (!post) {
       step('Sem imagem limpa depois do fogo: buscando a de menos nuvem desde o início do incêndio');
       const durC = await s2Search(frame.b, d, t).catch(() => []);
-      post = await bestScene(durC, frame, mask, t);
+      post = await composeScenes(durC, frame, mask, t);
     }
     // 'depois' only for images taken after the last day of the fire; on or before it, with fire in the area, the image is 'durante'
     if (post) post.during = post.date <= (area.date1 || d);
+    // foto do Sentinel-2 com muita nuvem: tenta a Landsat 8/9 (30 m) na mesma janela; fica a que mostrar mais chão, sem perder a proximidade da data
+    const lsAlt = async (sc, from, to, pref) => {
+      if (!sc || sc.clear >= 0.5) return;
+      // só datas tão perto do alvo quanto a do Sentinel-2 (+20 dias), para não trocar uma foto perto do fogo por outra meses depois
+      const lim = Math.abs(dayDiff(pref, sc.date)) + 20;
+      const cs = (await lsSearch(frame.b, from, to > t ? t : to).catch(() => [])).filter(s => (s.plat === 'landsat-8' || s.plat === 'landsat-9') && Math.abs(dayDiff(pref, s.date)) <= lim);
+      const w = Math.min(frame.w, 600), h = Math.min(frame.h, 600), lf = { b: frame.b, w, h, km: frame.km };
+      const b = await composeScenes(cs, lf, maskOf(area, lf), pref, SRC_LS);
+      if (b && b.clear >= sc.clear + 0.2) sc.ls = { canvas: b.rgb.canvas, date: b.date, clear: b.clear, fill: b.fill };
+    };
+    step('Comparando com as imagens Landsat 8/9 quando há muita nuvem');
+    await Promise.all([lsAlt(pre, addDays(d, -150), addDays(d, -2), addDays(d, -10)), post && !post.during ? lsAlt(post, addDays(area.date1 || d, 1), addDays(area.date1 || d, 75), addDays(area.date1 || d, 10)) : null,
+      lsAlt(now, addDays(t, -90), t, t)]);
     const out = { frame, pre, post, now, figs: {} };
     step('Baixando as imagens recortadas na área');
     const jobs = [];
-    for (const [k, sc, lab] of [['pre', pre, 'ANTES'], ['post', post, post && post.during ? 'DURANTE O FOGO' : 'DEPOIS'], ['now', now, 'HOJE']]) if (sc) jobs.push(loadPixels(cropUrl(sc.id, frame.b, frame.w, frame.h, Q_RGB)).then(p => { out.figs[k] = figure(p.canvas, area, frame, lab + ' · ' + br(sc.date)); }).catch(() => {}));
-    if (pre && post) jobs.push(Promise.all([loadPixels(cropUrl(pre.id, frame.b, frame.w, frame.h, Q_NBR)), loadPixels(cropUrl(post.id, frame.b, frame.w, frame.h, Q_NBR))])
+    for (const [k, sc, lab] of [['pre', pre, 'ANTES'], ['post', post, post && post.during ? 'DURANTE O FOGO' : 'DEPOIS'], ['now', now, 'HOJE']]) if (sc) jobs.push((sc.ls ? Promise.resolve(sc.ls) : sc.rgb ? Promise.resolve(sc.rgb) : loadPixels(cropUrl(sc.id, frame.b, frame.w, frame.h, Q_RGB))).then(p => { const L = lab + (sc.ls ? ' · Landsat · ' + br(sc.ls.date) : ' · ' + br(sc.date)); out.figs[k] = figure(p.canvas, area, frame, L);
+      if (!sc.ls && sc.reflOf) (out.raw = out.raw || {})[k] = { canvas: p.canvas, label: L, reflOf: sc.reflOf }; }).catch(() => {}));
+    if (pre && post) jobs.push((pre.nbr && post.nbr ? Promise.resolve([pre.nbr, post.nbr]) : Promise.all([loadPixels(cropUrl(pre.id, frame.b, frame.w, frame.h, Q_NBR)), loadPixels(cropUrl(post.id, frame.b, frame.w, frame.h, Q_NBR))]))
       .then(([a, b]) => { out.sev = severity(a, b, pre.scl, post.scl, mask, frame); out.figs.sev = figure(out.sev.canvas, area, frame, 'GRAVIDADE (dNBR)'); }).catch(() => {}));
     await Promise.all(jobs);
     // backup when the Planetary Computer is down: NASA HLS (30 m) for the same dates, no measurement
     if (!out.figs.pre && !out.figs.post) {
       step('Usando imagem de reserva (NASA HLS, 30 m)');
-      for (const [k, day, lab] of [['pre', addDays(d, -20), 'ANTES (HLS)'], ['post', addDays(area.date1 || d, 10) > t ? t : addDays(area.date1 || d, 10), 'DEPOIS (HLS)']]) {
-        try {
-          const u = GIBS + '?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=HLS_S30_Nadir_BRDF_Adjusted_Reflectance&STYLES=&SRS=EPSG:4326&BBOX=' + frame.b.join(',') + '&WIDTH=' + Math.min(frame.w, 512) + '&HEIGHT=' + Math.min(frame.h, 512) + '&FORMAT=image/jpeg&TIME=' + day;
-          const p = await loadPixels(u, 30000); out.figs[k] = figure(p.canvas, area, frame, lab + ' · ~' + br(day)); out.hls = true;
-        } catch (e) {}
+      // o GIBS não diz a nuvem: testa alguns dias em volta do alvo e fica com o de mais chão visível (branco = nuvem, preto = sem dado)
+      const gw = Math.min(frame.w, 512), gh = Math.min(frame.h, 512), gm = maskOf(area, { b: frame.b, w: gw, h: gh });
+      for (const [k, day, lab] of [['pre', addDays(d, -10), 'ANTES (HLS)'], ['post', addDays(area.date1 || d, 10) > t ? t : addDays(area.date1 || d, 10), 'DEPOIS (HLS)']]) {
+        let best = null;
+        for (const off of [0, -3, 3, -6, 6, -10, 10]) {
+          const day2 = addDays(day, off); if (day2 > t || (k === 'pre' && day2 >= d)) continue;
+          try {
+            const u = GIBS + '?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=HLS_S30_Nadir_BRDF_Adjusted_Reflectance&STYLES=&SRS=EPSG:4326&BBOX=' + frame.b.join(',') + '&WIDTH=' + gw + '&HEIGHT=' + gh + '&FORMAT=image/png&TRANSPARENT=TRUE&TIME=' + day2;
+            const p = await loadPixels(u, 30000); let nIn = 0, ok = 0;
+            for (let q = 0; q < gm.length; q++) { if (!gm[q]) continue; nIn++; const r = p.data[q * 4], g = p.data[q * 4 + 1], b = p.data[q * 4 + 2], a = p.data[q * 4 + 3]; if (a && r + g + b > 30 && !(r > 200 && g > 200 && b > 200)) ok++; }
+            const clear = nIn ? ok / nIn : 0, sco = clear - Math.abs(off) / 60;
+            if (!best || sco > best.sco) best = { p, day: day2, clear, sco };
+            if (clear >= 0.9) break;
+          } catch (e) {}
+        }
+        if (best && best.clear > 0.05) { out.figs[k] = figure(best.p.canvas, area, frame, lab + ' · ' + br(best.day)); out[k] = out[k] || { date: best.day, clear: best.clear }; out.hls = true; }
       }
     }
     return out;
@@ -226,31 +320,18 @@
   }
   const lsCrop = (id, b, w, h) => PC + '/data/v1/item/bbox/' + b.map(v => v.toFixed(5)).join(',') + '/' + w + 'x' + h + '.png?collection=landsat-c2-l2&item=' + encodeURIComponent(id) +
     '&dst_crs=epsg:4326&assets=red&assets=green&assets=blue&rescale=7300,14000&nodata=0';
-  // Landsat: a cena com menos nuvem sobre a propria area, entre as candidatas (mede a nuvem dentro da area pelos pixels muito claros)
-  async function pickLs(c, frame, m, w, h, prefer) {
-    if (!c.length) return null;
-    const score = s => s.cloud + (s.plat === 'landsat-7' && s.date > '2003-05-31' ? 30 : 0) + Math.abs(dayDiff(prefer, s.date)) / 10;
-    let best = null;
-    for (const sc of c.slice().sort((a, b) => score(a) - score(b)).slice(0, 4)) {
-      try {
-        const p = await loadPixels(lsCrop(sc.id, frame.b, w, h), 30000); let n = 0, cl = 0;
-        for (let k = 0; k < m.length; k++) { if (!m[k]) continue; n++; if (!p.data[k * 4 + 3] || (p.data[k * 4] > 200 && p.data[k * 4 + 1] > 200 && p.data[k * 4 + 2] > 200)) cl++; }
-        const clear = n ? 1 - cl / n : 0;
-        if (!best || clear > best.clear + 0.02) best = { sc, p, clear };
-        if (clear >= 0.95) break;
-      } catch (e) { /* proxima cena */ }
-    }
-    return best;
-  }
   // antes de 2017 não há Sentinel-2 contínuo: antes e depois com Landsat (sem medir a gravidade)
   async function imageryLs(area, ctx, step) {
     const frame = frameOf(area), d = area.date, d1 = area.date1 || d, w = Math.min(frame.w, 600), h = Math.min(frame.h, 600), m = maskOf(area, { b: frame.b, w, h });
     step('Procurando imagens Landsat antes e depois do fogo (anteriores ao Sentinel-2)');
     const [preC, postC] = await Promise.all([lsSearch(frame.b, addDays(d, -150), addDays(d, -2)).catch(() => []), lsSearch(frame.b, addDays(d1, 1), addDays(d1, 75)).catch(() => [])]);
-    const [pre, post] = await Promise.all([pickLs(preC, frame, m, w, h, addDays(d, -10)), pickLs(postC, frame, m, w, h, addDays(d1, 10))]);
+    // a mesma escolha do Sentinel-2: melhor data perto do alvo, faixas do mesmo dia juntas, nuvem pela banda QA_PIXEL (sombra e névoa incluídas)
+    const lf = { b: frame.b, w, h, km: frame.km };
+    step('Conferindo a nuvem sobre a área em cada data (pode levar até 1 minuto)');
+    const [pre, post] = await Promise.all([composeScenes(preC, lf, m, addDays(d, -10), SRC_LS), composeScenes(postC, lf, m, addDays(d1, 10), SRC_LS)]);
     const out = { frame, pre: null, post: null, now: null, figs: {}, ls: true };
-    if (pre) { out.pre = { date: pre.sc.date, clear: pre.clear }; out.figs.pre = figure(pre.p.canvas, area, frame, 'ANTES · Landsat · ' + br(pre.sc.date)); }
-    if (post) { out.post = { date: post.sc.date, clear: post.clear }; out.figs.post = figure(post.p.canvas, area, frame, 'DEPOIS · Landsat · ' + br(post.sc.date)); }
+    if (pre) { out.pre = { date: pre.date, clear: pre.clear, fill: pre.fill }; out.figs.pre = figure(pre.rgb.canvas, area, frame, 'ANTES · Landsat · ' + br(pre.date)); }
+    if (post) { out.post = { date: post.date, clear: post.clear, fill: post.fill }; out.figs.post = figure(post.rgb.canvas, area, frame, 'DEPOIS · Landsat · ' + br(post.date)); }
     return out;
   }
   // um relatorio por ano: fecha o que estiver aberto e monta o relatorio completo daquele ano
@@ -602,8 +683,10 @@
     h += '<div class="rep-actions"><button class="btn" data-a="print">🖨 Imprimir ou salvar em PDF</button><button class="btn" data-a="kml">Baixar contorno (KML)</button><button class="btn" data-a="geojson">GeoJSON</button><button class="btn" data-a="copy">Copiar resumo</button><button class="btn" data-a="close">Fechar</button></div>';
     h += '<p class="rep-kick">Fogo em Roraima 3D · ' + (area.ano ? 'relatório técnico do ano ' + area.ano : 'relatório técnico da área') + '</p><h1>' + esc(area.title) + (R.mun ? ' · ' + esc(R.mun) : '') + '</h1>';
     h += '<p class="rep-sub">Relatório nº <b>' + esc(code) + '</b> · gerado em ' + esc(gen) + ' (horário de Roraima) · fogororaima.com.br<br>Fonte da área: ' + esc(area.source) + ' · data de referência <b>' + br(area.date) + '</b>' + (area.date1 && area.date1 !== area.date ? ' a <b>' + br(area.date1) + '</b>' : '') + '</p>';
-    const main = R.img && (R.img.figs.post || R.img.figs.now || R.img.figs.pre);
-    if (main) h += '<img class="ar-hero" src="' + main + '" alt="Imagem de satélite da área com o contorno em amarelo">';
+    const mainK = R.img && R.img.figs && ['post', 'now', 'pre'].find(k => R.img.figs[k]), main = mainK && R.img.figs[mainK];
+    const temIA = !!(R.img && R.img.raw && Object.keys(R.img.raw).length && !navigator.connection?.saveData);
+    if (temIA) h = h.replace('<button class="btn" data-a="close">', '<button class="btn" data-a="ia" disabled>Realçando as imagens com IA…</button><button class="btn" data-a="close">');
+    if (main) h += '<img class="ar-hero" data-k="' + mainK + '" src="' + main + '" alt="Imagem de satélite da área com o contorno em amarelo">';
 
     // 1. summary
     h += H2(1, 'Resumo');
@@ -636,16 +719,18 @@
     const I = R.img;
     if (!I || I.err || !Object.keys(I.figs || {}).length) h += '<p>Não foi possível obter imagens de satélite agora' + (I && I.err ? ' (' + esc(I.err) + ')' : '') + '. Tente gerar o relatório de novo mais tarde.</p>';
     else {
-      const fig = (k, cap) => I.figs[k] ? '<figure><img src="' + I.figs[k] + '" alt="' + esc(cap) + '"><figcaption>' + cap + '</figcaption></figure>' : '';
+      const fig = (k, cap) => I.figs[k] ? '<figure><img data-k="' + k + '" src="' + I.figs[k] + '" alt="' + esc(cap) + '"><figcaption>' + cap + '</figcaption></figure>' : '';
       const fimFogo = area.date1 || area.date;
       // every image shows how many days it is from the start (before/during) or from the end of the fire (after)
       const diasTxt = (sc, lab) => {
         if (!sc) return '';
+        // desmatamento não tem início e fim de fogo: conta da data do alerta
+        if (isDesm(area)) { const k = dayDiff(area.date, sc.date); return ' · ' + Math.abs(k) + (k < 0 ? ' dias antes' : ' dias depois') + ' da data do alerta'; }
         if (lab === 'Antes') return ' · ' + Math.abs(dayDiff(sc.date, area.date)) + ' dias antes do início do fogo';
         if (sc.during) return ' · ' + Math.abs(dayDiff(area.date, sc.date)) + ' dias depois do início do fogo';
         return ' · ' + dayDiff(fimFogo, sc.date) + ' dias depois do fim do fogo';
       };
-      const capOf = (sc, lab) => sc ? lab + ': ' + br(sc.date) + diasTxt(sc, lab) + ' · ' + nf(sc.clear * 100, 0) + '% da área sem nuvem' : lab;
+      const capOf = (sc0, lab) => { if (!sc0) return lab; const sc = sc0.ls ? Object.assign({}, sc0, { date: sc0.ls.date, clear: sc0.ls.clear }) : sc0; return lab + ': ' + br(sc.date) + (sc0.ls ? ' (Landsat, 30 m)' : '') + diasTxt(sc, lab) + ' · ' + nf(sc.clear * 100, 0) + '% da área sem nuvem' + ((sc0.ls ? sc0.ls.fill : sc0.fill) && (sc0.ls ? sc0.ls.fill : sc0.fill).length ? ' · faixas sem dado completadas com ' + (sc0.ls ? sc0.ls.fill : sc0.fill).map(br).join(', ') : ''); };
       // pasture and grassland (lavrado) turn green again in weeks: the reading is reliable only up to 15 days after the fire
       const pasto = (R.lcNow || []).filter(x => x[0] === 1 || x[0] === 2).reduce((a, x) => a + x[1], 0) >= 0.5;
       h += '<div class="ar-grid">' + fig('pre', capOf(I.pre, 'Antes')) + fig('post', capOf(I.post, I.post && I.post.during ? 'Durante o fogo' : 'Depois')) + fig('now', capOf(I.now, 'Hoje')) + fig('sev', (isDesm(area) ? 'Perda de vegetação' : 'Gravidade da queima') + ' (dNBR) dentro do contorno') + '</div>';
@@ -664,7 +749,10 @@
           : 'Leitura confiável para lavrado e pasto: a imagem de depois é de ' + dias + ' dias após o fim do fogo (até 15 dias).');
       }
       if (I.post && I.post.during) h += note('<b>Ainda não há imagem limpa depois do fim do fogo.</b> A segunda imagem é a de menos nuvem sobre a área desde o início do incêndio (' + br(I.post.date) + '), mesmo com nuvem ou fumaça. A gravidade medida com ela pode estar <b>subestimada</b>: gere o relatório de novo em alguns dias para ter a imagem do depois.');
-      h += note((I.ls ? 'Landsat (30 m), USGS, via Microsoft Planetary Computer.' : 'Sentinel-2 nível 2A (10 m), Copernicus/ESA, via Microsoft Planetary Computer.') + (I.hls ? ' Imagens de reserva: NASA HLS (30 m), via GIBS.' : '') + ' Contorno da área em amarelo; partes listradas em cinza ficaram fora da passagem do satélite (sem dado). Imagens escolhidas pela menor cobertura de nuvem sobre a própria área.');
+      h += note((I.ls ? 'Landsat (30 m), USGS, via Microsoft Planetary Computer.' : 'Sentinel-2 nível 2A (10 m), Copernicus/ESA, via Microsoft Planetary Computer.') + (I.hls ? ' Imagens de reserva: NASA HLS (30 m), via GIBS.' : '') + ' Contorno da área em amarelo; partes listradas em cinza ficaram fora da passagem do satélite (sem dado). Cada foto é de um único dia, o de menos nuvem sobre a própria área perto da data do fogo (faixas do satélite do mesmo dia são juntadas); a nuvem que houver aparece na foto.' +
+        (I.pre && I.pre.ls || I.post && I.post.ls ? ' Quando o Sentinel-2 tinha muita nuvem, a foto é do Landsat 8/9 (30 m, USGS), também via Microsoft Planetary Computer.' : '') +
+        (I.sev && I.pre && I.post && ((I.pre.dates || []).length > 1 || (I.post.dates || []).length > 1) ? ' Para medir a gravidade, cada ponto usa a data mais próxima em que estava sem nuvem (antes: ' + (I.pre.dates || []).map(br).join(', ') + '; depois: ' + (I.post.dates || []).map(br).join(', ') + '). As imagens são ilustrativas; a área e as datas do fogo vêm do INPE.' : ' As imagens são ilustrativas; a área e as datas do fogo vêm do INPE.'));
+      if (temIA) h += note('<b>Imagens realçadas por inteligência artificial.</b> As fotos do Sentinel-2 marcadas "REALÇADA POR IA" foram ampliadas pelo modelo SEN2SRLite (ESA OpenSR, licença CC0): as cores e o brilho são os da foto real, mas os detalhes finos são <b>estimados pela IA</b> e podem não existir no terreno. Servem só para ilustrar; a gravidade e a área são medidas nos pixels reais. Use o botão <b>"Ver imagens reais"</b>, no alto do relatório, para comparar.');
     }
 
     // 4. fire history
@@ -788,9 +876,35 @@
       else if (a === 'kml') save(kml(), code + '.kml', 'application/vnd.google-earth.kml+xml');
       else if (a === 'geojson') save(gj(), code + '.geojson', 'application/geo+json');
       else if (a === 'copy') { let ok = false; try { await navigator.clipboard.writeText(summary); ok = true; } catch (err) {} e.target.textContent = ok ? 'Resumo copiado' : 'Não deu para copiar'; }
+      else if (a === 'ia') { iaOn = !iaOn; mostra(); }
     };
+    // realce por IA depois que o relatório já está na tela: começa ligado; o botão alterna entre as fotos reais e as realçadas
+    let iaOn = true; const figsIA = {};
+    const bt = el.querySelector('[data-a="ia"]');
+    const mostra = () => {
+      el.querySelectorAll('img[data-k]').forEach(im => { const k = im.dataset.k; im.src = iaOn && figsIA[k] ? figsIA[k] : R.img.figs[k]; });
+      if (bt && !bt.disabled) bt.textContent = iaOn ? 'Ver imagens reais' : 'Ver imagens realçadas por IA';
+    };
+    if (temIA) (async () => {
+      try {
+        if (!window.FRR_IA) await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = 'ia-realce.js?v=' + IA_VERSION; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+        const ks = Object.keys(R.img.raw), fr = R.img.frame;
+        for (let i = 0; i < ks.length; i++) {
+          const k = ks[i], r = R.img.raw[k];
+          const refl = await r.reflOf();
+          const cv = await window.FRR_IA.realce(r.canvas, refl, fr.w, fr.h, 1800, p => { if (bt) bt.textContent = 'Realçando as imagens com IA… ' + Math.round((i + p) / ks.length * 100) + '%'; });
+          figsIA[k] = figure(cv, area, fr, r.label + ' · REALÇADA POR IA');
+          if (!el.isConnected) return;
+          mostra();
+        }
+        if (bt) { bt.disabled = false; mostra(); }
+      } catch (err) {
+        console.warn('realce por IA', err);
+        if (bt) { bt.textContent = 'Realce por IA indisponível'; }
+      }
+    })();
   }
-  const brl = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  const brl =v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
   // styles of the report (added once)
   const css = document.createElement('style');
