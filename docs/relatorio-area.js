@@ -885,7 +885,7 @@
       const yb = e.target.closest && e.target.closest('[data-ano]');
       if (yb && R.rec) { openYearReport(area, R.rec, +yb.dataset.ano); return; }
       const a = e.target.dataset && e.target.dataset.a; if (!a) return;
-      if (a === 'close') el.remove();
+      if (a === 'close') { el.remove(); running = false; } // fechar libera a trava: senão um novo relatório fica bloqueado até a montagem antiga acabar
       else if (a === 'print') window.print();
       else if (a === 'kml') save(kml(), code + '.kml', 'application/vnd.google-earth.kml+xml');
       else if (a === 'geojson') save(gj(), code + '.geojson', 'application/geo+json');
@@ -1051,7 +1051,7 @@
     const save = (txt, name, type) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); };
     el.onclick = async e => {
       const a = e.target.dataset && e.target.dataset.a; if (!a) return;
-      if (a === 'close') el.remove();
+      if (a === 'close') { el.remove(); running = false; } // fechar libera a trava: senão um novo relatório fica bloqueado até a montagem antiga acabar
       else if (a === 'print') window.print();
       else if (a === 'kml') save(kml(), 'CAR-' + c.cod + '.kml', 'application/vnd.google-earth.kml+xml');
       else if (a === 'geojson') save(gj(), 'CAR-' + c.cod + '.geojson', 'application/geo+json');
@@ -1407,7 +1407,7 @@
     el.scrollTop = 0;
     el.onclick = async e => {
       const a = e.target.dataset && e.target.dataset.a;
-      if (a === 'close') el.remove();
+      if (a === 'close') { el.remove(); running = false; } // fechar libera a trava: senão um novo relatório fica bloqueado até a montagem antiga acabar
       else if (a === 'print') window.print();
       else if (a === 'copy-texto') { let ok = false; try { await navigator.clipboard.writeText(texto.value); ok = true; } catch (err) {} e.target.textContent = ok ? 'Texto copiado' : 'Não deu para copiar: selecione o texto e copie'; }
     };
