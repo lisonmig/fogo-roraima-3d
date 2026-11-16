@@ -490,12 +490,19 @@
       const R = analyse(area, A, { FP, UC, EMB, SOL, GEO, ASV, POP, SAU, REC, img, lc, wx, ph, anoFires: opts && opts.ano ? opts.ano.fires : null, ano: opts && opts.ano ? opts.ano.y : null });
       render(el, area, R);
       if (opts && opts.cars && opts.cars.length) {
+        // a parte do CAR vem no fim e demora (outra imagem de satélite): avisar no topo e marcar o lugar no fim
+        const root = el.querySelector('.rep-page'), nc = opts.cars.length;
+        root.insertAdjacentHTML('afterbegin', '<div id="arCarNote" class="ar-photowarn" style="margin-top:0"><b>Relatório com CAR (' + nc + (nc > 1 ? ' imóveis' : ' imóvel') + ').</b> <span>A parte do imóvel (seção 7) está sendo montada no fim da página. Pode levar alguns minutos.</span> <button type="button" class="btn" id="arCarGo" style="margin-top:6px">Ir para a parte do CAR</button></div>');
+        root.insertAdjacentHTML('beforeend', '<div id="arCarSec"><p class="ar-note">⏳ Montando a parte do imóvel do CAR…</p></div>');
+        el.querySelector('#arCarGo').addEventListener('click', ev => { ev.stopPropagation(); const t = el.querySelector('#arCarSec'); if (t) t.scrollIntoView({ behavior: 'smooth' }); });
         const preps = [];
         for (let k = 0; k < opts.cars.length; k++) {
           try { preps.push(await carBlock(el, opts.cars[k], area, R, k + 1, opts.cars.length)); }
           catch (e) { el.querySelector('.rep-page').insertAdjacentHTML('beforeend', '<p style="color:#b42318">Não foi possível montar o imóvel ' + (k + 1) + ' do CAR: ' + esc(e.message) + '</p>'); }
         }
         if (preps.length > 1) await overlapBlock(el, opts.cars, preps, area).catch(e => { el.querySelector('.rep-page').insertAdjacentHTML('beforeend', '<p style="color:#b42318">Não foi possível montar a sobreposição: ' + esc(e.message) + '</p>'); });
+        const sec0 = el.querySelector('#arCarSec p'); if (sec0) sec0.remove();
+        const nt = el.querySelector('#arCarNote span'); if (nt) nt.textContent = preps.length ? 'A parte do imóvel (seção 7) está pronta, no fim da página.' : 'Não foi possível montar a parte do imóvel (veja o aviso no fim da página).';
       }
     } catch (e) {
       el.querySelector('.rep-page').insertAdjacentHTML('beforeend', '<p style="color:#b42318">Não foi possível montar o relatório: ' + esc(e.message) + '</p>');
