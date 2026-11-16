@@ -1124,10 +1124,12 @@
   // the parcel with its vertices (P-01, P-02…) and sides measured, conventions, coordinate system, north, scale bar and the title block.
   // No owner name, no CPF and no property name: the title block shows the CAR code.
   function croquiSituacao(area, car) {
-    const W = 1000, H = 1440, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
-    x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.strokeStyle = '#000'; x.fillStyle = '#000'; x.lineWidth = 2; x.strokeRect(20, 20, W - 40, H - 40);
     const parts = area.rings.map(ring => { const V = []; for (let j = 0; j < ring.length - 2; j += 2) V.push([ring[j], ring[j + 1]]); return { V, U: V.map(p => llToUtm(p[1], p[0])) }; }).filter(pt => pt.U.length);
     const allU = parts.flatMap(pt => pt.U), n = allU.length, lbl = k => 'P-' + String(k + 1).padStart(2, '0');
+    // layout grows with the number of vertices: table, then the drawing (800 px), then legend, scale and title block, never overlapping
+    const top = 74 + 18 * (n + 2) + 26 + 50, bot = top + 800, by = bot + 20, tb = by + 240;
+    const W = 1000, H = tb + 180, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.strokeStyle = '#000'; x.fillStyle = '#000'; x.lineWidth = 2; x.strokeRect(20, 20, W - 40, H - 40);
     const minE = Math.min(...allU.map(u => u[0])), maxE = Math.max(...allU.map(u => u[0])), minN = Math.min(...allU.map(u => u[1])), maxN = Math.max(...allU.map(u => u[1]));
     // roteiro perimétrico (top): De, Para, distância, azimute de quadrícula, convergência, E, N
     const fmtAz = d => { d = ((d % 360) + 360) % 360; const g = Math.floor(d), m = Math.floor((d - g) * 60), s = Math.round(((d - g) * 60 - m) * 60); return g + '°' + String(m).padStart(2, '0') + "'" + String(s).padStart(2, '0') + '"'; };
@@ -1149,7 +1151,7 @@
     x.font = 'bold 14px sans-serif'; x.fillText('Área (SGL): ' + nf(area_ha, 4) + ' ha     Perímetro: ' + nf(perim, 2) + ' m', W / 2, ty + 18);
     // parcel drawing
     // the drawing starts below the roteiro table, whatever the number of vertices
-    const top = 74 + 18 * (n + 2) + 26 + 50, bot = 1000, left = 90, right = 910, dw = right - left, dh = bot - top;
+    const left = 90, right = 910, dw = right - left, dh = bot - top;
     const sc = Math.min(dw / Math.max(1, maxE - minE), dh / Math.max(1, maxN - minN));
     const ox = left + (dw - (maxE - minE) * sc) / 2, oy = top + (dh - (maxN - minN) * sc) / 2;
     const P = u => [ox + (u[0] - minE) * sc, oy + (maxN - u[1]) * sc];
@@ -1172,7 +1174,7 @@
       } });
     x.textAlign = 'center';
     // conventions, coordinate system and north
-    const by = 1020, bh = 150;
+    const bh = 150;
     x.strokeRect(40, by, 290, bh); x.strokeRect(340, by, 330, bh); x.strokeRect(680, by, 280, bh);
     x.font = 'bold 14px sans-serif'; x.fillText('CONVENÇÕES', 185, by + 20); x.font = '13px sans-serif';
     x.fillText('● Vértice do perímetro (P-nn)', 175, by + 50); x.fillText('— Contorno do imóvel', 175, by + 75); x.fillText('▨ Área do passivo (incêndio)', 175, by + 100);
@@ -1182,19 +1184,19 @@
     x.beginPath(); x.moveTo(820, by + 50); x.lineTo(810, by + 92); x.lineTo(830, by + 92); x.closePath(); x.fill(); x.font = 'bold 14px sans-serif'; x.fillText('N', 820, by + 110);
     // graphic scale
     const dens = Math.round((1 / sc) / 0.00026458);
-    x.font = 'bold 14px sans-serif'; x.fillText('ESCALA GRÁFICA', W / 2, 1192);
+    x.font = 'bold 14px sans-serif'; x.fillText('ESCALA GRÁFICA', W / 2, by + 172);
     x.font = '12px sans-serif';
-    const pxPerM = sc, stepM = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000].reverse().find(v => v * pxPerM <= 480) || 1, bar = stepM * pxPerM;
-    x.fillRect(120, 1200, bar, 8); x.fillText('0', 120, 1222); x.fillText(nf(stepM) + ' m', 120 + bar - 30, 1222);
+    const pxPerM = sc, stepM = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000].reverse().find(v => v * pxPerM <= 480) || 1, bar = stepM * pxPerM;
+    x.fillRect(120, by + 180, bar, 8); x.fillText('0', 120, by + 202); x.fillText(nf(stepM) + ' m', 120 + bar - 30, by + 202);
     // title block
-    x.strokeRect(40, 1260, 920, 150); x.font = 'bold 15px sans-serif'; x.textAlign = 'left';
-    x.fillText('PROJETO: CROQUI DE SITUAÇÃO', 55, 1282);
+    x.strokeRect(40, tb, 920, 150); x.font = 'bold 15px sans-serif'; x.textAlign = 'left';
+    x.fillText('PROJETO: CROQUI DE SITUAÇÃO', 55, tb + 22);
     x.font = '14px sans-serif';
-    x.fillText('IMÓVEL (código CAR): ' + (car ? car.cod : '–'), 55, 1306);
-    x.fillText('MUNICÍPIO: ' + (car ? car.mun : '–') + ' · UF: RR', 55, 1328); x.fillText('PERÍMETRO (m): ' + nf(perim, 2), 560, 1328);
-    x.fillText('ÁREA (ha): ' + nf(area_ha, 4), 55, 1350); x.fillText('DATA: ' + br(today()), 560, 1350);
-    x.fillText('ESCALA: 1 / ' + nf(dens), 55, 1372);
-    x.fillText('Proprietário: ____________________________', 55, 1394); x.fillText('Responsável técnico: ____________________', 560, 1394);
+    x.fillText('IMÓVEL (código CAR): ' + (car ? car.cod : '–'), 55, tb + 46);
+    x.fillText('MUNICÍPIO: ' + (car ? car.mun : '–') + ' · UF: RR', 55, tb + 68); x.fillText('PERÍMETRO (m): ' + nf(perim, 2), 560, tb + 68);
+    x.fillText('ÁREA (ha): ' + nf(area_ha, 4), 55, tb + 90); x.fillText('DATA: ' + br(today()), 560, tb + 90);
+    x.fillText('ESCALA: 1 / ' + nf(dens), 55, tb + 112);
+    x.fillText('Proprietário: ____________________________', 55, tb + 134); x.fillText('Responsável técnico: ____________________', 560, tb + 134);
     x.textAlign = 'left';
     return c.toDataURL('image/png');
   }
