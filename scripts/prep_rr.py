@@ -4,7 +4,7 @@ Only Roraima rows are kept in <raw_dir> (rr_*.csv). Yesterday, today and the wea
 again on every run. Terrain and imagery are rebuilt only when missing or with --completo.
 Sources: INPE monthly fire CSVs, Terrarium elevation tiles, Sentinel-2 cloudless 2025 (EOX),
 Open-Meteo historical forecast (wind/humidity/temperature), IBGE state boundary."""
-import csv, io, json, math, os, sys, collections, datetime as dt, urllib.request, urllib.parse
+import csv, io, json, math, os, sys, collections, datetime as dt, urllib.request, urllib.error, urllib.parse
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 from shapely.geometry import box, shape, Polygon, MultiPolygon
@@ -74,8 +74,15 @@ while d <= TEND.date():
     tag = d.strftime('%Y%m%d')
     n0 = len(rows)
     fresh = d >= TEND.date() - dt.timedelta(days=1)  # yesterday and today keep growing at INPE
-    for r in cached_rr(f'https://dataserver-coids.inpe.br/queimadas/queimadas/focos/csv/diario/Brasil/focos_diario_br_{tag}.csv',
-                       os.path.join(RAW, f'focos_{tag}.csv'), os.path.join(RAW, f'rr_{tag}.csv'), force=fresh):
+    try:
+        day_rows = cached_rr(f'https://dataserver-coids.inpe.br/queimadas/queimadas/focos/csv/diario/Brasil/focos_diario_br_{tag}.csv',
+                             os.path.join(RAW, f'focos_{tag}.csv'), os.path.join(RAW, f'rr_{tag}.csv'), force=fresh)
+    except urllib.error.HTTPError as e:
+        # logo depois da meia-noite (UTC) o INPE ainda não publicou o arquivo do dia: seguir sem ele em vez de parar tudo
+        if e.code != 404: raise
+        print('daily', tag, 'ainda não publicado pelo INPE (404); seguindo sem ele')
+        day_rows = []
+    for r in day_rows:
         if r['id'] in seen: continue
         seen.add(r['id']); rows.append(r)
     print('daily', tag, len(rows) - n0)

@@ -49,7 +49,12 @@ jobs:
           restore-keys: dados-3d-
 
       - name: Focos do INPE, tempo, CAR e DETER
-        run: python -I scripts/prep_rr.py dados-3d docs || echo "::error::falhou a atualização dos focos (o arquivo roraima3d.json não foi gerado nesta execução; veja o erro acima)"
+        run: |
+          python -I scripts/prep_rr.py dados-3d docs || echo "::error::falhou a atualização dos focos (o arquivo roraima3d.json não foi gerado nesta execução; veja o erro acima)"
+          # sem o arquivo de focos o site não abre: se esta execução não gerou, reaproveitar o que está no ar
+          if [ ! -s docs/roraima3d.json ]; then
+            curl -sf --max-time 120 -o docs/roraima3d.json https://fogororaima.com.br/roraima3d.json && echo "::warning::focos reaproveitados da versão no ar" || { rm -f docs/roraima3d.json; echo "::error::não há arquivo de focos para publicar"; }
+          fi
 
       - name: Eventos de fogo do INPE
         run: python -I scripts/prep_eventos_inpe.py dados-3d docs || echo "::warning::falharam os eventos do INPE"
