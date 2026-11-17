@@ -875,7 +875,7 @@
       '<li>Solos e geologia: IBGE, BDiA 1:250.000. População: IBGE, Grade Estatística do Censo 2022 (1 km). Saúde: CNES/DATASUS.</li>' +
       '<li>Rios, estradas e vilas: © colaboradores do OpenStreetMap (ODbL). Tempo e qualidade do ar: Open-Meteo (modelos ERA5/CAMS).</li>' +
       '<li>Limitações: satélites não veem fogo pequeno ou sob nuvem; cadastros declaratórios (CAR) podem ter erros de contorno; a escala dos mapas de solo, vegetação e população é bem maior que a área em alguns casos. O relatório não identifica pessoas e não substitui vistoria.</li></ul>';
-    h += '<p class="rep-foot">Projeto de extensão · Universidade Estadual de Roraima (UERR) · Fogo em Roraima 3D, relatório técnico v' + VERSION + '. Ferramenta de apoio: não substitui o Corpo de Bombeiros (193), a Defesa Civil (199) nem a fiscalização ambiental. Denúncias: FEMARH, IBAMA (Linha Verde 0800 061 8080).</p>';
+    h += '<p class="rep-foot">Fogo em Roraima 3D · site educativo independente, relatório técnico v' + VERSION + '. Ferramenta de apoio: não substitui o Corpo de Bombeiros (193), a Defesa Civil (199) nem a fiscalização ambiental. Denúncias: FEMARH, IBAMA (Linha Verde 0800 061 8080).</p>';
 
     el.innerHTML = '<div class="rep-page ar-page">' + h + '</div>';
     el.scrollTop = 0;

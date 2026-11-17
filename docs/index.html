@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="pt-BR">
-<meta name="description" content="Mapa 3D dos focos de incêndio, da seca e do risco para propriedades rurais em Roraima, com dados do INPE e da ANA. Projeto de extensão da UERR.">
+<meta name="description" content="Mapa 3D dos focos de incêndio, da seca e do risco para propriedades rurais em Roraima, com dados do INPE e da ANA. Site educativo independente.">
 <meta property="og:title" content="Fogo em Roraima 3D">
 <meta property="og:description" content="Focos de incêndio, seca dos rios e risco para o seu local, atualizados a cada 30 minutos.">
 <meta property="og:image" content="https://fogororaima.com.br/og.jpg">
@@ -1088,7 +1088,7 @@ body.measuring #labels > * { pointer-events: none; }
           <p class="note" style="margin:0 0 8px">📘 <a href="sobre.html">Sobre o projeto e como os números são calculados</a> · 📄 <a href="termos.html">Termos, privacidade e correções</a></p>
           <p><b>Fontes.</b> Focos: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>. Terras Indígenas: <a href="https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas" target="_blank" rel="noopener">FUNAI</a>. Municípios e limite estadual: IBGE. Imóveis rurais: <a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">SICAR</a> (CAR, dados públicos, sem nome de dono). Desmatamento, área queimada e degradação: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE DETER</a> (alertas desde dezembro de 2024, não confirmação). Desmatamento medido por ano: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (últimos 3 anos publicados). Eventos de fogo oficiais (contorno, tipo e uso da terra): <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">INPE, Evento de Fogo</a>; o INPE lista só os eventos ativos ou em observação, então o mapa guarda cada atualização para formar o histórico a partir de 30/09/2026. Estradas, rios, vilas e fazendas: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© colaboradores do OpenStreetMap</a> (ODbL); o mapa colaborativo pode ter falhas ou estradas faltando. Vegetação: MODIS Land Cover (IGBP) 2023, NASA GIBS; floresta e desmatamento: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (mapa de classes até 2025). Relevo: Terrarium/Mapzen (SRTM). Imagem: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2025 by EOX IT Services GmbH</a> (dados Copernicus Sentinel modificados, CC BY-NC-SA 4.0). Imagem de ontem: <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">NASA GIBS/Worldview</a> (satélites VIIRS, dados públicos; mostra nuvens e fumaça). Vento, umidade, temperatura e chuva: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (modelo, não estação).</p>
           <p>Unidades de conservação ficaram de fora: o serviço do MMA consultado trazia nomes trocados com os desenhos.</p>
-          <p>Projeto de extensão · UERR.</p>
+          <p>Site educativo independente.</p>
           </div>
         </details>
       </div>
@@ -4135,7 +4135,7 @@ body.measuring #labels > * { pointer-events: none; }
       '<p class="rep-kick">Fogo em Roraima 3D · relatório</p><h1>' + esc(r.scope) + '</h1>' + (repImg ? '<img class="rep-map" src="' + repImg + '" alt="Mapa no momento em que o relatório foi gerado">' : '') + '<p class="rep-sub">Período: <b>' + esc(r.per) + '</b> (' + esc(r.perName) + ') · horário de Roraima<br>Gerado em ' + esc(r.gen) + ' · fogororaima.com.br</p>' +
       (r.empty ? '<p><b>Nenhuma detecção de fogo neste período e local.</b></p>' : r.rows.map(([t, kv]) => '<h2>' + esc(t) + '</h2><table>' + kv.map(([k, v]) => '<tr><td>' + esc(k) + '</td><td>' + esc(v) + '</td></tr>').join('') + '</table>').join('')) +
       '<h2>Como ler estes números</h2><ul>' + r.notes.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' +
-      '<p class="rep-foot">Projeto de extensão · Universidade Estadual de Roraima (UERR). Ferramenta de apoio: não substitui o Corpo de Bombeiros (193) nem a Defesa Civil (199).</p></div>';
+      '<p class="rep-foot">Fogo em Roraima 3D · site educativo independente. Ferramenta de apoio: não substitui o Corpo de Bombeiros (193) nem a Defesa Civil (199).</p></div>';
     const txt = reportText(r);
     el.querySelector('[data-a=wa]').href = 'https://wa.me/?text=' + encodeURIComponent(txt);
     el.onclick = async e => {
@@ -4177,7 +4177,7 @@ body.measuring #labels > * { pointer-events: none; }
     window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
       whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
     const memo = { cod: c.cod, tipo: c.tipo, tipoNome: CAR_TIPO[c.tipo] || 'Imóvel rural', cond: c.cond, mun: c.mun, area: c.area, rings: c.r };
-    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026111613'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026111701'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
     areaJs.then(() => window.FRR_AREA.memorial(memo)).catch(() => showToast('Não foi possível abrir o memorial agora. Verifique a internet e tente de novo.'));
   }
   function openAreaReport(withCar) {
@@ -4185,7 +4185,7 @@ body.measuring #labels > * { pointer-events: none; }
     const cars = withCar ? carsAtSel().map(k => { const car = CAR[k]; return { cod: car.cod, tipo: car.tipo, tipoNome: CAR_TIPO[car.tipo] || 'Imóvel rural', cond: car.cond, mun: car.mun, area: car.area, rings: car.r }; }) : [];
     window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
       whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
-    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026111613'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026111701'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
     areaJs.then(() => window.FRR_AREA.open(a, cars.length ? { cars } : undefined)).catch(() => showToast('Não foi possível abrir o relatório agora. Verifique a internet e tente de novo.'));
   }
   $('popBody').addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-area-rep],[data-area-rep-car]'); if (t) openAreaReport(t.hasAttribute('data-area-rep-car')); });
@@ -4195,7 +4195,7 @@ body.measuring #labels > * { pointer-events: none; }
     const cars = carsAtSel().map(k => { const car = CAR[k]; return { cod: car.cod, tipo: car.tipo, tipoNome: CAR_TIPO[car.tipo] || 'Imóvel rural', cond: car.cond, mun: car.mun, area: car.area, rings: car.r }; });
     window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
       whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
-    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026111613'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026111701'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
     areaJs.then(() => window.FRR_AREA.prejuizo(a, cars)).catch(() => showToast('Não foi possível abrir o documento agora. Verifique a internet e tente de novo.'));
   }
   // ---------- first visit: a short guide (4 cards, little text); the "?" button shows it again

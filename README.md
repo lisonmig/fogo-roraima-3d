@@ -2,7 +2,7 @@
 
 Mapa 3D, gratuito e aberto, dos **focos de incêndio**, da **seca dos rios** e do **risco para propriedades rurais** em Roraima, com dados oficiais do INPE e da ANA, atualizado a cada 30 minutos.
 
-Projeto de extensão da **Universidade Estadual de Roraima (UERR)**. Sem anúncios e sem fins comerciais.
+Site educativo independente, criado e mantido por Warlison Vieira. Sem anúncios e sem fins comerciais.
 
 > **Versão beta.** É uma ferramenta de apoio feita com dados de satélite e modelos de previsão do tempo. Não substitui a avaliação no local, o Corpo de Bombeiros (193) ou a Defesa Civil (199). As indicações de "pode ser ilegal?" são indícios por satélite, **não são acusação**.
 
@@ -91,4 +91,4 @@ Por causa da imagem da EOX e do plano gratuito do Open-Meteo, **o site não pode
 
 Código sob a [licença MIT](LICENSE). Os dados seguem as licenças de cada fonte (tabela acima).
 
-Projeto de extensão · UERR · 2026
+Warlison Vieira · 2026
