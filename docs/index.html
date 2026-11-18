@@ -1253,6 +1253,42 @@ body.measuring #labels > * { pointer-events: none; }
   controls.screenSpacePanning = false;
   // toque (como no Google Earth): um dedo só move a vista; dois dedos dão zoom (pinça), giram e inclinam. O mouse não muda.
   controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+  // teclado e touchpad (Chromebook): setas andam, +/- e PageUp/PageDown aproximam, Q/E giram, W/S ou Shift+setas inclinam;
+  // dois dedos no touchpad andam pelo mapa; a pinça (chega com Ctrl) e a rodinha do mouse continuam dando zoom
+  const NAVK = new Set(); let navT = 0, navSh = false;
+  function navPan(dx, dz) { // frações da distância da câmera: dx para a direita, dz para a frente
+    const ox = camera.position.x - controls.target.x, oz = camera.position.z - controls.target.z, d = camera.position.distanceTo(controls.target);
+    const az = Math.atan2(ox, oz), s = Math.sin(az), c = Math.cos(az), mx = (dx * c - dz * s) * d, mz = (-dx * s - dz * c) * d;
+    camera.position.x += mx; camera.position.z += mz; controls.target.x += mx; controls.target.z += mz;
+  }
+  function navOrbit(dAz, dPol, zoom) {
+    const off = camera.position.clone().sub(controls.target), sp = new THREE.Spherical().setFromVector3(off);
+    sp.theta += dAz; sp.phi = Math.max(0.05, Math.min(controls.maxPolarAngle, sp.phi + dPol));
+    sp.radius = Math.max(controls.minDistance, Math.min(controls.maxDistance, sp.radius * zoom));
+    off.setFromSpherical(sp); camera.position.copy(controls.target).add(off);
+  }
+  const NAVKEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', '+', '=', '-', '_', 'q', 'e', 'w', 's'];
+  const navBusy = el => el && el !== document.body && el.matches && (el.matches('input,textarea,select,[contenteditable],#chart') || el.closest('#pop,#tour,dialog'));
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.altKey || e.metaKey || navBusy(document.activeElement) || navBusy(e.target)) return;
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; if (!NAVKEYS.includes(k)) return;
+    e.preventDefault(); NAVK.add(k); navSh = e.shiftKey;
+  });
+  document.addEventListener('keyup', e => { NAVK.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key); navSh = e.shiftKey; });
+  window.addEventListener('blur', () => NAVK.clear());
+  function navTick(now) {
+    const dt = Math.min(0.05, (now - navT) / 1000 || 0); navT = now; if (!NAVK.size) return;
+    if (fly) fly = null;
+    const h = K => NAVK.has(K) ? 1 : 0, up = h('ArrowUp') - h('ArrowDown'), rt = h('ArrowRight') - h('ArrowLeft');
+    let az = (h('e') - h('q')) * 1.2, pol = (h('s') - h('w')) * 0.8, z = h('-') + h('_') + h('PageDown') - h('+') - h('=') - h('PageUp');
+    if (navSh) { pol -= up * 0.8; az += rt * 1.2; } else navPan(rt * 0.6 * dt, up * 0.6 * dt);
+    if (az || pol || z) navOrbit(az * dt, pol * dt, Math.exp(Math.sign(z) * 1.3 * dt));
+  }
+  renderer.domElement.addEventListener('wheel', e => { // touchpad: deslizar com dois dedos anda (o mouse de rodinha manda passos inteiros de 100)
+    if (e.ctrlKey || e.deltaMode !== 0 || !(e.deltaX !== 0 || !Number.isInteger(e.deltaY) || Math.abs(e.deltaY) < 50)) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const hpx = renderer.domElement.clientHeight || 600; navPan(e.deltaX / hpx, -e.deltaY / hpx);
+  }, { capture: true, passive: false });
   function orbitPose(x, z, dist, az, pol) {
     return { pos: new THREE.Vector3(x + dist * Math.sin(pol) * Math.sin(az), dist * Math.cos(pol), z + dist * Math.sin(pol) * Math.cos(az)), tgt: new THREE.Vector3(x, 0, z) };
   }
@@ -4201,7 +4237,7 @@ body.measuring #labels > * { pointer-events: none; }
   // ---------- first visit: a short guide (4 cards, little text); the "?" button shows it again
   const TOUR = [
     ['🛰️', 'Fogo visto do satélite', 'O satélite vê o calor, não a chama. Chama com brilho: visto há menos de 6 h (o anel pulsando marca o fogo das últimas 3 h); brasa com fumaça: de 6 a 24 h, apagando; ponto cinza: de 1 a 7 dias, apagado. Quanto maior o ponto, mais forte o calor. A posição pode errar de 375 m a alguns quilômetros.'],
-    ['👆', 'Toque para saber mais', 'Um toque num fogo, num rio 💧 ou numa mancha abre os detalhes. Arraste para girar o mapa; use dois dedos para aproximar.'],
+    ['👆', 'Toque para saber mais', 'Um toque num fogo, num rio 💧 ou numa mancha abre os detalhes. Arraste para girar o mapa; use dois dedos para aproximar. No teclado: setas andam, + e − aproximam, Q e E giram, W e S inclinam. No touchpad, deslize com dois dedos para andar e faça pinça para aproximar.'],
     ['📍', 'Marque o seu lugar', 'Dois toques no mapa marcam um ponto. O site diz se há fogo perto, para que lado o vento leva e o que fazer. Dois toques no alfinete removem.'],
     ['📞', 'Em perigo, ligue', '<b>193</b> Bombeiros · <b>199</b> Defesa Civil. O satélite pode não ver fogo pequeno, sob nuvem ou à noite: se vir fumaça, não espere o mapa.']
   ];
@@ -4395,6 +4431,7 @@ body.measuring #labels > * { pointer-events: none; }
       camera.position.lerpVectors(fly.p0, fly.p1, e); controls.target.lerpVectors(fly.q0, fly.q1, e);
       if (k >= 1) fly = null;
     }
+    navTick(performance.now());
     { // far away: look more from above (no horizon); never pan outside the map
       const cd = camera.position.distanceTo(controls.target), k = Math.max(0, Math.min(1, (cd - 150) / 450));
       controls.maxPolarAngle = Math.PI * (0.47 - 0.15 * k);
