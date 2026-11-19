@@ -156,7 +156,10 @@ h2 { font-family: var(--f-display); font-weight: 600; font-size: 13px; text-tran
 #flExport { flex-wrap: wrap; gap: 6px; } #flExport .btn { flex: 1 1 auto; }
 html.big .panel-in, html.big .pop, html.big .timeline, html.big .mbar, html.big #tour, html.big .peek { zoom: 1.18; }
 #bigBtn[aria-pressed="true"] { background: var(--accent); }
-#moreBtn { display: none; }
+/* botões do mapa guardados num menu de três tracinhos (☰), em qualquer tela */
+#moreBtn { display: block; font-size: 18px; line-height: 1; padding: 6px 11px; }
+.tools .vbtn:not(#moreBtn):not(#sitBtn) { display: none; }
+.tools.open .vbtn:not(#moreBtn):not(#sitBtn):not([hidden]) { display: block; }
 .loading .ld { max-width: 340px; padding: 16px; text-align: center; line-height: 1.4; } .loading .ld p { margin: 6px 0; }
 .loading .ld-big { font: 700 20px var(--f-body); } .loading .ld-small, .loading .ld-wait { font-weight: 400; font-size: 14px; opacity: .85; }
 .loading .ld-sos { margin-top: 14px !important; font-size: 14px; } .loading .ld-sos a { color: inherit; font-weight: 700; }
@@ -539,9 +542,6 @@ details.more.legal > summary .lt { flex: 1 1 0; min-width: 0; }
   .pop { bottom: 8px; max-height: calc(100% - 130px); }
 }
 @media (max-width: 880px) {
-  #moreBtn { display: block; }
-  .tools .vbtn:not(#whereBtn):not(#moreBtn) { display: none; }
-  .tools.open .vbtn:not(#whereBtn):not(#moreBtn):not([hidden]) { display: block; }
 }
 /* phones and tablets held upright: one thin bar at the bottom (play, date, tab icons); the timeline and the panel open above it */
 @media (max-width: 880px) {
@@ -732,11 +732,11 @@ body.measuring #labels > * { pointer-events: none; }
     </div>
     <div class="tools">
       <button class="compass" id="compass" title="Virar para o norte"><span id="needle">N</span></button>
+      <button class="vbtn" id="moreBtn" aria-expanded="false" title="Botões do mapa" aria-label="Abrir os botões do mapa">☰</button>
       <button class="vbtn" id="home">Estado todo</button>
       <button class="vbtn" id="topView">Vista de cima</button>
       <button class="vbtn" id="measBtn" aria-pressed="false" title="Medir distância e área no mapa">📏 Medir</button>
       <button class="vbtn" id="viewLinkBtn" title="Copiar um link que abre o mapa neste mesmo ângulo e momento">🔗 Link desta vista</button>
-      <button class="vbtn" id="moreBtn" aria-expanded="false" title="Mais botões do mapa">⋯ Mais</button>
       <button class="vbtn" id="bigBtn" aria-pressed="false" title="Aumentar o texto">A+ Texto</button>
       <button class="vbtn" id="helpBtn" title="Como usar o mapa" aria-label="Como usar o mapa">Como usar?</button>
       <button class="vbtn" id="whereBtn" hidden title="Mostrar onde você está (GPS)" aria-pressed="false">◎ Onde estou</button>
