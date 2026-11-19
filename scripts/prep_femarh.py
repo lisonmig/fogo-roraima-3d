@@ -99,7 +99,8 @@ for ano, camadas in CAMADAS.items():
 
 
 # ---------- áreas com autorização florestal da FEMARH (SIGGARR, menu Licenciamento > Autorização de Exploração)
-# grava <out_dir>/femarh_florestal.json só com: tipo (AUAS, ASV, PMFS, POA), início e fim da vigência e o contorno simplificado.
+# grava <out_dir>/femarh_florestal.json só com: tipo (AUAS, ASV, PMFS, POA), início e fim da vigência, contorno simplificado,
+# área informada (ha) e município.
 # Nunca grava nome do imóvel, empreendedor, CPF/CNPJ, CAR, número da licença nem do processo.
 FLOR_TIPOS = ['AUAS', 'ASV', 'PMFS', 'POA']
 
@@ -135,11 +136,13 @@ def florestal():
             ring = simplifica([c[:2] for c in poly[0]], 0.0004)  # só o contorno externo, ~45 m de tolerância
             if len(ring) >= 4 and all(W < x < E and S < y < N for x, y in ring):
                 rings.append([v for x, y in ring for v in (round(x, 4), round(y, 4))])
-        if rings: out.append([FLOR_TIPOS.index(t), di, df, rings])
+        try: ha = round(float(p.get('area')), 1)
+        except (TypeError, ValueError): ha = None
+        if rings: out.append([FLOR_TIPOS.index(t), di, df, rings, ha, municipio(p.get('municip'))])
     if not out:
         print('FEMARH florestal: nenhuma área válida; mantém o arquivo'); return
     json.dump({'fonte': 'FEMARH, SIGGARR (Autorização de Exploração Florestal)', 'url': 'https://siggarr.femarh.rr.gov.br/',
-               'atualizado': date.today().isoformat(), 'campos': ['tipo', 'inicio', 'fim', 'aneis'], 'tipos': FLOR_TIPOS,
+               'atualizado': date.today().isoformat(), 'campos': ['tipo', 'inicio', 'fim', 'aneis', 'area_ha', 'mun'], 'tipos': FLOR_TIPOS, 'muns': MUNS,
                'nomes': ['Autorização de Uso Alternativo do Solo', 'Autorização de Supressão Vegetal', 'Plano de Manejo Florestal Sustentável', 'Plano Operacional Anual'],
                'areas': out}, open(fpath, 'w', encoding='utf-8', newline='\n'), separators=(',', ':'), ensure_ascii=False)
     print('FEMARH áreas florestais autorizadas', len(out), '| arquivo', os.path.getsize(fpath))

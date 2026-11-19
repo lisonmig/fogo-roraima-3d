@@ -3550,7 +3550,7 @@ body.measuring #labels > * { pointer-events: none; }
     AU.burn.forEach((r, k) => { r.rad = Math.sqrt(Math.max(0, r[2]) * 1e4 / Math.PI) / 1000; const g = auGk(r[0], r[1]); if (!AU.grid.has(g)) AU.grid.set(g, []); AU.grid.get(g).push(k); });
     AU.flor = AU.FL ? AU.FL.areas.map(a => { let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
       a[3].forEach(r => { for (let j = 0; j < r.length; j += 2) { x0 = Math.min(x0, r[j]); x1 = Math.max(x1, r[j]); y0 = Math.min(y0, r[j + 1]); y1 = Math.max(y1, r[j + 1]); } });
-      return { t: a[0], i: a[1], f: a[2], r: a[3], box: [x0, y0, x1, y1] }; }) : [];
+      return { t: a[0], i: a[1], f: a[2], r: a[3], ha: a[4], m: a[5] == null ? -1 : a[5], box: [x0, y0, x1, y1] }; }) : [];
     AU.fire = new Uint8Array(NF);
     for (let i = 0; i < NF; i++) { const d = dayOf(F.t[i]); AU.fire[i] = auBurnAt(F.lon[i], F.lat[i], d, d, fGeo[i] ? 2.5 : 1) ? 1 : 0; fAuth[i] = AU.fire[i]; }
     fireGeo.attributes.aAuth.needsUpdate = true;
@@ -3594,6 +3594,66 @@ body.measuring #labels > * { pointer-events: none; }
     return '<span class="tag" style="background:#1f5d3a;color:#d9ffe6">FEMARH: área com ' + esc(AU.FL.tipos[hit.t]) + '</span>' +
       '<p class="note" style="margin:2px 0 4px">' + esc(AU.FL.nomes[hit.t]) + per + '. Autorização não garante que o corte respeitou os limites e as condições da licença.</p>';
   }
+  // ---------- cartão da área autorizada (clique na camada "Áreas com autorização")
+  const auNear = a => { const day = dayOf(st.t), lo = addDays(day, -30), hi = addDays(day, 30); return (!a.i || a.i <= hi) && (!a.f || a.f >= lo); };
+  const auCirc = r => { const out = [], rk = Math.max(0.15, r.rad);
+    for (let j = 0; j <= 20; j++) { const a = j / 20 * 2 * Math.PI; out.push([r[0] + rk * Math.cos(a) / (111.32 * Math.cos(r[1] * Math.PI / 180)), r[1] + rk * Math.sin(a) / 110.57]); } return out; };
+  function auAreaAt(lon, lat) {
+    let best = null, ba = 1e18;
+    for (const a of AU.flor) { const b = a.box;
+      if (lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3] || !auNear(a)) continue;
+      const sz = (b[2] - b[0]) * (b[3] - b[1]); if (sz < ba && a.r.some(r => pointInRing(lon, lat, r))) { ba = sz; best = { kind: 'flor', a }; } }
+    if (best) return best;
+    let bd = 1e9; const day = dayOf(st.t), lo = addDays(day, -30), hi = addDays(day, 30);
+    for (const r of AU.burn) { if (r[3] > hi || r[4] < lo) continue;
+      const d = distKm(lon, lat, r[0], r[1]); if (d <= Math.max(0.3, r.rad) && d < bd) { bd = d; best = { kind: 'queima', r }; } }
+    return best;
+  }
+  const auBr = d => d ? d.split('-').reverse().join('/') : '?';
+  function auSit(i, f) {
+    const day = dayOf(st.t);
+    if (!i && !f) return ['sem data de vigência informada', ''];
+    if (i && day < i) return ['ainda não valia em ' + auBr(day) + ' (começa em ' + auBr(i) + ')', ''];
+    if (f && day > f) return ['vencida em ' + auBr(f), ''];
+    return ['valendo em ' + auBr(day), ' hot'];
+  }
+  const AU_FL_TXT = ['Permite trocar a vegetação nativa por outro uso, como pasto ou lavoura, dentro da área e do prazo autorizados.',
+    'Permite cortar a vegetação nativa (supressão) dentro da área e do prazo autorizados, por exemplo para uma obra ou atividade licenciada.',
+    'Plano de manejo: permite tirar madeira de forma seletiva e planejada, sem derrubar a floresta inteira.',
+    'Plano operacional anual: a parte do plano de manejo florestal autorizada para um ano.'];
+  function authCard(au, lon, lat) {
+    removeDraped(AU.sel); removeDraped(AU.selFill);
+    const day = dayOf(st.t);
+    if (au.kind === 'flor') {
+      const a = au.a, rings = a.r.map(flatToRing), [sit, hot] = auSit(a.i, a.f), b = a.box;
+      AU.selFill = makeFill(rings, 0xffffff, 0.25, 0.4); AU.sel = makeDraped(rings, 0xffffff, 1, 0.9, 1);
+      let nd = 0, ndv = 0, nf = 0;
+      DET.forEach(d => { const [x, y] = auCenter(d.r); if (x < b[0] || x > b[2] || y < b[1] || y > b[3] || !a.r.some(r => pointInRing(x, y, r))) return; nd++;
+        if ((!a.i || d.d >= addDays(a.i, -30)) && (!a.f || d.d <= addDays(a.f, 60))) ndv++; });
+      for (let i = 0; i < NF; i++) { const x = F.lon[i], y = F.lat[i]; if (x < b[0] || x > b[2] || y < b[1] || y > b[3]) continue; if (a.r.some(r => pointInRing(x, y, r))) nf++; }
+      const mun = a.m >= 0 && AU.FL.muns ? AU.FL.muns[a.m] : '';
+      showCard('<h3>' + esc(AU.FL.nomes[a.t]) + '</h3><p class="when">Autorização da FEMARH · ' + (a.i || a.f ? 'vigência de ' + auBr(a.i) + ' a ' + auBr(a.f) : 'sem data de vigência informada') + '</p>' + whereTxt(lon, lat) +
+        '<span class="tag' + hot + '">' + sit + '</span><span class="tag">' + esc(AU.FL.tipos[a.t]) + '</span>' + (a.ha ? '<span class="tag">' + fmt(a.ha, a.ha < 10 ? 1 : 0) + ' ha autorizados</span>' : '') + (mun ? '<span class="tag">' + esc(mun) + '</span>' : '') +
+        '<p style="margin:8px 0 0;font-size:13px">' + AU_FL_TXT[a.t] + '</p>' +
+        '<p style="margin:6px 0 0;font-size:13px">Dentro desta área: <b>' + fmt(nd) + '</b> ' + (nd === 1 ? 'alerta' : 'alertas') + ' de desmatamento do DETER' + (nd ? ' (' + fmt(ndv) + ' perto da vigência)' : '') +
+        ' e <b>' + fmt(nf) + '</b> ' + (nf === 1 ? 'foco' : 'focos') + ' de fogo desde dezembro de 2025.</p>' +
+        '<p class="note" style="margin:6px 0 0">A autorização não garante que o corte respeitou os limites e as condições da licença. O mapa não guarda nome do dono, CPF/CNPJ nem número do processo: para conferir, consulte o SIGGARR.</p>' +
+        '<details class="more"><summary>Mais detalhes</summary><div><p>Contorno simplificado (cerca de 45 m de tolerância) da camada "Autorização de Exploração" do SIGGARR, cópia de ' + auBr(AU.FL.atualizado) + '. ' +
+        'Alertas do DETER contam como "perto da vigência" se foram vistos de 30 dias antes do início até 60 dias depois do fim.</p>' +
+        '<p style="margin-top:6px">Fonte: <a href="https://siggarr.femarh.rr.gov.br/" target="_blank" rel="noopener">FEMARH, SIGGARR</a>.</p></div></details>');
+      return;
+    }
+    const r = au.r, ring = auCirc(r), [sit, hot] = auSit(r[3], r[4]);
+    AU.selFill = makeFill([ring], 0xffffff, 0.25, 0.4); AU.sel = makeDraped([ring], 0xffffff, 1, 0.9, 1);
+    let nf = 0; for (let i = 0; i < NF; i++) { const d = dayOf(F.t[i]); if (d < r[3] || d > r[4]) continue; if (distKm(F.lon[i], F.lat[i], r[0], r[1]) <= r.rad + (fGeo[i] ? 2.5 : 1)) nf++; }
+    const mun = r[6] >= 0 && AU.Q.muns ? AU.Q.muns[r[6]] : '';
+    showCard('<h3>Queima controlada autorizada</h3><p class="when">Autorização da FEMARH · de ' + auBr(r[3]) + ' a ' + auBr(r[4]) + '</p>' + whereTxt(r[0], r[1]) +
+      '<span class="tag' + hot + '">' + sit + '</span><span class="tag">' + esc(((AU.Q.tipos || [])[r[5]] || 'queima').toLowerCase()) + '</span><span class="tag">' + fmt(r[2], r[2] < 10 ? 1 : 0) + ' ha autorizados</span>' + (mun ? '<span class="tag">' + esc(mun) + '</span>' : '') +
+      '<p style="margin:8px 0 0;font-size:13px">O satélite viu <b>' + fmt(nf) + '</b> ' + (nf === 1 ? 'foco' : 'focos') + ' de fogo perto deste ponto durante a autorização.</p>' +
+      '<p class="note" style="margin:6px 0 0">O SIGGARR só informa um ponto para esta queima. O círculo tem o mesmo tamanho da área autorizada, mas não é o limite real. O mapa não guarda nome do dono, CPF/CNPJ nem número do processo.</p>' +
+      '<details class="more"><summary>Mais detalhes</summary><div><p>Um foco conta como perto se ficou até o raio da área autorizada mais 1 km do ponto (2,5 km para o satélite GOES), entre o início e o fim da autorização. Cópia do SIGGARR de ' + auBr(AU.Q.atualizado) + '.</p>' +
+      '<p style="margin-top:6px">Fonte: <a href="https://siggarr.femarh.rr.gov.br/" target="_blank" rel="noopener">FEMARH, SIGGARR</a> (Autorização de Uso Controlado do Fogo).</p></div></details>');
+  }
   function auDrawLayer() {
     AU.layers.forEach(removeDraped); AU.layers = [];
     if (!$('lyAuth').checked || !(AU.burn.length || AU.flor.length)) return;
@@ -3611,7 +3671,7 @@ body.measuring #labels > * { pointer-events: none; }
     n.hidden = !(AU.mode || $('lyAuth').checked);
     n.innerHTML = (AU.mode ? '<b>' + (AU.mode === 1 ? 'Mostrando só o que tinha autorização' : 'Mostrando só o que não tinha autorização') + '</b> nos focos, nos contornos do INPE e nos alertas do DETER. ' : '') +
       'Com autorização: ' + fmt(cF) + ' de ' + fmt(NF) + ' focos, ' + fmt(cD) + ' de ' + fmt(DET.length) + ' alertas de desmatamento e ' + fmt(cQ) + ' de ' + fmt(QM.length) + ' áreas queimadas. ' +
-      ($('lyAuth').checked ? 'No mapa: <span style="color:#4ade80">verde</span> são áreas com autorização de desmatamento ou manejo e <span style="color:#facc15">amarelo</span> são queimas autorizadas, vigentes perto do dia escolhido. ' : '') +
+      ($('lyAuth').checked ? 'No mapa: <span style="color:#4ade80">verde</span> são áreas com autorização de desmatamento ou manejo e <span style="color:#facc15">amarelo</span> são queimas autorizadas, vigentes perto do dia escolhido. Toque numa área para ver as informações dela. ' : '') +
       'Cruzamento aproximado: a queima autorizada só tem o ponto informado no pedido, então o mapa aceita fogo até o raio da área autorizada mais 1 km (2,5 km para o satélite GOES), na vigência. ' +
       'Sem autorização na lista não quer dizer ilegal: ela pode estar incompleta, ser do Ibama ou ser de outra data. Fonte: <a href="https://siggarr.femarh.rr.gov.br/" target="_blank" rel="noopener">FEMARH, SIGGARR</a>' + (AU.Q ? ', cópia de ' + AU.Q.atualizado.split('-').reverse().join('/') : '') + '.';
   }
@@ -3815,6 +3875,8 @@ body.measuring #labels > * { pointer-events: none; }
     if (k >= 0) { st.sel = { kind: 'event', k }; showDetail(); return; }
     const dk = g && deterLayer && deterLayer.obj.visible ? deterAt(g.lon, g.lat, Math.max(0.15, Math.min(3, camera.position.distanceTo(controls.target) * 0.006))) : -1;
     if (dk >= 0) { st.sel = { kind: 'deter', k: dk, lon: g.lon, lat: g.lat }; showDetail(); return; }
+    const au = g && $('lyAuth').checked && AU.layers.length ? auAreaAt(g.lon, g.lat) : null;
+    if (au) { st.sel = { kind: 'auth', au, lon: g.lon, lat: g.lat }; showDetail(); return; }
     const qk = g && queimLayer && queimLayer.obj.visible ? queimAt(g.lon, g.lat, Math.max(0.15, Math.min(3, camera.position.distanceTo(controls.target) * 0.006))) : -1;
     if (qk >= 0) { st.sel = { kind: 'queim', k: qk, lon: g.lon, lat: g.lat }; showDetail(); return; }
     const pk = g && PRD.fill && PRD.fill.obj.visible ? prodesAt(g.lon, g.lat, Math.max(0.15, Math.min(3, camera.position.distanceTo(controls.target) * 0.006))) : -1;
@@ -4326,12 +4388,14 @@ body.measuring #labels > * { pointer-events: none; }
     if (!s || s.kind !== 'car') { removeDraped(carSel); carSel = null; }
     if (!s || s.kind !== 'deter') { removeDraped(detSel); removeDraped(detSelFill); detSel = detSelFill = null; }
     if (!s || s.kind !== 'queim') { removeDraped(qmSel); removeDraped(qmSelFill); qmSel = qmSelFill = null; }
+    if (!s || s.kind !== 'auth') { removeDraped(AU.sel); removeDraped(AU.selFill); AU.sel = AU.selFill = null; }
     if (!s || s.kind !== 'prodes') { removeDraped(PRD.sel); removeDraped(PRD.selFill); PRD.sel = PRD.selFill = null; }
     if (!s || s.kind !== 'gauge') { gTap = -1; gaugeEls.forEach(el => el.classList.remove('tap')); }
     if (!s) { $('pop').hidden = true; return; }
     if (s.kind === 'car') { carCard(s.k); return; }
     if (s.kind === 'deter') { deterCard(s.k, s.lon, s.lat); return; }
     if (s.kind === 'queim') { queimCard(s.k, s.lon, s.lat); return; }
+    if (s.kind === 'auth') { authCard(s.au, s.lon, s.lat); return; }
     if (s.kind === 'prodes') { prodesCard(s.k, s.lon, s.lat); return; }
     if (s.kind === 'inpe') { inpeCard(s.k); return; }
     if (s.kind === 'gauge') { gaugeCard(s.k); return; }
