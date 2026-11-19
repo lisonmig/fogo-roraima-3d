@@ -962,12 +962,19 @@ body.measuring #labels > * { pointer-events: none; }
             <label><input type="checkbox" id="lyCar"> Imóveis rurais (CAR)</label>
             <label><input type="checkbox" id="lyDeter"> Desmatamento (DETER)</label>
             <label><input type="checkbox" id="lyQueim"> Área queimada (DETER)</label>
+            <label><input type="checkbox" id="lyHeat"> Mapa de calor: queimas autorizadas (FEMARH)</label>
             <label><input type="checkbox" id="lyProdes"> Desmatamento medido (PRODES)</label>
             <label><input type="checkbox" id="lyWind" checked> Vento</label>
             <label><input type="checkbox" id="lyLbl" checked> Nomes</label>
             <label><input type="checkbox" id="lyRios" checked> Rios</label>
           </div>
           <p class="note" id="prodesNote" hidden></p>
+          <div id="heatBox" hidden style="margin-top:10px">
+            <label class="fl" for="heatYear">Autorizações de queima da FEMARH
+              <select id="heatYear"></select></label>
+            <div class="legend" style="margin-top:6px;align-items:center"><span>menos</span><i class="sq" style="width:120px;height:9px;background:linear-gradient(90deg,rgba(255,230,120,.35),#ffb000,#ff5a1f,#c4122f,#6b0018)"></i><span>mais autorizações</span></div>
+            <p class="note" id="heatNote"></p>
+          </div>
           <label class="fl" for="roads" style="margin-top:10px">Estradas
             <select id="roads"><option value="off">Não mostrar</option><option value="main">Só rodovias (BR e RR)</option><option value="all">Todas, com vicinais e ramais</option></select></label>
           <p class="note" id="roadsNote" hidden>Nas cidades aparecem só as avenidas principais; no interior, todas as estradas, vicinais e ramais. Aproxime o mapa para ver os nomes.</p>
@@ -1308,12 +1315,14 @@ body.measuring #labels > * { pointer-events: none; }
   const burnCanvas = document.createElement('canvas'); burnCanvas.width = LIGHT ? 1024 : 1536; burnCanvas.height = Math.round(burnCanvas.width * HKM / WKM);
   const bx = burnCanvas.getContext('2d');
   const texBurn = new THREE.CanvasTexture(burnCanvas);
+  const heatCanvas = document.createElement('canvas'); heatCanvas.width = LIGHT ? 512 : 768; heatCanvas.height = Math.round(heatCanvas.width * HKM / WKM);
+  const texHeat = new THREE.CanvasTexture(heatCanvas);
   const terrainMat = new THREE.ShaderMaterial({
     uniforms: { uMap: { value: texImg }, uBurn: { value: texBurn }, uMapOn: { value: 1 }, uBurnOn: { value: 1 }, uPlain: { value: new THREE.Color(css('--plain')) },
-      uDet: { value: texImg }, uDetBox: { value: new THREE.Vector4(0, 0, 1, 1) }, uDetOn: { value: 0 } },
+      uDet: { value: texImg }, uDetBox: { value: new THREE.Vector4(0, 0, 1, 1) }, uDetOn: { value: 0 }, uHeat: { value: texHeat }, uHeatOn: { value: 0 } },
     vertexShader: `varying vec2 vUv; varying vec3 vN; void main(){ vUv = uv; vN = normal; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `uniform sampler2D uMap; uniform sampler2D uBurn; uniform float uMapOn; uniform float uBurnOn; uniform vec3 uPlain;
-      uniform sampler2D uDet; uniform vec4 uDetBox; uniform float uDetOn;
+      uniform sampler2D uDet; uniform vec4 uDetBox; uniform float uDetOn; uniform sampler2D uHeat; uniform float uHeatOn;
       varying vec2 vUv; varying vec3 vN;
       void main(){
         vec3 base = mix(uPlain, texture2D(uMap, vUv).rgb, uMapOn);
@@ -1322,6 +1331,7 @@ body.measuring #labels > * { pointer-events: none; }
           vec2 de = min(dq, 1.0 - dq); base = mix(base, texture2D(uDet, dq).rgb, uDetOn * smoothstep(0.0, 0.07, min(de.x, de.y)));
         }
         vec4 b = texture2D(uBurn, vUv); base = mix(base, b.rgb, b.a * uBurnOn);
+        vec4 hm = texture2D(uHeat, vUv); base = mix(base, hm.rgb, hm.a * uHeatOn);
         vec3 n = normalize(vN); vec3 L = normalize(vec3(-0.55, 0.75, -0.40));
         float l = 0.42 + 0.85 * max(dot(n, L), 0.0) + 0.10 * (1.0 - n.y);
         gl_FragColor = vec4(base * l, 1.0);
@@ -3299,6 +3309,63 @@ body.measuring #labels > * { pointer-events: none; }
     if (deterLayer) deterLayer.obj.visible = deterFill.obj.visible = e.target.checked;
     if (!e.target.checked && st.sel && st.sel.kind === 'deter') { st.sel = null; showDetail(); }
   };
+  // ---------- mapa de calor: autorizações de queima controlada da FEMARH (SIGGARR, scripts/prep_femarh.py), baixado só quando ligado
+  const HT = { J: null, loading: null };
+  const HT_RAMP = [[0, 255, 230, 120], [0.3, 255, 176, 0], [0.55, 255, 90, 31], [0.8, 196, 18, 47], [1, 107, 0, 24]];
+  const htToday = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);  // dia em Roraima (UTC-4)
+  function htRows(v) {
+    const A = HT.J.anos, t = htToday();
+    if (v === 'hoje') return Object.values(A).flat().filter(r => r[3] && r[4] && r[3] <= t && t <= r[4]);
+    return v === 'todos' ? Object.values(A).flat() : (A[v] || []);
+  }
+  function drawHeat() {
+    const v = $('heatYear').value, rows = htRows(v), cw = heatCanvas.width, ch = heatCanvas.height;
+    const den = new Float32Array(cw * ch), rad = Math.max(4, 14 * cw / WKM), r2 = rad * rad;  // raio de cerca de 14 km
+    for (const r of rows) {
+      const cx = (r[0] - W) / (E - W) * cw, cy = (N - r[1]) / (N - S) * ch;
+      for (let y = Math.max(0, Math.floor(cy - rad)); y <= Math.min(ch - 1, Math.ceil(cy + rad)); y++)
+        for (let x = Math.max(0, Math.floor(cx - rad)); x <= Math.min(cw - 1, Math.ceil(cx + rad)); x++) {
+          const d2 = (x - cx) ** 2 + (y - cy) ** 2; if (d2 < r2) { const k = 1 - d2 / r2; den[y * cw + x] += k * k; }
+        }
+    }
+    let mx = 0; for (let i = 0; i < den.length; i++) if (den[i] > mx) mx = den[i];
+    const g = heatCanvas.getContext('2d'), img = g.createImageData(cw, ch), px = img.data;
+    if (mx > 0) for (let i = 0; i < den.length; i++) {
+      if (den[i] <= 0) continue;
+      const t = Math.sqrt(den[i] / mx); let j = 1; while (j < HT_RAMP.length - 1 && HT_RAMP[j][0] < t) j++;
+      const a = HT_RAMP[j - 1], b = HT_RAMP[j], f = Math.min(1, Math.max(0, (t - a[0]) / (b[0] - a[0])));
+      px[i * 4] = a[1] + (b[1] - a[1]) * f; px[i * 4 + 1] = a[2] + (b[2] - a[2]) * f; px[i * 4 + 2] = a[3] + (b[3] - a[3]) * f;
+      px[i * 4 + 3] = 255 * Math.min(0.82, 0.2 + 0.75 * t);
+    }
+    g.putImageData(img, 0, 0); texHeat.needsUpdate = true;
+    const ha = rows.reduce((s, r) => s + r[2], 0), n = rows.length, J = HT.J;
+    const porTipo = J.tipos.map((nm, k) => [nm, rows.filter(r => r[5] === k).length]).filter(x => x[1]).sort((a, b) => b[1] - a[1]);
+    const quando = v === 'hoje' ? 'válidas hoje' : v === 'todos' ? 'de ' + Object.keys(J.anos)[0] + ' a ' + Object.keys(J.anos).slice(-1)[0] : 'em ' + v;
+    const fmtD = d => d.split('-').reverse().join('/');
+    $('heatNote').innerHTML = (n ? '<b>' + n.toLocaleString('pt-BR') + '</b> autorizaç' + (n > 1 ? 'ões' : 'ão') + ' de queima controlada ' + quando + ', somando <b>' + Math.round(ha).toLocaleString('pt-BR') + ' ha</b>' +
+      (porTipo.length ? ' (' + porTipo.map(x => x[0].toLowerCase() + ': ' + x[1]).join('; ') + ')' : '') + '. '
+      : 'Nenhuma autorização de queima ' + quando + '. ') +
+      'A mancha mostra onde a FEMARH mais autorizou queimas, pelo ponto informado em cada pedido. Não mostra onde houve fogo, e fogo fora das manchas não quer dizer queima ilegal: a lista pode estar incompleta e a posição é aproximada. ' +
+      'Fonte: <a href="' + J.url + '" target="_blank" rel="noopener">FEMARH, SIGGARR</a>, cópia de ' + fmtD(J.atualizado) + '.';
+  }
+  function showHeat(on) {
+    $('heatBox').hidden = !on; terrainMat.uniforms.uHeatOn.value = on && HT.J ? 1 : 0;
+    if (!on) return;
+    if (HT.J) { drawHeat(); terrainMat.uniforms.uHeatOn.value = 1; return; }
+    $('heatNote').textContent = 'Carregando as autorizações de queima da FEMARH…';
+    if (!HT.loading) HT.loading = fetch('femarh.json').then(r => r.ok ? r.json() : null).catch(() => null).then(J => {
+      HT.loading = null;
+      if (!J || !J.anos) { $('heatNote').textContent = 'Não foi possível carregar as autorizações da FEMARH agora. Tente de novo mais tarde.'; $('lyHeat').checked = false; return; }
+      HT.J = J; const anos = Object.keys(J.anos).sort().reverse(), nHoje = htRows('hoje').length;
+      $('heatYear').innerHTML = (nHoje ? '<option value="hoje">Válidas hoje (' + nHoje + ')</option>' : '') +
+        anos.map(a => '<option value="' + a + '">' + a + ' (' + J.anos[a].length + ')</option>').join('') +
+        '<option value="todos">Todos os anos (' + anos[anos.length - 1] + '–' + anos[0] + ')</option>';
+      $('heatYear').value = anos[0];
+      if ($('lyHeat').checked) showHeat(true);
+    });
+  }
+  $('lyHeat').onchange = e => showHeat(e.target.checked);
+  $('heatYear').onchange = () => { if (HT.J) drawHeat(); };
   // ---------- official INPE fire events: contour, type (fire / human activity) and land use
   const IN = { ev: [], day: null, layers: [] };
   const INPE_COL = { 'Incêndio': 0xff5a3c, 'Atividades Antrópicas': 0x7bd88f, 'Possível início de incêndio': 0xf0a030, 'Nova Queima Isolada': 0xffd84a };
