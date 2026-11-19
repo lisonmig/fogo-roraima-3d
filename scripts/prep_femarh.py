@@ -96,6 +96,56 @@ for ano, camadas in CAMADAS.items():
             a = int(di[:4]) if di else ano
             anos.setdefault(str(a), []).append([round(lon, 4), round(lat, 4), round(float(p.get('area_lic') or 0), 1), di, df,
                                                 tipo(p.get('atividade')), municipio(p.get('municip'))])
+
+
+# ---------- áreas com autorização florestal da FEMARH (SIGGARR, menu Licenciamento > Autorização de Exploração)
+# grava <out_dir>/femarh_florestal.json só com: tipo (AUAS, ASV, PMFS, POA), início e fim da vigência e o contorno simplificado.
+# Nunca grava nome do imóvel, empreendedor, CPF/CNPJ, CAR, número da licença nem do processo.
+FLOR_TIPOS = ['AUAS', 'ASV', 'PMFS', 'POA']
+
+
+def simplifica(pts, tol):
+    if len(pts) < 4: return pts
+    a, b = pts[0], pts[-1]; dmax, k = 0, 0
+    for i in range(1, len(pts) - 1):
+        p = pts[i]; dx, dy = b[0] - a[0], b[1] - a[1]; L = (dx * dx + dy * dy) ** 0.5
+        d = abs(dy * p[0] - dx * p[1] + b[0] * a[1] - b[1] * a[0]) / L if L else ((p[0] - a[0]) ** 2 + (p[1] - a[1]) ** 2) ** 0.5
+        if d > dmax: dmax, k = d, i
+    if dmax <= tol: return [a, b]
+    return simplifica(pts[:k + 1], tol)[:-1] + simplifica(pts[k:], tol)
+
+
+def florestal():
+    J = baixar('view_autorizacao_florestal_geral')
+    fpath = os.path.join(OUT, 'femarh_florestal.json')
+    if J is None:
+        print('FEMARH florestal: sem dados novos; mantém', fpath if os.path.exists(fpath) else '(sem arquivo)'); return
+    out = []
+    for f in J['features']:
+        p, g = f.get('properties') or {}, f.get('geometry')
+        if not g or g['type'] not in ('Polygon', 'MultiPolygon'): continue
+        t = str(p.get('tipo_lic') or p.get('tipo_proj') or '').upper()
+        if t not in FLOR_TIPOS: continue
+        di, df = dia(p.get('vig_inicia')), dia(p.get('vig_fim'))
+        if di.startswith('2000-01-01'): di = ''
+        if df.startswith('2000-01-01'): df = ''
+        polys = g['coordinates'] if g['type'] == 'MultiPolygon' else [g['coordinates']]
+        rings = []
+        for poly in polys:
+            ring = simplifica([c[:2] for c in poly[0]], 0.0004)  # só o contorno externo, ~45 m de tolerância
+            if len(ring) >= 4 and all(W < x < E and S < y < N for x, y in ring):
+                rings.append([v for x, y in ring for v in (round(x, 4), round(y, 4))])
+        if rings: out.append([FLOR_TIPOS.index(t), di, df, rings])
+    if not out:
+        print('FEMARH florestal: nenhuma área válida; mantém o arquivo'); return
+    json.dump({'fonte': 'FEMARH, SIGGARR (Autorização de Exploração Florestal)', 'url': 'https://siggarr.femarh.rr.gov.br/',
+               'atualizado': date.today().isoformat(), 'campos': ['tipo', 'inicio', 'fim', 'aneis'], 'tipos': FLOR_TIPOS,
+               'nomes': ['Autorização de Uso Alternativo do Solo', 'Autorização de Supressão Vegetal', 'Plano de Manejo Florestal Sustentável', 'Plano Operacional Anual'],
+               'areas': out}, open(fpath, 'w', encoding='utf-8', newline='\n'), separators=(',', ':'), ensure_ascii=False)
+    print('FEMARH áreas florestais autorizadas', len(out), '| arquivo', os.path.getsize(fpath))
+
+
+florestal()
 path = os.path.join(OUT, 'femarh.json')
 if not anos:
     print('FEMARH: nenhum dado novo; mantém', path if os.path.exists(path) else '(sem arquivo)')

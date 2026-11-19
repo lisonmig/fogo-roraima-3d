@@ -971,6 +971,7 @@ body.measuring #labels > * { pointer-events: none; }
             <label><input type="checkbox" id="lyDeter"> Desmatamento (DETER)</label>
             <label><input type="checkbox" id="lyQueim"> Área queimada (DETER)</label>
             <label><input type="checkbox" id="lyHeat"> Mapa de calor: queimas autorizadas (FEMARH)</label>
+            <label><input type="checkbox" id="lyAuth"> Áreas com autorização (FEMARH)</label>
             <label><input type="checkbox" id="lyProdes"> Desmatamento medido (PRODES)</label>
             <label><input type="checkbox" id="lyWind" checked> Vento</label>
             <label><input type="checkbox" id="lyLbl" checked> Nomes</label>
@@ -991,6 +992,9 @@ body.measuring #labels > * { pointer-events: none; }
           <h2>Situação dos incêndios (INPE)</h2>
           <p class="psub" id="sitDay" style="margin:0 0 6px"></p>
           <div class="sitpane" id="sitPane" role="group" aria-label="Mostrar ou esconder no mapa"></div>
+          <label class="fl" for="authF" style="margin-top:8px">Autorização da FEMARH (queima e desmatamento)
+            <select id="authF"><option value="0">Mostrar tudo</option><option value="1">Só o que tinha autorização</option><option value="2">Só o que não tinha autorização</option></select></label>
+          <p class="note" id="authNote" hidden></p>
           <div class="defs">
             <p><i style="--c:#ff4a2a"></i><b>Queimando:</b> o satélite viu fogo no evento neste dia.</p>
             <p><i class="dash" style="--c:#ffb347"></i><b>Em observação:</b> o fogo parou há 1 a 7 dias. O INPE continua vigiando porque pode voltar; o satélite não vê fogo pequeno, sob nuvem ou brasa.</p>
@@ -1455,20 +1459,22 @@ body.measuring #labels > * { pointer-events: none; }
   fireGeo.setAttribute('aGeo', new THREE.BufferAttribute(fGeo, 1));
   fireGeo.setAttribute('aImp', new THREE.BufferAttribute(fImp, 1));
   fireGeo.setAttribute('aSeed', new THREE.BufferAttribute(fSeed, 1));
+  const fAuth = new Float32Array(NF); fireGeo.setAttribute('aAuth', new THREE.BufferAttribute(fAuth, 1));
   function placeFires() {
     for (let i = 0; i < NF; i++) { fPos[i * 3] = toX(F.lon[i]); fPos[i * 3 + 1] = yAt(F.lon[i], F.lat[i]) + 0.5; fPos[i * 3 + 2] = toZ(F.lat[i]); }
     fireGeo.attributes.position.needsUpdate = true;
   }
   const fireMat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uWin: { value: 1440 }, uMode: { value: 0 }, uScale: { value: 1500 }, uClock: { value: 0 }, uLive: { value: (LIGHT || matchMedia('(prefers-reduced-motion: reduce)').matches) ? 0 : 1 } },
-    vertexShader: `attribute float aTime; attribute float aFrp; attribute float aKind; attribute float aGeo; attribute float aImp; attribute float aSeed;
-      uniform float uTime; uniform float uWin; uniform float uMode; uniform float uScale; uniform float uClock; uniform float uLive;
+    uniforms: { uTime: { value: 0 }, uWin: { value: 1440 }, uMode: { value: 0 }, uAuth: { value: 0 }, uScale: { value: 1500 }, uClock: { value: 0 }, uLive: { value: (LIGHT || matchMedia('(prefers-reduced-motion: reduce)').matches) ? 0 : 1 } },
+    vertexShader: `attribute float aTime; attribute float aFrp; attribute float aKind; attribute float aGeo; attribute float aImp; attribute float aSeed; attribute float aAuth;
+      uniform float uTime; uniform float uWin; uniform float uMode; uniform float uAuth; uniform float uScale; uniform float uClock; uniform float uLive;
       varying float vStage; varying float vScore; varying float vSeed; varying float vPulse; varying float vH;
       void main(){
         float age = uTime - aTime;
         bool vis = age >= 0.0 && age <= uWin;
         if (uMode > 0.5 && uMode < 1.5 && aKind > 0.5) vis = false;
         if (uMode > 1.5 && abs(aKind - 1.0) > 0.5) vis = false;
+        if (uAuth > 0.5 && abs(aAuth - (uAuth > 1.5 ? 0.0 : 1.0)) > 0.5) vis = false;
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         if (!vis) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vStage = 0.0; vScore = 0.0; vSeed = 0.0; vPulse = 0.0; vH = 0.0; return; }
         gl_Position = projectionMatrix * mv;
@@ -3420,12 +3426,12 @@ body.measuring #labels > * { pointer-events: none; }
     if (!on && st.sel && st.sel.kind === 'prodes') { st.sel = null; showDetail(); }
   };
   $('lyQueim').onchange = e => {
-    if (e.target.checked && !queimLayer && QM.length) { const rr = QM.flatMap(d => d.r.map(flatToRing)); queimFill = makeFill(rr, 0x3d2f24, 0.55, 0.3); queimLayer = makeDraped(rr, 0xb39a80, 0.95, 0.36, 3); }
+    if (e.target.checked && !queimLayer && QM.length) { const rr = QM.filter((d, k) => !AU.mode || auOk(auQm(k))).flatMap(d => d.r.map(flatToRing)); queimFill = makeFill(rr, 0x3d2f24, 0.55, 0.3); queimLayer = makeDraped(rr, 0xb39a80, 0.95, 0.36, 3); }
     if (queimLayer) queimLayer.obj.visible = queimFill.obj.visible = e.target.checked;
     if (!e.target.checked && st.sel && st.sel.kind === 'queim') { st.sel = null; showDetail(); }
   };
   $('lyDeter').onchange = e => {
-    if (e.target.checked && !deterLayer) { deterFill = makeFill(DET.flatMap(d => d.r.map(flatToRing)), 0x8e5cc8, 0.32, 0.28); deterLayer = makeDraped(DET.flatMap(d => d.r.map(flatToRing)), 0xc39af0, 0.95, 0.34, 3); }
+    if (e.target.checked && !deterLayer) { const L = DET.filter((d, k) => !AU.mode || auOk(auDet(k))); deterFill = makeFill(L.flatMap(d => d.r.map(flatToRing)), 0x8e5cc8, 0.32, 0.28); deterLayer = makeDraped(L.flatMap(d => d.r.map(flatToRing)), 0xc39af0, 0.95, 0.34, 3); }
     if (deterLayer) deterLayer.obj.visible = deterFill.obj.visible = e.target.checked;
     if (!e.target.checked && st.sel && st.sel.kind === 'deter') { st.sel = null; showDetail(); }
   };
@@ -3527,14 +3533,115 @@ body.measuring #labels > * { pointer-events: none; }
     }
     drawInpe(); renderEvents(); if (st.pin) renderMyStatus();
   }
+  // ---------- filtro "autorização da FEMARH": separa focos, eventos do INPE e alertas do DETER que tinham ou não autorização.
+  // Queima: autorizações de queima controlada (femarh.json: ponto informado + área, vigência). Desmatamento: áreas com autorização
+  // florestal (femarh_florestal.json: AUAS e ASV para corte raso, PMFS e POA para corte seletivo). Cruzamento aproximado, por posição e data.
+  const AU = { mode: 0, Q: null, FL: null, loading: null, fire: null, burn: [], grid: new Map(), flor: [], det: null, qm: null, layers: [] };
+  const auOk = v => !AU.mode || v === (AU.mode === 1 ? 1 : 0);
+  const auGk = (x, y) => Math.floor(x * 10) * 10000 + Math.floor(y * 10);
+  const AU_TIPO_Q = () => (AU.Q && AU.Q.tipos) || [];
+  function auLoad() {
+    if (!AU.loading) AU.loading = Promise.all(['femarh.json', 'femarh_florestal.json'].map(u => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null)))
+      .then(([q, fl]) => { AU.Q = q; AU.FL = fl; auIndex(); return !!(q || fl); });
+    return AU.loading;
+  }
+  function auIndex() {
+    AU.burn = AU.Q ? Object.values(AU.Q.anos).flat().filter(r => r[3] && r[4]) : [];
+    AU.burn.forEach((r, k) => { r.rad = Math.sqrt(Math.max(0, r[2]) * 1e4 / Math.PI) / 1000; const g = auGk(r[0], r[1]); if (!AU.grid.has(g)) AU.grid.set(g, []); AU.grid.get(g).push(k); });
+    AU.flor = AU.FL ? AU.FL.areas.map(a => { let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      a[3].forEach(r => { for (let j = 0; j < r.length; j += 2) { x0 = Math.min(x0, r[j]); x1 = Math.max(x1, r[j]); y0 = Math.min(y0, r[j + 1]); y1 = Math.max(y1, r[j + 1]); } });
+      return { t: a[0], i: a[1], f: a[2], r: a[3], box: [x0, y0, x1, y1] }; }) : [];
+    AU.fire = new Uint8Array(NF);
+    for (let i = 0; i < NF; i++) { const d = dayOf(F.t[i]); AU.fire[i] = auBurnAt(F.lon[i], F.lat[i], d, d, fGeo[i] ? 2.5 : 1) ? 1 : 0; fAuth[i] = AU.fire[i]; }
+    fireGeo.attributes.aAuth.needsUpdate = true;
+    AU.det = DET.map((d, k) => auDetArea(k) ? 1 : 0); AU.qm = QM.map((d, k) => auQmRow(k) ? 1 : 0);
+  }
+  // autorização de queima vigente entre os dias d0 e d1, a até (raio da área autorizada + margem) km, ou com o ponto dentro do contorno
+  function auBurnAt(lon, lat, d0, d1, margin, rings) {
+    if (!AU.burn.length) return null;
+    let best = null, bd = 1e9; const gx = Math.floor(lon * 10), gy = Math.floor(lat * 10);
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+      const l = AU.grid.get((gx + dx) * 10000 + gy + dy); if (!l) continue;
+      for (const k of l) { const r = AU.burn[k]; if (r[3] > d1 || r[4] < d0) continue;
+        const dk = distKm(lon, lat, r[0], r[1]);
+        if ((dk <= r.rad + margin || (rings && rings.some(rr => pointInRing(r[0], r[1], rr)))) && dk < bd) { bd = dk; best = r; } }
+    }
+    if (best) best.dk = bd; return best;
+  }
+  const auCenter = rr => { const r = rr.find(x => x && x.length) || [0, 0]; let x = 0, y = 0; for (let j = 0; j < r.length; j += 2) { x += r[j]; y += r[j + 1]; } return [x / (r.length / 2), y / (r.length / 2)]; };
+  // alerta do DETER dentro de uma área com autorização florestal vigente (corte raso: AUAS ou ASV; corte seletivo: PMFS ou POA)
+  function auDetArea(k) {
+    const d = DET[k]; if (!d || !AU.flor.length) return null;
+    const kinds = /^DESMATAMENTO/.test(d.cls) ? [0, 1] : /^CS_/.test(d.cls) ? [2, 3] : null; if (!kinds) return null;
+    const [x, y] = auCenter(d.r);
+    for (const a of AU.flor) { const b = a.box;
+      if (x < b[0] || x > b[2] || y < b[1] || y > b[3] || !kinds.includes(a.t)) continue;
+      if ((a.i && d.d < addDays(a.i, -30)) || (a.f && d.d > addDays(a.f, 60))) continue;  // o satélite pode ver o corte um pouco antes ou depois da vigência
+      if (a.r.some(r => pointInRing(x, y, r))) return a; }
+    return null;
+  }
+  // cicatriz de queimada do DETER: autorização de queima vigente nos 60 dias antes do alerta
+  function auQmRow(k) { const d = QM[k]; if (!d) return null; const [x, y] = auCenter(d.r); return auBurnAt(x, y, addDays(d.d, -60), d.d, 1, d.r); }
+  const auEv = e => { if (e._au == null) e._au = AU.burn.length && auBurnAt(e.c[0], e.c[1], e.d0, e.d1b, 1.5, e.r) ? 1 : 0; return e._au; };
+  const auDet = k => AU.det ? AU.det[k] : 0, auQm = k => AU.qm ? AU.qm[k] : 0;
+  function auCardHtml(hit, kind) {
+    if (kind === 'queima' ? !AU.burn.length : !AU.flor.length) return '';
+    if (!hit) return '<p class="note" style="margin:4px 0">FEMARH: ' + (kind === 'queima' ? 'nenhuma autorização de queima vigente encontrada perto daqui nessa data.' : 'nenhuma área com autorização de desmatamento vigente encontrada aqui.') +
+      ' A lista pública pode estar incompleta e a autorização pode ser do Ibama: isso não prova que foi ilegal.</p>';
+    const per = (hit[3] || hit.i) ? ' (' + isoBr(hit[3] || hit.i) + '/' + (hit[3] || hit.i).slice(0, 4) + ' a ' + isoBr(hit[4] || hit.f) + '/' + (hit[4] || hit.f).slice(0, 4) + ')' : ' (sem data informada)';
+    if (kind === 'queima') return '<span class="tag" style="background:#1f5d3a;color:#d9ffe6">FEMARH: queima autorizada' + (hit.dk > 0.3 ? ' a ' + fmt(hit.dk, 1) + ' km' : ' aqui') + '</span>' +
+      '<p class="note" style="margin:2px 0 4px">' + esc((AU_TIPO_Q()[hit[5]] || 'queima').toLowerCase()) + ', ' + fmt(hit[2], 0) + ' ha' + per + '. A posição da autorização é o ponto informado no pedido; o fogo visto pode ser outro.</p>';
+    return '<span class="tag" style="background:#1f5d3a;color:#d9ffe6">FEMARH: área com ' + esc(AU.FL.tipos[hit.t]) + '</span>' +
+      '<p class="note" style="margin:2px 0 4px">' + esc(AU.FL.nomes[hit.t]) + per + '. Autorização não garante que o corte respeitou os limites e as condições da licença.</p>';
+  }
+  function auDrawLayer() {
+    AU.layers.forEach(removeDraped); AU.layers = [];
+    if (!$('lyAuth').checked || !(AU.burn.length || AU.flor.length)) return;
+    const day = dayOf(st.t), lo = addDays(day, -30), hi = addDays(day, 30);
+    const fl = AU.flor.filter(a => (!a.i || a.i <= hi) && (!a.f || a.f >= lo));
+    if (fl.length) AU.layers.push(makeDraped(fl.flatMap(a => a.r.map(flatToRing)), 0x4ade80, 0.9, 0.38, 3));
+    const circ = AU.burn.filter(r => r[3] <= hi && r[4] >= lo).map(r => { const out = [], rk = Math.max(0.15, r.rad);
+      for (let j = 0; j <= 20; j++) { const a = j / 20 * 2 * Math.PI; out.push([r[0] + rk * Math.cos(a) / (111.32 * Math.cos(r[1] * Math.PI / 180)), r[1] + rk * Math.sin(a) / 110.57]); } return out; });
+    if (circ.length) AU.layers.push(makeDraped(circ, 0xfacc15, 0.95, 0.4, 1));
+    $('authNote').hidden = false; auNote();
+  }
+  function auNote() {
+    const n = $('authNote'); if (!AU.burn.length && !AU.flor.length) { n.hidden = true; return; }
+    const cF = AU.fire.reduce((a, v) => a + v, 0), cD = AU.det.reduce((a, v) => a + v, 0), cQ = AU.qm.reduce((a, v) => a + v, 0);
+    n.hidden = !(AU.mode || $('lyAuth').checked);
+    n.innerHTML = (AU.mode ? '<b>' + (AU.mode === 1 ? 'Mostrando só o que tinha autorização' : 'Mostrando só o que não tinha autorização') + '</b> nos focos, nos contornos do INPE e nos alertas do DETER. ' : '') +
+      'Com autorização: ' + fmt(cF) + ' de ' + fmt(NF) + ' focos, ' + fmt(cD) + ' de ' + fmt(DET.length) + ' alertas de desmatamento e ' + fmt(cQ) + ' de ' + fmt(QM.length) + ' áreas queimadas. ' +
+      ($('lyAuth').checked ? 'No mapa: <span style="color:#4ade80">verde</span> são áreas com autorização de desmatamento ou manejo e <span style="color:#facc15">amarelo</span> são queimas autorizadas, vigentes perto do dia escolhido. ' : '') +
+      'Cruzamento aproximado: a queima autorizada só tem o ponto informado no pedido, então o mapa aceita fogo até o raio da área autorizada mais 1 km (2,5 km para o satélite GOES), na vigência. ' +
+      'Sem autorização na lista não quer dizer ilegal: ela pode estar incompleta, ser do Ibama ou ser de outra data. Fonte: <a href="https://siggarr.femarh.rr.gov.br/" target="_blank" rel="noopener">FEMARH, SIGGARR</a>' + (AU.Q ? ', cópia de ' + AU.Q.atualizado.split('-').reverse().join('/') : '') + '.';
+  }
+  function auApply() {
+    fireMat.uniforms.uAuth.value = AU.mode;
+    IN.day = null; drawInpe();
+    if (deterLayer) { removeDraped(deterLayer); removeDraped(deterFill); deterLayer = deterFill = null; if ($('lyDeter').checked) $('lyDeter').onchange({ target: $('lyDeter') }); }
+    if (queimLayer) { removeDraped(queimLayer); removeDraped(queimFill); queimLayer = queimFill = null; if ($('lyQueim').checked) $('lyQueim').onchange({ target: $('lyQueim') }); }
+    if (st.sel && AU.mode) { st.sel = null; showDetail(); }
+    auNote(); renderSit();
+  }
+  $('authF').onchange = e => {
+    const v = +e.target.value, n = $('authNote');
+    if (!v) { AU.mode = 0; auApply(); return; }
+    n.hidden = false; n.textContent = 'Baixando as autorizações da FEMARH…';
+    auLoad().then(ok => { if (!ok) { n.textContent = 'Não foi possível carregar as autorizações da FEMARH agora. Tente de novo mais tarde.'; e.target.value = '0'; return; }
+      AU.mode = +$('authF').value; auApply(); });
+  };
+  $('lyAuth').onchange = e => {
+    if (!e.target.checked) { auDrawLayer(); auNote(); return; }
+    auLoad().then(ok => { if (!ok) { e.target.checked = false; showToast('Não foi possível carregar as autorizações da FEMARH agora.'); return; } auDrawLayer(); });
+  };
   const INPE_PRI = { 'Incêndio': 0, 'Possível início de incêndio': 1, 'Atividades Antrópicas': 2, 'Nova Queima Isolada': 3 };
   // one clean outline per fire: only events burning that day, and an event lying inside a more important one is not drawn
   function drawInpe() {
-    const day = dayOf(st.t); if (day === IN.day) return; IN.day = day;
+    const day = dayOf(st.t); if (day === IN.day) return; IN.day = day; auDrawLayer();
     IN.layers.forEach(removeDraped); IN.layers = [];
     const SORD = { burn: 0, obs: 1, done: 2 }, count = { burn: 0, obs: 0, done: 0 };
     const on = [];
-    for (const e of IN.ev) { const s = inpeSit(e, day); if (!s) continue; count[s]++; if (sitOn[s]) on.push([e, s]); }
+    for (const e of IN.ev) { const s = inpeSit(e, day); if (!s || (AU.mode && !auOk(auEv(e)))) continue; count[s]++; if (sitOn[s]) on.push([e, s]); }
     on.sort((a, b) => SORD[a[1]] - SORD[b[1]] || (INPE_PRI[a[0].tipo] ?? 9) - (INPE_PRI[b[0].tipo] ?? 9) || b[0].ha - a[0].ha);
     const kept = [], groups = new Map();
     for (const [e, s] of on) {
@@ -3560,7 +3667,7 @@ body.measuring #labels > * { pointer-events: none; }
       wrap.appendChild(b);
     }); });
     document.querySelectorAll('#sit button, #sitPane button').forEach(b => { const s = b.dataset.s; b.setAttribute('aria-pressed', sitOn[s]); b.querySelector('.n').textContent = IN.count ? fmt(IN.count[s]) : '–'; });
-    const nOn = Object.keys(SIT).filter(s => sitOn[s]).length; $('sitBtn').textContent = '🔥 Filtro' + (nOn < Object.keys(SIT).length ? ' ' + nOn + '/' + Object.keys(SIT).length : '');
+    const nOn = Object.keys(SIT).filter(s => sitOn[s]).length; $('sitBtn').textContent = '🔥 Filtro' + (nOn < Object.keys(SIT).length ? ' ' + nOn + '/' + Object.keys(SIT).length : '') + (AU.mode ? (AU.mode === 1 ? ' · com autoriz.' : ' · sem autoriz.') : '');
     $('sitDay').textContent = IN.ev.length ? 'Eventos de fogo do INPE em ' + isoBr(IN.day) + '. Clique para mostrar ou esconder.' : 'Carregando eventos do INPE…';
   }
   $('lyInpe').onchange = e => IN.layers.forEach(d => d.obj.visible = e.target.checked);
@@ -3568,6 +3675,7 @@ body.measuring #labels > * { pointer-events: none; }
     let best = -1;
     for (let k = 0; k < IN.ev.length; k++) {
       const e = IN.ev[k], sit = inpeSit(e, day); if (!sit || (burningOnly ? sit !== 'burn' : !sitOn[sit])) continue;
+      if (!burningOnly && AU.mode && !auOk(auEv(e))) continue;
       const b = e.box; if (lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) continue;
       if (e.r.some(r => pointInRing(lon, lat, r)) && (best < 0 || e.ha < IN.ev[best].ha)) best = k;
     }
@@ -3583,6 +3691,7 @@ body.measuring #labels > * { pointer-events: none; }
     showCard('<h3>' + esc(inpeName(e.tipo)) + ' · ' + esc(e.mun) + '</h3><p class="when">' + isoBr(e.d0) + ' a ' + isoBr(e.d1) + ' · ' + e.dias + (e.dias === 1 ? ' dia' : ' dias') + ' · evento oficial do INPE</p>' + whereTxt(e.c[0], e.c[1]) +
       '<span class="tag' + (burning ? ' hot' : '') + '">' + sitTag + '</span><span class="tag">≈ ' + fmt(e.ha, 0) + ' ha</span>' +
       (e.desm != null ? '<p class="note" style="margin:2px 0 4px">O que queimou: ' + pct(e.desm) + ' área desmatada, ' + pct(e.veg) + ' vegetação nativa, ' + pct(e.trans) + ' transição (INPE).</p>' : '') +
+      auCardHtml(auBurnAt(e.c[0], e.c[1], e.d0, e.d1b, 1.5, e.r), 'queima') +
       legalHtml({ lc: -1, ti: tiHit, dt: -1, car: carAt(e.c[0], e.c[1]), inpe: e }) +
       '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([['Classificação', e.tipo], ['Situação no INPE', e.atual ? e.status : 'encerrado'], ['Código do evento', String(e.id)], ['Área estimada', fmt(e.ha, 1) + ' ha'], ['Município', e.mun]]) +
       '<p style="margin-top:6px">Contorno e classificação do Programa Queimadas, que junta os focos de vários satélites em eventos de fogo. <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">Ver no INPE</a></p></div></details>' +
@@ -3688,6 +3797,7 @@ body.measuring #labels > * { pointer-events: none; }
     const r = renderer.domElement.getBoundingClientRect(), mx = clientX - r.left, my = clientY - r.top;
     let best = -1, bd = 16 * 16;
     if (firePts.visible) for (const i of windowIdx()) {
+      if (AU.mode && !auOk(AU.fire[i])) continue;
       tmpV.set(fPos[i * 3], fPos[i * 3 + 1], fPos[i * 3 + 2]).project(camera); if (tmpV.z > 1) continue;
       const dx = (tmpV.x + 1) / 2 * r.width - mx, dy = (1 - tmpV.y) / 2 * r.height - my, d = dx * dx + dy * dy;
       if (d < bd) { bd = d; best = i; }
@@ -3799,7 +3909,7 @@ body.measuring #labels > * { pointer-events: none; }
     if (!detBox) detBox = DET.map(d => { let a = 1e9, b = -1e9, y0 = 1e9, y1 = -1e9; d.r.forEach(r => { for (let j = 0; j < r.length; j += 2) { a = Math.min(a, r[j]); b = Math.max(b, r[j]); y0 = Math.min(y0, r[j + 1]); y1 = Math.max(y1, r[j + 1]); } }); return [a, y0, b, y1]; });
     let best = -1, ba = 1e18, near = -1, nd = tolKm / 111;
     for (let k = 0; k < DET.length; k++) {
-      const b = detBox[k]; if (b[0] > b[2]) continue;
+      const b = detBox[k]; if (b[0] > b[2] || (AU.mode && !auOk(auDet(k)))) continue;
       if (lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3] && DET[k].km2 < ba && DET[k].r.some(r => pointInRing(lon, lat, r))) { best = k; ba = DET[k].km2; }
       const d = Math.hypot(Math.max(b[0] - lon, 0, lon - b[2]), Math.max(b[1] - lat, 0, lat - b[3])); if (d < nd) { nd = d; near = k; }
     }
@@ -3810,7 +3920,7 @@ body.measuring #labels > * { pointer-events: none; }
     if (!qmBox) qmBox = QM.map(d => { let a = 1e9, b = -1e9, y0 = 1e9, y1 = -1e9; d.r.forEach(r => { for (let j = 0; j < r.length; j += 2) { a = Math.min(a, r[j]); b = Math.max(b, r[j]); y0 = Math.min(y0, r[j + 1]); y1 = Math.max(y1, r[j + 1]); } }); return [a, y0, b, y1]; });
     let best = -1, ba = 1e18, near = -1, nd = tolKm / 111;
     for (let k = 0; k < QM.length; k++) {
-      const b = qmBox[k]; if (b[0] > b[2]) continue;
+      const b = qmBox[k]; if (b[0] > b[2] || (AU.mode && !auOk(auQm(k)))) continue;
       if (lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3] && QM[k].km2 < ba && QM[k].r.some(r => pointInRing(lon, lat, r))) { best = k; ba = QM[k].km2; }
       const d = Math.hypot(Math.max(b[0] - lon, 0, lon - b[2]), Math.max(b[1] - lat, 0, lat - b[3])); if (d < nd) { nd = d; near = k; }
     }
@@ -3840,6 +3950,7 @@ body.measuring #labels > * { pointer-events: none; }
     removeDraped(qmSel); removeDraped(qmSelFill); qmSelFill = makeFill(d.r.map(flatToRing), 0xffffff, 0.3, 0.4); qmSel = makeDraped(d.r.map(flatToRing), 0xffffff, 1, 0.9, 1);
     showCard('<h3>' + (deg ? 'Área degradada' : 'Área queimada') + '</h3><p class="when">DETER · INPE · visto pelo satélite em ' + d.d.split('-').reverse().join('/') + '</p>' + whereTxt(lon, lat) +
       '<span class="tag">' + esc(QM_CLS[d.cls] || d.cls.replace(/_/g, ' ').toLowerCase()) + '</span><span class="tag">cerca de ' + (ha < 10 ? fmt(ha, 1) : fmt(ha, 0)) + ' ha</span>' +
+      auCardHtml(auQmRow(k), 'queima') +
       '<p style="margin:8px 0 0;font-size:13px">É um <b>alerta do INPE</b>, não confirmação de autoria: mostra a marca deixada na vegetação, não quem causou nem se havia autorização.</p>' +
       '<details class="more"><summary>Mais detalhes</summary><div><p>' + (deg ? 'Degradação é floresta que perdeu parte das árvores ou da copa sem ser derrubada por completo. Pode vir de fogo repetido ou de retirada de madeira.' : 'Cicatriz de queimada é a área onde a vegetação aparece queimada na imagem de satélite.') +
       ' A área é aproximada e foi medida dentro do município. O mapa mostra os alertas desde dezembro de 2024.</p>' +
@@ -3852,6 +3963,7 @@ body.measuring #labels > * { pointer-events: none; }
     showCard('<h3>Alerta de desmatamento</h3><p class="when">DETER · INPE · visto pelo satélite em ' + d.d.split('-').reverse().join('/') + '</p>' + whereTxt(lon, lat) +
       '<span class="tag">' + esc(DET_CLS[d.cls] || d.cls.replace(/_/g, ' ').toLowerCase()) + '</span><span class="tag">cerca de ' + (ha < 10 ? fmt(ha, 1) : fmt(ha, 0)) + ' ha</span>' +
       (nf ? '<span class="tag hot">' + fmt(nf) + (nf === 1 ? ' foco de fogo' : ' focos de fogo') + ' em 2026</span>' : '') +
+      auCardHtml(auDetArea(k), 'florestal') +
       '<p style="margin:8px 0 0;font-size:13px">É um <b>alerta</b> por satélite, não uma confirmação: o INPE pode revisar. Não mostra quem desmatou nem se havia licença.</p>' +
       '<details class="more"><summary>Mais detalhes</summary><div><p>O DETER é o sistema do INPE que avisa rápido sobre mudanças na vegetação, para orientar a fiscalização. A área é aproximada e foi medida dentro do município; pode ser maior.</p>' +
       '<p style="margin-top:6px">Fonte: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">TerraBrasilis, INPE</a>.</p></div></details>');
@@ -4233,6 +4345,7 @@ body.measuring #labels > * { pointer-events: none; }
       const ie = IN.ev.length ? inpeAt(F.lon[i], F.lat[i], dayOf(F.t[i]), true) : -1, iev = ie >= 0 ? IN.ev[ie] : null;
       const push = w.sp < 3 ? 'Vento fraco: o fogo se espalha devagar.' : 'Vento de ' + dirName(w.from) + ' (' + fmt(w.sp) + ' km/h) empurra o fogo para o ' + dirName(w.to) + '.' + (w.rh < 40 ? ' Ar seco.' : '');
       showCard('<h3>' + esc(D.muns[F.m[i]]) + '</h3><p class="when">Visto pelo satélite em ' + fmtT(F.t[i]) + ' · <b>' + agoTxt(F.t[i]) + '</b></p>' + whereTxt(F.lon[i], F.lat[i]) + tags + fireKindTag(i, iev) + (iev ? '<span class="tag">INPE: ' + esc(iev.tipo.toLowerCase()) + '</span>' : '') + '<div class="wind">' + push + '</div>' +
+        auCardHtml(auBurnAt(F.lon[i], F.lat[i], dayOf(F.t[i]), dayOf(F.t[i]), fGeo[i] ? 2.5 : 1), 'queima') +
         legalHtml({ lc: F.c[i], ti: F.ti[i], dt: F.dt ? F.dt[i] : -1, car: F.car ? F.car[i] : -1, inpe: iev }) +
         '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([
           ['Satélite', D.sats[F.s[i]] + (geoSat.has(F.s[i]) ? ' (pixel ~2 km, repete a cada 10 min)' : F.v[i] ? ' (pixel 375 m)' : '')],
