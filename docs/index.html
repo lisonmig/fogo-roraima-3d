@@ -949,8 +949,14 @@ body.measuring #labels > * { pointer-events: none; }
         <section class="sec">
           <h2>Camadas</h2>
           <label class="fl" for="base">Fundo do mapa
-            <select id="base"><option value="sat">Imagem de satélite (2025, sem nuvens)</option><option value="lc">Tipo de vegetação (MODIS 2023)</option><option value="inpe">Floresta e desmatamento (INPE PRODES)</option><option value="risco">Risco de fogo (previsão do INPE)</option><option value="nasa">Imagem de ontem (NASA, com nuvens)</option><option value="none">Só relevo</option></select></label>
+            <select id="base"><option value="sat">Imagem de satélite (2025, sem nuvens)</option><option value="relevo">Mapa com relevo</option><option value="temp">Temperatura do solo (frio → quente)</option><option value="lc">Tipo de vegetação (MODIS 2023)</option><option value="inpe">Floresta e desmatamento (INPE PRODES)</option><option value="risco">Risco de fogo (previsão do INPE)</option><option value="nasa">Imagem de ontem (NASA, com nuvens)</option><option value="none">Só relevo</option></select></label>
           <p class="note" id="nasaNote" hidden></p>
+          <div id="tempBox" hidden style="margin-top:8px">
+            <label class="fl" for="tempWhen">Temperatura do solo medida
+              <select id="tempWhen"><option value="Day">de dia (por volta das 13h30)</option><option value="Night">de noite (por volta da 1h30)</option></select></label>
+            <div class="legend" style="margin-top:6px;align-items:center"><span id="tempLo">frio</span><i class="sq" style="width:130px;height:9px;background:linear-gradient(90deg,#313695,#4575b4,#74add1,#abd9e9,#ffffbf,#fdae61,#f46d43,#d73027,#a50026)"></i><span id="tempHi">quente</span></div>
+            <p class="note" id="tempNote"></p>
+          </div>
           <div class="checks" style="margin-top:10px">
             <label><input type="checkbox" id="lyFire" checked> Focos</label>
             <label><input type="checkbox" id="lyTop" checked> Nomes dos incêndios</label>
@@ -1093,7 +1099,7 @@ body.measuring #labels > * { pointer-events: none; }
           <summary>Fontes</summary>
           <div class="src" style="border:0;padding:0">
           <p class="note" style="margin:0 0 8px">📘 <a href="sobre.html">Sobre o projeto e como os números são calculados</a> · 📄 <a href="termos.html">Termos, privacidade e correções</a></p>
-          <p><b>Fontes.</b> Focos: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>. Terras Indígenas: <a href="https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas" target="_blank" rel="noopener">FUNAI</a>. Municípios e limite estadual: IBGE. Imóveis rurais: <a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">SICAR</a> (CAR, dados públicos, sem nome de dono). Desmatamento, área queimada e degradação: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE DETER</a> (alertas desde dezembro de 2024, não confirmação). Desmatamento medido por ano: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (últimos 3 anos publicados). Eventos de fogo oficiais (contorno, tipo e uso da terra): <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">INPE, Evento de Fogo</a>; o INPE lista só os eventos ativos ou em observação, então o mapa guarda cada atualização para formar o histórico a partir de 30/09/2026. Estradas, rios, vilas e fazendas: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© colaboradores do OpenStreetMap</a> (ODbL); o mapa colaborativo pode ter falhas ou estradas faltando. Vegetação: MODIS Land Cover (IGBP) 2023, NASA GIBS; floresta e desmatamento: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (mapa de classes até 2025). Relevo: Terrarium/Mapzen (SRTM). Imagem: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2025 by EOX IT Services GmbH</a> (dados Copernicus Sentinel modificados, CC BY-NC-SA 4.0). Imagem de ontem: <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">NASA GIBS/Worldview</a> (satélites VIIRS, dados públicos; mostra nuvens e fumaça). Vento, umidade, temperatura e chuva: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (modelo, não estação).</p>
+          <p><b>Fontes.</b> Focos: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>. Terras Indígenas: <a href="https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas" target="_blank" rel="noopener">FUNAI</a>. Municípios e limite estadual: IBGE. Imóveis rurais: <a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">SICAR</a> (CAR, dados públicos, sem nome de dono). Desmatamento, área queimada e degradação: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE DETER</a> (alertas desde dezembro de 2024, não confirmação). Desmatamento medido por ano: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (últimos 3 anos publicados). Eventos de fogo oficiais (contorno, tipo e uso da terra): <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">INPE, Evento de Fogo</a>; o INPE lista só os eventos ativos ou em observação, então o mapa guarda cada atualização para formar o histórico a partir de 30/09/2026. Estradas, rios, vilas e fazendas: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© colaboradores do OpenStreetMap</a> (ODbL); o mapa colaborativo pode ter falhas ou estradas faltando. Vegetação: MODIS Land Cover (IGBP) 2023, NASA GIBS; floresta e desmatamento: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (mapa de classes até 2025). Relevo: Terrarium/Mapzen (SRTM). Imagem: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2025 by EOX IT Services GmbH</a> (dados Copernicus Sentinel modificados, CC BY-NC-SA 4.0). Imagem de ontem: <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">NASA GIBS/Worldview</a> (satélites VIIRS, dados públicos; mostra nuvens e fumaça). Temperatura do solo: NASA GIBS, VIIRS NOAA-20 (temperatura da superfície, média de 8 dias). Vento, umidade, temperatura e chuva: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (modelo, não estação).</p>
           <p>Unidades de conservação ficaram de fora: o serviço do MMA consultado trazia nomes trocados com os desenhos.</p>
           <p>Site educativo independente.</p>
           </div>
@@ -3261,9 +3267,121 @@ body.measuring #labels > * { pointer-events: none; }
     trackImg(img, 'Carregando o mapa de floresta (INPE)');
     img.src = 'vegetacao_inpe.png';
   }
+  // ---------- "Mapa com relevo": cores de mapa (vegetação MODIS + altitude SRTM) com sombra das serras, feito no próprio aparelho
+  let reliefCv = null, reliefTex = null;
+  const RELIEF_LC = [[176, 214, 160], [222, 233, 196], [233, 236, 206], [238, 234, 208], [196, 226, 210], [228, 224, 218], [164, 206, 238], [226, 228, 218]];
+  function makeRelief() {
+    if (reliefCv) return reliefCv;
+    const w = GW, h = GH, cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const g = cv.getContext('2d'), img = g.createImageData(w, h), o = img.data;
+    const dx = (E - W) / (GW - 1) * 111320 * Math.cos((N + S) / 2 * Math.PI / 180), dy = (N - S) / (GH - 1) * 110570, Z = 2.5;
+    const Lx = -0.55, Ly = 0.40, Lz = 0.73;  // luz do noroeste, como nos mapas impressos
+    const lw = lcCv.width, lh = lcCv.height, cls = new Uint8Array(lw * lh);
+    for (let i = 0; i < lw * lh; i++) { let best = 7, bd = 1e9;
+      for (let c = 0; c < lcRgb.length; c++) { const d = Math.abs(lcRgb[c][0] - lcPix[i * 4]) + Math.abs(lcRgb[c][1] - lcPix[i * 4 + 1]) + Math.abs(lcRgb[c][2] - lcPix[i * 4 + 2]); if (d < bd) { bd = d; best = c; } }
+      cls[i] = best; }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x, e = elev[i];
+      const ex = (elev[y * w + Math.min(w - 1, x + 1)] - elev[y * w + Math.max(0, x - 1)]) / (2 * dx) * Z;
+      const ey = (elev[Math.max(0, y - 1) * w + x] - elev[Math.min(h - 1, y + 1) * w + x]) / (2 * dy) * Z;
+      const nl = Math.hypot(ex, ey, 1), lam = (-ex * Lx - ey * Ly + Lz) / nl;
+      const k = cls[Math.min(lh - 1, Math.floor(y * lh / h)) * lw + Math.min(lw - 1, Math.floor(x * lw / w))];
+      let c = RELIEF_LC[k] || RELIEF_LC[7];
+      if (k !== 6) {  // serras: verde passa a bege e, no alto, quase branco
+        const a = Math.min(1, Math.max(0, (e - 500) / 900)), b = Math.min(1, Math.max(0, (e - 1500) / 900));
+        c = [0, 1, 2].map(j => c[j] + ([232, 222, 196][j] - c[j]) * a); c = [0, 1, 2].map(j => c[j] + ([247, 244, 236][j] - c[j]) * b);
+      }
+      const sh = k === 6 ? 1 : Math.min(1.12, Math.max(0.55, 0.62 + 0.5 * lam));
+      o[i * 4] = c[0] * sh; o[i * 4 + 1] = c[1] * sh; o[i * 4 + 2] = c[2] * sh; o[i * 4 + 3] = 255;
+    }
+    g.putImageData(img, 0, 0); reliefCv = cv; return cv;
+  }
+  function reliefTexture() { if (!reliefTex) reliefTex = mkTex(makeRelief()); return reliefTex; }
+  // ---------- "Temperatura do solo": temperatura da superfície medida pelo satélite VIIRS (NOAA-20, NASA GIBS), média de 8 dias.
+  // A imagem da NASA vem colorida; a tabela de cores dela (colormap) devolve os °C de cada ponto, que o mapa repinta do mais frio ao mais quente.
+  const LST = { cm: null, when: 'Day', grid: null, w: 0, h: 0, lo: 0, hi: 0, day: '', tex: null, busy: false, cache: {} };
+  const LST_RAMP = [[49, 54, 149], [69, 117, 180], [116, 173, 209], [171, 217, 233], [255, 255, 191], [253, 174, 97], [244, 109, 67], [215, 48, 39], [165, 0, 38]];
+  const lstAt = (lon, lat) => {
+    if (!LST.grid || lon < W || lon > E || lat < S || lat > N) return null;
+    const v = LST.grid[Math.min(LST.h - 1, Math.floor((N - lat) / (N - S) * LST.h)) * LST.w + Math.min(LST.w - 1, Math.floor((lon - W) / (E - W) * LST.w))];
+    return isNaN(v) ? null : v;
+  };
+  function lstPeriods() {  // inícios dos períodos de 8 dias (1º de janeiro, 9 de janeiro, ...) já fechados, do mais novo ao mais antigo
+    const out = [], now = Date.now() - 4 * 3600e3;
+    for (let y = new Date(now).getUTCFullYear(); y >= new Date(now).getUTCFullYear() - 1 && out.length < 6; y--)
+      for (let d = Date.UTC(y, 0, 1) + 45 * 8 * 864e5; d >= Date.UTC(y, 0, 1) && out.length < 6; d -= 8 * 864e5)
+        if (new Date(d).getUTCFullYear() === y && d + 8 * 864e5 <= now) out.push(new Date(d).toISOString().slice(0, 10));
+    return out;
+  }
+  function lstFail(msg) {
+    LST.busy = false;
+    if ($('base').value === 'temp') $('tempNote').textContent = msg || 'Não foi possível baixar a temperatura do solo da NASA agora (sem internet ou serviço fora do ar). Tente de novo mais tarde.';
+  }
+  async function loadLst(when) {
+    LST.busy = true; $('tempNote').textContent = 'Baixando a temperatura do solo medida pelo satélite (NASA)…';
+    try {
+      if (!LST.cm) {
+        const x = await fetch('https://gibs.earthdata.nasa.gov/colormaps/v1.0/MODIS_Land_Surface_Temp.xml').then(r => { if (!r.ok) throw new Error('cm'); return r.text(); });
+        LST.cm = new Map();
+        for (const m of x.matchAll(/rgb="(\d+),(\d+),(\d+)"[^>]*value="\[([\d.]+),([\d.]+)\)/g))
+          LST.cm.set((+m[1] << 16) | (+m[2] << 8) | +m[3], (+m[4] + +m[5]) / 2 - 273.15);
+      }
+    } catch (err) { lstFail(); return; }
+    const w = LIGHT ? 480 : 700, h = Math.round(w * (N - S) / (E - W)), layer = 'VIIRS_NOAA20_L3_Land_Surface_Temp_8Day_' + when;
+    const getImg = day => new Promise(res => {
+      const img = new Image(); img.crossOrigin = 'anonymous';
+      const tmo = setTimeout(() => { img.src = ''; res(null); }, 30000);
+      img.onload = () => { clearTimeout(tmo); res(img); }; img.onerror = () => { clearTimeout(tmo); res(null); };
+      trackImg(img, 'Baixando a temperatura do solo (NASA)');
+      img.src = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&CRS=EPSG:4326&FORMAT=image/png&TRANSPARENT=true' +
+        '&LAYERS=' + layer + '&BBOX=' + [S, W, N, E].join(',') + '&WIDTH=' + w + '&HEIGHT=' + h + '&TIME=' + day;
+    });
+    for (const day of lstPeriods()) {
+      const img = await getImg(day); if (!img) continue;
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const g = cv.getContext('2d'); g.drawImage(img, 0, 0);
+      let px; try { px = g.getImageData(0, 0, w, h).data; } catch (err) { lstFail(); return; }
+      const grid = new Float32Array(w * h).fill(NaN), vals = [];
+      for (let i = 0; i < w * h; i++) {
+        if (px[i * 4 + 3] < 128) continue;
+        const v = LST.cm.get((px[i * 4] << 16) | (px[i * 4 + 1] << 8) | px[i * 4 + 2]);
+        if (v != null && v > -60) { grid[i] = v; vals.push(v); }
+      }
+      if (vals.length < w * h * 0.08) continue;  // quase tudo nuvem: tenta o período anterior
+      vals.sort((a, b) => a - b);
+      const r = { grid, w, h, day, lo: Math.floor(vals[Math.floor(vals.length * 0.02)]), hi: Math.ceil(vals[Math.floor(vals.length * 0.98)]) };
+      if (r.hi - r.lo < 4) r.hi = r.lo + 4;
+      LST.cache[when] = r; showLst(when); LST.busy = false; return;
+    }
+    lstFail('A NASA ainda não publicou temperatura do solo sem nuvens para as últimas semanas. Tente de novo mais tarde.');
+  }
+  function showLst(when) {
+    const r = LST.cache[when]; if (!r) return;
+    Object.assign(LST, { when, grid: r.grid, w: r.w, h: r.h, lo: r.lo, hi: r.hi, day: r.day });
+    const cv = document.createElement('canvas'); cv.width = r.w; cv.height = r.h; const g = cv.getContext('2d');
+    g.drawImage(makeRelief(), 0, 0, r.w, r.h);
+    const img = g.getImageData(0, 0, r.w, r.h), o = img.data, n = LST_RAMP.length - 1;
+    for (let i = 0; i < r.w * r.h; i++) {
+      const v = r.grid[i]; if (isNaN(v)) continue;  // sem dado (nuvem): fica o mapa de relevo por baixo
+      const t = Math.min(1, Math.max(0, (v - r.lo) / (r.hi - r.lo))) * n, j = Math.min(n - 1, Math.floor(t)), f = t - j, a = LST_RAMP[j], b = LST_RAMP[j + 1];
+      for (let c = 0; c < 3; c++) o[i * 4 + c] = o[i * 4 + c] * 0.12 + (a[c] + (b[c] - a[c]) * f) * 0.88;
+    }
+    g.putImageData(img, 0, 0);
+    if (LST.tex) LST.tex.dispose(); LST.tex = mkTex(cv);
+    $('tempLo').textContent = r.lo + ' °C'; $('tempHi').textContent = r.hi + ' °C';
+    const d0 = r.day.split('-').reverse().join('/'), d1 = new Date(Date.parse(r.day) + 7 * 864e5).toISOString().slice(0, 10).split('-').reverse().join('/');
+    $('tempNote').innerHTML = 'Temperatura do <b>chão</b> (superfície), não do ar, medida ' + (when === 'Day' ? 'de dia, por volta das 13h30' : 'de noite, por volta da 1h30') +
+      ', média de <b>' + d0 + ' a ' + d1 + '</b>. Azul é o mais frio e vermelho o mais quente nesse período (de ' + r.lo + ' a ' + r.hi + ' °C). ' +
+      'Chão sem vegetação, pasto seco e lavrado esquentam muito mais que a floresta e que o ar. Cada quadrado tem cerca de 1 km; onde não há cor, a nuvem cobriu o chão. ' +
+      (matchMedia('(pointer: coarse)').matches ? 'Toque no mapa para ver os °C do ponto. ' : 'Passe o mouse no mapa para ver os °C do ponto. ') +
+      'Fonte: <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">NASA GIBS</a>, satélite VIIRS (NOAA-20).';
+    if ($('base').value === 'temp') terrainMat.uniforms.uMap.value = LST.tex;
+  }
+  $('tempWhen').onchange = e => { if ($('base').value !== 'temp') return; if (LST.cache[e.target.value]) showLst(e.target.value); else if (!LST.busy) loadLst(e.target.value); };
   function applyBase(v) {
     const useNasa = v === 'nasa' && nasa.tex, useInpe = v === 'inpe' && inpeVeg.tex;
-    terrainMat.uniforms.uMapOn.value = v === 'none' ? 0 : 1; terrainMat.uniforms.uMap.value = v === 'risco' && RF.J ? rfTex(RF.day) : v === 'lc' ? texLc : useNasa ? nasa.tex : useInpe ? inpeVeg.tex : texImg;
+    terrainMat.uniforms.uMapOn.value = v === 'none' ? 0 : 1; terrainMat.uniforms.uMap.value = v === 'risco' && RF.J ? rfTex(RF.day) : v === 'lc' ? texLc : useNasa ? nasa.tex : useInpe ? inpeVeg.tex : v === 'relevo' ? reliefTexture() : v === 'temp' ? (LST.tex || reliefTexture()) : texImg;
+    $('tempBox').hidden = v !== 'temp';
+    if (v === 'temp') { const wh = $('tempWhen').value; if (LST.cache[wh]) { if (LST.when !== wh || !LST.tex) showLst(wh); } else if (!LST.busy) loadLst(wh); }
     sharp.base = v === 'sat'; if (!sharp.base) terrainMat.uniforms.uDetOn.value = 0; else if (sharp.tex) terrainMat.uniforms.uDetOn.value = 1;
     $('legendLc').hidden = v !== 'lc'; $('legendInpe').hidden = v !== 'inpe'; $('legendRisco').hidden = v !== 'risco' || !RF.J;
     if (v === 'inpe' && !inpeVeg.tex && !inpeVeg.busy) loadInpeVeg();
@@ -3602,7 +3720,8 @@ body.measuring #labels > * { pointer-events: none; }
   function coordShow() {
     CO.raf = 0; const e = CO.ev; if (!e) return; const g = groundAt(e.clientX, e.clientY);
     if (!g || g.lon < W || g.lon > E || g.lat < S || g.lat > N) { $('coord').hidden = true; return; }
-    CO.last = g; $('coordV').textContent = coordTxt(g) + '  ·  ' + fmt(elevAt(g.lon, g.lat), 0) + ' m'; $('coord').hidden = false;
+    CO.last = g; const tC = $('base').value === 'temp' ? lstAt(g.lon, g.lat) : null;
+    $('coordV').textContent = coordTxt(g) + '  ·  ' + fmt(elevAt(g.lon, g.lat), 0) + ' m' + (tC != null ? '  ·  chão ' + Math.round(tC) + ' °C' : ''); $('coord').hidden = false;
   }
   renderer.domElement.addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; CO.ev = e; if (!CO.raf) CO.raf = requestAnimationFrame(coordShow); });
   renderer.domElement.addEventListener('pointerleave', e => { CO.ev = null; if (!(e.relatedTarget && $('coord').contains(e.relatedTarget))) $('coord').hidden = true; });
@@ -3638,6 +3757,8 @@ body.measuring #labels > * { pointer-events: none; }
       if (kind !== 'r') { const g = groundAt(e.clientX, e.clientY); if (g) { st.sel = null; showDetail(); setPin(g.lon, g.lat, 'Ponto marcado'); return; } }
     }
     if (kind === 'r') return;
+    if (kind === 't' && $('base').value === 'temp' && LST.grid) { const g = groundAt(e.clientX, e.clientY), tC = g && lstAt(g.lon, g.lat);
+      if (g) showToast(tC != null ? 'Chão a ' + Math.round(tC) + ' °C neste ponto (' + (LST.when === 'Day' ? 'de dia' : 'de noite') + ', média de 8 dias)' : 'Sem medida neste ponto: a nuvem cobriu o chão.', 3500); }
     pick(e.clientX, e.clientY);
   });
 
