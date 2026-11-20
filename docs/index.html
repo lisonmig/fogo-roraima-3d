@@ -2600,13 +2600,7 @@ body.measuring #labels > * { pointer-events: none; }
     for (let k = 0; k <= n; k++) { const s = sl * k / n, w = hw * (0.3 + 0.7 * k / n); left.push(at(s, w)); right.push(at(s, -w)); }
     const ring = left.concat([at(sl, hw * 2.5), z, at(sl, -hw * 2.5)], right.reverse());
     const col = r.level === 'alto' ? 0xff3b30 : r.level === 'atencao' ? 0xff9f1a : 0xffd84a;
-    riskLine = makeFill([ring], col, 0.92, 0.9); riskLine.obj.renderOrder = 8;
-    riskEdge = makeDraped([ring.concat([ring[0]])], 0xffffff, 0.95, 0.95, 0.6); riskEdge.obj.renderOrder = 9;
-    st.risk = { lon: a[0], lat: a[1], a, z, d: L };
-    riskEl.className = 'lbl risk ' + r.level;
-    riskEl.textContent = '🔥 ' + kmTxt(b.d) + (b.riv ? ' · 🌊 rio no caminho' : b.tmin <= 24 * 7 ? ' · ' + durTxt(b.tmin) : '');
-    riskEl.title = 'Foco que traz o risco para o seu local. Clique para ver o caminho.';
-    riskEl.onclick = fitRisk; riskEl.hidden = false;
+    st.risk = { lon: a[0], lat: a[1], a, z, d: L }; // sem seta no mapa (decisao do usuario): so guarda para o "Ver o caminho"
   }
   function fitRisk() {
     const R = st.risk; if (!R) return; if (isPhone()) setDrawer(false);
