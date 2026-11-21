@@ -18,7 +18,7 @@ TEND = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
 # whole months from the monthly archive; the current month comes from the daily files (updated through the day)
 MONTHS = ['202512'] + [f'2026{m:02d}' for m in range(1, TEND.month)]
 DAILY_FROM = dt.date(TEND.year, TEND.month, 1)
-UA = {'User-Agent': 'uerr-extensao-fire-map/1.0'}
+UA = {'User-Agent': 'discente-uerr-fire-map/1.0'}
 
 def get(url, path=None, timeout=300):
     if path and os.path.exists(path) and os.path.getsize(path) > 0:

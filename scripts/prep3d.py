@@ -10,7 +10,7 @@ RAW, OUT = sys.argv[1], sys.argv[2]
 os.makedirs(RAW, exist_ok=True); os.makedirs(OUT, exist_ok=True)
 W, E, S, N = -61.8, -59.2, 1.8, 5.3
 D0, D1 = dt.date(2026, 10, 9), dt.date(2026, 11, 8)
-UA = {'User-Agent': 'uerr-extensao-fire-map/1.0'}
+UA = {'User-Agent': 'discente-uerr-fire-map/1.0'}
 
 def get(url, path=None, timeout=180):
     if path and os.path.exists(path) and os.path.getsize(path) > 0:

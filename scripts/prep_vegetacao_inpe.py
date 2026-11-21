@@ -17,7 +17,7 @@ def layer(name):
     q = {'service': 'WMS', 'version': '1.1.1', 'request': 'GetMap', 'layers': 'prodes-legal-amz:' + name, 'styles': '', 'srs': 'EPSG:4326',
          'bbox': f'{W},{S},{E},{N}', 'width': PW, 'height': PH, 'format': 'image/png', 'transparent': 'true'}
     u = 'https://terrabrasilis.dpi.inpe.br/geoserver/prodes-legal-amz/ows?' + urllib.parse.urlencode(q)
-    with urllib.request.urlopen(urllib.request.Request(u, headers={'User-Agent': 'uerr-extensao-fire-map/1.0'}), timeout=180) as r:
+    with urllib.request.urlopen(urllib.request.Request(u, headers={'User-Agent': 'discente-uerr-fire-map/1.0'}), timeout=180) as r:
         data = r.read()
     if not data.startswith(b'\x89PNG'): raise RuntimeError(name + ': ' + data[:200].decode('utf-8', 'replace'))
     return np.array(Image.open(io.BytesIO(data)).convert('RGBA'))[..., 3] > 127

@@ -11,7 +11,7 @@ from shapely.geometry import shape, Polygon
 
 RAW, OUT = sys.argv[1], sys.argv[2]
 W, S, Q = -64.85, -1.6, 1e4
-UA = {'User-Agent': 'uerr-extensao-fire-map/1.0'}
+UA = {'User-Agent': 'discente-uerr-fire-map/1.0'}
 URL = 'https://terrabrasilis.dpi.inpe.br/geoserver/prodes-legal-amz/yearly_deforestation/ows?'
 cache = os.path.join(RAW, 'rr_prodes.json')
 

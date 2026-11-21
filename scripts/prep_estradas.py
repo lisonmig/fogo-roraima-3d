@@ -11,7 +11,7 @@ from shapely.strtree import STRtree
 
 RAW, OUT = sys.argv[1], sys.argv[2]
 W, E, S, N = -64.85, -58.85, -1.6, 5.3
-UA = {'User-Agent': 'uerr-extensao-fire-map/1.0'}
+UA = {'User-Agent': 'discente-uerr-fire-map/1.0'}
 Q = 1e4  # coordinates stored as integers of 0.0001 degree (~11 m)
 
 def load_json(path):

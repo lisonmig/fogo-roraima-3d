@@ -9,7 +9,7 @@ from shapely.geometry import shape, Polygon
 
 RAW, OUT = sys.argv[1], sys.argv[2]
 API = 'https://data.inpe.br/queimadas/portal/api/sala-ciman/'
-UA = {'User-Agent': 'uerr-extensao-fire-map/1.0'}
+UA = {'User-Agent': 'discente-uerr-fire-map/1.0'}
 T0 = '2025-12-01'
 NOW = dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%MZ')
 

@@ -14,7 +14,7 @@ import time
 import urllib.request
 from datetime import datetime, timezone
 
-UA = {'User-Agent': 'fogo-roraima-3d (projeto de extensao UERR)'}
+UA = {'User-Agent': 'fogo-roraima-3d (discente UERR)'}
 
 # municipal seats (approximate town centre); air quality is a ~40 km model, so this is enough
 SEDES = [

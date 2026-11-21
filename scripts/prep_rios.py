@@ -8,7 +8,7 @@ from shapely.ops import unary_union, linemerge, polygonize
 
 RAW, OUT = sys.argv[1], sys.argv[2]
 W, S, Q = -64.85, -1.6, 1e4
-UA = {'User-Agent': 'uerr-extensao-fire-map/1.0'}
+UA = {'User-Agent': 'discente-uerr-fire-map/1.0'}
 cache = os.path.join(RAW, 'rr_osm_rios.json')
 if '--completo' in sys.argv or not os.path.exists(cache) or time.time() - os.path.getmtime(cache) > 60 * 86400:
     q = ('[out:json][timeout:900];area["ISO3166-2"="BR-RR"]["admin_level"="4"]->.a;'

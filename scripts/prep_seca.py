@@ -7,7 +7,7 @@ The Boa Vista station (Rio Branco) also gets the full yearly band for the chart 
 import json, os, re, sys, time, datetime as dt, urllib.request, urllib.parse
 
 RAW, OUT = sys.argv[1], sys.argv[2]
-UA = {'User-Agent': 'uerr-extensao-fire-map/1.0'}
+UA = {'User-Agent': 'discente-uerr-fire-map/1.0'}
 API = 'https://telemetriaws1.ana.gov.br/ServiceANA.asmx/'
 TODAY = dt.date.today()
 MAIN = '14620000'
