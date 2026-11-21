@@ -305,9 +305,14 @@ try:
         'CQL_FILTER': f"uf='RR' AND view_date >= '{(T0 - dt.timedelta(days=365)).strftime('%Y-%m-%d')}' AND (classname LIKE 'DESMATAMENTO%' OR classname LIKE 'CS_%' OR classname LIKE 'CICATRIZ%' OR classname = 'DEGRADACAO')"}),
         os.path.join(RAW, f'rr_deterq_{TEND.strftime("%Y%m%d")}.geojson'), timeout=600))  # deterq: with burn scars
 except Exception as e:  # use the latest day already downloaded, or no alerts
-    old = sorted(n for n in os.listdir(RAW) if n.startswith('rr_deter') and n.endswith('.geojson'))
-    print('DETER download failed, using', old[-1] if old else 'nothing', ':', e)
-    det_geo = load_json(open(os.path.join(RAW, old[-1]), 'rb').read()) if old else {'features': []}
+    det_geo, used = {'features': []}, 'nothing'
+    for n in sorted((n for n in os.listdir(RAW) if n.startswith('rr_deter') and n.endswith('.geojson')), reverse=True):
+        fp = os.path.join(RAW, n)
+        try:
+            det_geo = load_json(open(fp, 'rb').read()); det_geo['features']; used = n; break
+        except Exception:  # a bad answer from the server was saved: drop it so the next run downloads again
+            det_geo = {'features': []}; os.remove(fp); print('DETER: removed invalid file', n)
+    print('DETER download failed, using', used, ':', e)
 DETER, det_geoms, det_days = [], [], []
 QUEIM = []  # burn scars and degradation (DETER): own layer, never counted as deforestation
 for f in det_geo['features']:
