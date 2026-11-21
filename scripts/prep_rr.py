@@ -20,12 +20,31 @@ MONTHS = ['202512'] + [f'2026{m:02d}' for m in range(1, TEND.month)]
 DAILY_FROM = dt.date(TEND.year, TEND.month, 1)
 UA = {'User-Agent': 'discente-uerr-fire-map/1.0'}
 
-def get(url, path=None, timeout=300):
+def payload_ok(path, b, full=True):
+    """False for an empty answer or a server error page, which must never be kept as data."""
+    if not b: return False
+    ext = os.path.splitext(path or '')[1].lower()
+    if ext in ('.json', '.geojson'):
+        if not full: return b[:2] == bytes.fromhex('1f8b') or b[:64].lstrip()[:1] in (b'{', b'[')
+        try: load_json(b); return True
+        except Exception: return False
+    if ext == '.png': return b[:8] == bytes.fromhex('89504e470d0a1a0a')
+    if ext in ('.jpg', '.jpeg'): return b[:2] == bytes.fromhex('ffd8')
+    return True
+
+def get(url, path=None, timeout=300, check=None):
+    """Download with a local copy. Only a valid answer is saved; an invalid copy is dropped and downloaded again."""
     if path and os.path.exists(path) and os.path.getsize(path) > 0:
-        return open(path, 'rb').read()
+        data = open(path, 'rb').read()
+        if payload_ok(path, data, full=False) and (check is None or check(data)): return data
+        os.remove(path); print('invalid cached file removed:', os.path.basename(path))
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
         data = r.read()
-    if path: open(path, 'wb').write(data)
+    if not payload_ok(path, data) or (check is not None and not check(data)):
+        raise ValueError('invalid answer from ' + urllib.parse.urlsplit(url).netloc)
+    if path:
+        with open(path + '.tmp', 'wb') as fo: fo.write(data)
+        os.replace(path + '.tmp', path)
     return data
 
 def cached_rr(url, full_path, rr_path, force=False):
@@ -299,23 +318,26 @@ for k in keep:
 print('CAR: properties in RR', len(car_raw), '| with VIIRS fire', len(CARS), '| fires inside a property', sum(1 for x in F['car'] if x >= 0))
 
 # DETER deforestation / selective logging alerts (INPE). A fire on land deforested shortly before is a strong sign of illegal burning.
+def deter_ok(b):
+    try: fs = load_json(b).get('features')
+    except Exception: return False
+    return isinstance(fs, list) and len(fs) > 0  # a year of Roraima is never empty: an empty answer is a server failure
+
 try:
     det_geo = load_json(get('https://terrabrasilis.dpi.inpe.br/geoserver/deter-amz/ows?' + urllib.parse.urlencode({'service': 'WFS', 'version': '1.0.0',
         'request': 'GetFeature', 'typeName': 'deter-amz:deter_amz', 'outputFormat': 'application/json',
         'CQL_FILTER': f"uf='RR' AND view_date >= '{(T0 - dt.timedelta(days=365)).strftime('%Y-%m-%d')}' AND (classname LIKE 'DESMATAMENTO%' OR classname LIKE 'CS_%' OR classname LIKE 'CICATRIZ%' OR classname = 'DEGRADACAO')"}),
-        os.path.join(RAW, f'rr_deterq_{TEND.strftime("%Y%m%d")}.geojson'), timeout=600))  # deterq: with burn scars
+        os.path.join(RAW, f'rr_deterq_{TEND.strftime("%Y%m%d")}.geojson'), timeout=600, check=deter_ok))  # deterq: with burn scars
 except Exception as e:  # use the latest day already downloaded, or no alerts
     det_geo, used = {'features': []}, 'nothing'
     for n in sorted((n for n in os.listdir(RAW) if n.startswith('rr_deter') and n.endswith('.geojson')), reverse=True):
-        fp = os.path.join(RAW, n)
-        try:
-            det_geo = load_json(open(fp, 'rb').read()); det_geo['features']; used = n; break
-        except Exception:  # a bad answer from the server was saved: drop it so the next run downloads again
-            det_geo = {'features': []}; os.remove(fp); print('DETER: removed invalid file', n)
+        b = open(os.path.join(RAW, n), 'rb').read()
+        if deter_ok(b): det_geo, used = load_json(b), n; break
     print('DETER download failed, using', used, ':', e)
 DETER, det_geoms, det_days = [], [], []
 QUEIM = []  # burn scars and degradation (DETER): own layer, never counted as deforestation
 for f in det_geo['features']:
+    if not f.get('geometry') or not (f.get('properties') or {}).get('view_date'): continue
     p = f['properties']; g = shape(f['geometry'])
     if not g.is_valid: g = g.buffer(0)
     cls = p.get('classname') or ''
