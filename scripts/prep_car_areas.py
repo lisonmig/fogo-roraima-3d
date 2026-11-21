@@ -1,6 +1,7 @@
 """Areas declared in the CAR for each rural property (Reserva Legal, APP, consolidated area, native vegetation,
 administrative easement and net area), from the public layers of SIGGARR/FEMARH.
 usage: python prep_car_areas.py <raw_dir> <out_dir>
+Run by hand and commit docs/rel/car_areas.json: SIGGARR answers 403 to the GitHub Actions servers.
 Only the CAR code and the sum of hectares per theme are kept: never the property name, user fields or outlines.
 Downloaded again every 7 days; if SIGGARR fails, the last good copy in <raw_dir> is used."""
 import json, os, re, shutil, sys, time, urllib.request
