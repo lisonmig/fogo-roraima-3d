@@ -246,6 +246,24 @@ html.big .panel-in, html.big .pop, html.big .timeline, html.big .mbar, html.big 
 .season-sel { flex: none; max-width: 112px; font: 600 12.5px var(--f-body); color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 5px 4px 5px 8px; cursor: pointer; }
 .season-sel.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .season-sel option { color: var(--ink); background: var(--panel); }
+/* past years, in the place of the chart */
+body.hist-on #slider, body.hist-on #tlBody, body.hist-on #play, body.hist-on #speed, body.hist-on #clock, body.hist-on #tlToggle, body.hist-on .hud, body.hist-on #labels .firetop, body.hist-on #sit, body.hist-on #hint { display: none !important; }
+body.hist-on #mPlay { visibility: hidden; }
+.hist { margin-top: 8px; min-width: 0; }
+.hist-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.hist-top b { font: 700 21px var(--f-display); color: var(--ink); }
+.hist-top span, .hist-note { font-size: 12.5px; color: var(--muted); }
+.hist-back, .hist-img button { font: 600 12.5px var(--f-body); color: var(--ink); background: var(--chip); border: 1px solid var(--line-strong); border-radius: 8px; padding: 5px 10px; cursor: pointer; min-height: 32px; }
+.hist-back { margin-left: auto; }
+.hist-img button:disabled { opacity: .55; cursor: wait; }
+.hist-months { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 3px; margin: 6px 0 4px; }
+.hist-months button { display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; height: 66px; padding: 0 1px 2px; background: none; border: 0; border-radius: 4px; color: var(--muted); font: 600 11px var(--f-body); cursor: pointer; min-width: 0; }
+.hist-months i { display: block; margin-bottom: 3px; background: var(--accent); border-radius: 2px 2px 0 0; }
+.hist-months button:hover, .hist-months button[aria-pressed="true"] { background: var(--chip); color: var(--ink); }
+.hist-sum { margin: 0 0 5px; font-size: 13px; color: var(--ink); }
+.hist-img { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; color: var(--ink); }
+.hist-img input { font: 500 13px var(--f-body); color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 6px; padding: 4px 6px; }
+.hist-note { margin: 4px 0 0; }
 /* phone-only pieces (bottom bar, drawer peek line, map filter button, filter in the Mapa tab) */
 .mbar, .peek, #sitBtn, .sitpane, .speed.m { display: none; }
 .sitpane { flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
@@ -778,11 +796,12 @@ body.measuring #labels > * { pointer-events: none; }
       <button class="speed" id="speed" title="Velocidade da animação">1 dia/s</button>
       <div class="periods" id="periods" role="group" aria-label="Período">
         <div class="seg" id="pRecent"></div>
-        <select class="season-sel" id="pSeason" aria-label="Estação do ano"><option value="">Estação</option></select>
+        <select class="season-sel" id="pSeason" aria-label="Estação do ano ou ano anterior"><option value="">Outras datas</option></select>
       </div>
       <button class="tl-toggle" id="tlToggle" aria-expanded="true" title="Esconder o gráfico">▾</button>
     </div>
     <input type="range" id="slider" min="0" max="100" step="30" value="100" aria-label="Momento no tempo">
+    <div class="hist" id="histBar" hidden></div>
     <div class="tl-body" id="tlBody">
       <div class="tl-sub">
         <div class="seg metric" id="metric" role="group" aria-label="O que mostrar no gráfico">
@@ -3198,13 +3217,28 @@ body.measuring #labels > * { pointer-events: none; }
     if (p.group === 'recent') { b.textContent = p.short; b.title = p.long; $('pRecent').appendChild(b); b.onclick = () => setPeriod(p); p.btn = b; }
     else { const o = document.createElement('option'); o.value = String(PERIODS.indexOf(p)); o.textContent = p.short; o.title = p.long + ' (' + p.sub + ')'; $('pSeason').appendChild(o); }
   });
-  $('pSeason').onchange = e => { if (e.target.value !== '') setPeriod(PERIODS[+e.target.value]); };
+  { // past years: fires of the INPE reference satellite since 2003 (anos-passados.js loads only when one is chosen)
+    const gr = document.createElement('optgroup'); gr.label = 'Anos anteriores';
+    for (let y = lastL.getUTCFullYear() - 1; y >= 2003; y--) { const o = document.createElement('option'); o.value = 'y' + y; o.textContent = y; gr.appendChild(o); }
+    $('pSeason').appendChild(gr);
+  }
+  let anosJs = null;
+  function openYear(y) {
+    pause(); st.sel = null; showDetail(); flyTo(HOME);
+    PERIODS.forEach(q => q.btn && q.btn.setAttribute('aria-pressed', false));
+    $('pSeason').value = 'y' + y; $('pSeason').classList.add('on'); $('pSeason').title = 'Fogo em ' + y;
+    if (!anosJs) anosJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'anos-passados.js?v=2026112101'; sc.onload = ok; sc.onerror = () => { anosJs = null; bad(); }; document.head.appendChild(sc); });
+    anosJs.then(() => FRR_ANOS.open(y, { THREE, scene, D, $, yAt, toX, toZ, W, E, S, N, LIGHT, mkTex, terrainMat, applyBase, back: () => setPeriod(period) }))
+      .catch(() => { showToast('Não foi possível abrir os dados desse ano. Confira a internet.', 6000); setPeriod(period); });
+  }
+  $('pSeason').onchange = e => { const v = e.target.value; if (v === '') return; if (v[0] === 'y') openYear(+v.slice(1)); else setPeriod(PERIODS[+v]); };
   const rangeTxt = p => fmtD(p.from) + ' ' + fmtH(p.from) + ' até ' + fmtD(Math.min(p.to, D.meta.lastFire)) + ' ' + fmtH(Math.min(p.to, D.meta.lastFire));
   function setPeriod(p) {
+    if (window.FRR_ANOS) FRR_ANOS.close();
     period = p; pause();
     PERIODS.forEach(q => q.btn && q.btn.setAttribute('aria-pressed', q === p));
     $('pSeason').value = p.group === 'season' ? String(PERIODS.indexOf(p)) : ''; $('pSeason').classList.toggle('on', p.group === 'season');
-    $('pSeason').options[0].textContent = 'Estação'; if (p.group === 'season') $('pSeason').title = p.long + ' (' + p.sub + ')';
+    $('pSeason').options[0].textContent = 'Outras datas'; if (p.group === 'season') $('pSeason').title = p.long + ' (' + p.sub + ')';
     $('pSub').textContent = p.long + ': ' + rangeTxt(p);
     slider.min = p.from; slider.max = p.to;
     perMat.uniforms.uPStart.value = p.from;
