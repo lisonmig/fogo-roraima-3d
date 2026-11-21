@@ -54,6 +54,7 @@ jobs:
           # sem o arquivo de focos o site não abre: se esta execução não gerou, reaproveitar o que está no ar
           if [ ! -s docs/roraima3d.json ]; then
             curl -sf --max-time 120 -o docs/roraima3d.json https://fogororaima.com.br/roraima3d.json && echo "::warning::focos reaproveitados da versão no ar" || { rm -f docs/roraima3d.json; echo "::error::não há arquivo de focos para publicar"; }
+            curl -sf --max-time 60 -o docs/resumo.json https://fogororaima.com.br/resumo.json || rm -f docs/resumo.json
           fi
 
       - name: Eventos de fogo do INPE

@@ -16,7 +16,12 @@ W, E, S, N = -64.85, -58.85, -1.6, 5.3
 T0 = dt.datetime(2025, 12, 1)
 TEND = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
 # whole months from the monthly archive; the current month comes from the daily files (updated through the day)
-MONTHS = ['202512'] + [f'2026{m:02d}' for m in range(1, TEND.month)]
+def months_until(start, end):
+    out, y, m = [], start.year, start.month
+    while (y, m) < (end.year, end.month):
+        out.append(f'{y}{m:02d}'); y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    return out
+MONTHS = months_until(T0, TEND)
 DAILY_FROM = dt.date(TEND.year, TEND.month, 1)
 UA = {'User-Agent': 'discente-uerr-fire-map/1.0'}
 
@@ -47,20 +52,34 @@ def get(url, path=None, timeout=300, check=None):
         os.replace(path + '.tmp', path)
     return data
 
-def cached_rr(url, full_path, rr_path, force=False):
-    """Roraima-only rows of an INPE CSV, cached in rr_path; the Brazil-wide file is deleted after filtering."""
-    if os.path.exists(rr_path) and not force:
-        return list(csv.DictReader(open(rr_path, encoding='utf-8')))
-    if force or not os.path.exists(full_path):
+def read_rows(path):
+    with open(path, encoding='utf-8', newline='') as fh: return list(csv.DictReader(fh))
+
+def cached_rr(url, rr_path, final_after):
+    """Roraima-only rows of an INPE CSV, kept in rr_path. INPE keeps completing a file for a while, so a copy saved
+    before final_after is downloaded again. If the download fails or looks wrong, the copy already kept is used."""
+    have = os.path.exists(rr_path) and os.path.getsize(rr_path) > 0
+    if have and os.path.getmtime(rr_path) >= final_after.replace(tzinfo=dt.timezone.utc).timestamp():
+        return read_rows(rr_path)
+    try:
         with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=600) as r:
-            open(full_path, 'wb').write(r.read())
-    with open(full_path, encoding='utf-8') as fh:
-        rd = csv.DictReader(fh)
+            data = r.read()
+        rd = csv.DictReader(io.StringIO(data.decode('utf-8'), newline=''))
+        fields = rd.fieldnames or []
+        if not {'id', 'lat', 'lon', 'data_hora_gmt', 'estado_id'}.issubset(fields): raise ValueError('not an INPE fire table')
         out = [r for r in rd if r['estado_id'] == '14']
-        fields = rd.fieldnames
-    with open(rr_path, 'w', encoding='utf-8', newline='') as fo:
+    except Exception as e:
+        if not have: raise
+        print('INPE failed, using the saved', os.path.basename(rr_path), ':', e)
+        return read_rows(rr_path)
+    if have:
+        old = read_rows(rr_path)
+        if len(out) < len(old):
+            print('INPE answered fewer fires than the saved', os.path.basename(rr_path), '; keeping the saved copy')
+            return old
+    with open(rr_path + '.tmp', 'w', encoding='utf-8', newline='') as fo:
         w = csv.DictWriter(fo, fieldnames=fields); w.writeheader(); w.writerows(out)
-    os.remove(full_path)
+    os.replace(rr_path + '.tmp', rr_path)
     return out
 
 def load_json(b):
@@ -68,9 +87,24 @@ def load_json(b):
         import gzip; b = gzip.decompress(b)
     return json.loads(b.decode('utf-8'))
 
+def has_features(b):
+    try: fs = load_json(b).get('features')
+    except Exception: return False
+    return isinstance(fs, list) and len(fs) > 0  # these layers are never empty: an empty answer is a server failure
+
+def has_items(b):
+    try: v = load_json(b)
+    except Exception: return False
+    return isinstance(v, list) and len(v) > 0
+
+def save_json(path, obj, **kw):
+    """Write to a temporary file first, so a failure never leaves a cut file that would be published."""
+    with open(path + '.tmp', 'w', encoding='utf-8') as fo: json.dump(obj, fo, allow_nan=False, **kw)
+    os.replace(path + '.tmp', path)
+
 # ---------------- state boundary
 rr = load_json(get('https://servicodados.ibge.gov.br/api/v3/malhas/estados/14?formato=application/vnd.geo%2Bjson&qualidade=intermediaria',
-                   os.path.join(RAW, 'rr.geojson')))
+                   os.path.join(RAW, 'rr.geojson'), check=has_features))
 rr_geom = unary_union([shape(f['geometry']) for f in rr['features']])
 rr_main = max(rr_geom.geoms, key=lambda g: g.area) if isinstance(rr_geom, MultiPolygon) else rr_geom
 rr_ring = [[round(x, 4), round(y, 4)] for x, y in rr_main.simplify(0.01).exterior.coords]
@@ -82,7 +116,7 @@ rows, seen = [], set()
 for m in MONTHS:
     n0 = len(rows)
     for r in cached_rr(f'https://dataserver-coids.inpe.br/queimadas/queimadas/focos/csv/mensal/Brasil/focos_mensal_br_{m}.csv',
-                       os.path.join(mdir, f'focos_mensal_br_{m}.csv'), os.path.join(mdir, f'rr_{m}.csv')):
+                       os.path.join(mdir, f'rr_{m}.csv'), dt.datetime(int(m[:4]) + (m[4:] == '12'), int(m[4:]) % 12 + 1, 3)):  # final from day 3 of the next month
         if r['id'] in seen: continue
         t = dt.datetime.strptime(r['data_hora_gmt'], '%Y-%m-%d %H:%M:%S')
         if t < T0 or t > TEND: continue
@@ -92,14 +126,13 @@ d = DAILY_FROM
 while d <= TEND.date():
     tag = d.strftime('%Y%m%d')
     n0 = len(rows)
-    fresh = d >= TEND.date() - dt.timedelta(days=1)  # yesterday and today keep growing at INPE
-    try:
+    try:  # a day keeps growing at INPE until the next day: only a copy saved two days later is final
         day_rows = cached_rr(f'https://dataserver-coids.inpe.br/queimadas/queimadas/focos/csv/diario/Brasil/focos_diario_br_{tag}.csv',
-                             os.path.join(RAW, f'focos_{tag}.csv'), os.path.join(RAW, f'rr_{tag}.csv'), force=fresh)
-    except urllib.error.HTTPError as e:
-        # logo depois da meia-noite (UTC) o INPE ainda não publicou o arquivo do dia: seguir sem ele em vez de parar tudo
-        if e.code != 404: raise
-        print('daily', tag, 'ainda não publicado pelo INPE (404); seguindo sem ele')
+                             os.path.join(RAW, f'rr_{tag}.csv'), dt.datetime(d.year, d.month, d.day) + dt.timedelta(days=2))
+    except Exception as e:
+        # logo depois da meia-noite (UTC) o INPE ainda não publicou o arquivo do dia, ou o servidor falhou:
+        # seguir sem esse dia em vez de parar tudo; a próxima execução tenta de novo
+        print('daily', tag, 'indisponível no INPE; seguindo sem ele:', e)
         day_rows = []
     for r in day_rows:
         if r['id'] in seen: continue
@@ -243,7 +276,7 @@ if FULL:
 from shapely.strtree import STRtree
 from shapely.geometry import Point
 def wfs_json(url, name):
-    return load_json(get(url, os.path.join(RAW, name), timeout=600))
+    return load_json(get(url, os.path.join(RAW, name), timeout=600, check=has_features))
 def rings_of(geom, tol):
     g = geom.simplify(tol, preserve_topology=True)
     polys = [g] if isinstance(g, Polygon) else [p for p in getattr(g, 'geoms', []) if isinstance(p, Polygon)]
@@ -251,7 +284,7 @@ def rings_of(geom, tol):
 
 # municipalities (IBGE)
 mun_geo = wfs_json('https://servicodados.ibge.gov.br/api/v3/malhas/estados/14?formato=application/vnd.geo%2Bjson&qualidade=intermediaria&intrarregiao=municipio', 'rr_municipios.geojson')
-mun_names = {str(m['id']): m['nome'] for m in load_json(get('https://servicodados.ibge.gov.br/api/v1/localidades/estados/14/municipios', os.path.join(RAW, 'rr_municipios_nomes.json')))}
+mun_names = {str(m['id']): m['nome'] for m in load_json(get('https://servicodados.ibge.gov.br/api/v1/localidades/estados/14/municipios', os.path.join(RAW, 'rr_municipios_nomes.json'), check=has_items))}
 MUNIS = []
 for f in mun_geo['features']:
     g = shape(f['geometry']); c = g.representative_point()
@@ -294,7 +327,7 @@ if '--completo' in sys.argv or not os.path.exists(car_cache) or time.time() - os
             print('CAR page', start, len(page))
             if len(page) < 5000: break
             start += 5000
-        if car_new: json.dump(car_new, open(car_cache, 'w', encoding='utf-8'), ensure_ascii=False)
+        if car_new: save_json(car_cache, car_new, ensure_ascii=False)
     except Exception as e:
         print('CAR download failed, using the old cache if any:', e)
 car_raw = json.load(open(car_cache, encoding='utf-8')) if os.path.exists(car_cache) else []
@@ -318,21 +351,16 @@ for k in keep:
 print('CAR: properties in RR', len(car_raw), '| with VIIRS fire', len(CARS), '| fires inside a property', sum(1 for x in F['car'] if x >= 0))
 
 # DETER deforestation / selective logging alerts (INPE). A fire on land deforested shortly before is a strong sign of illegal burning.
-def deter_ok(b):
-    try: fs = load_json(b).get('features')
-    except Exception: return False
-    return isinstance(fs, list) and len(fs) > 0  # a year of Roraima is never empty: an empty answer is a server failure
-
 try:
     det_geo = load_json(get('https://terrabrasilis.dpi.inpe.br/geoserver/deter-amz/ows?' + urllib.parse.urlencode({'service': 'WFS', 'version': '1.0.0',
         'request': 'GetFeature', 'typeName': 'deter-amz:deter_amz', 'outputFormat': 'application/json',
         'CQL_FILTER': f"uf='RR' AND view_date >= '{(T0 - dt.timedelta(days=365)).strftime('%Y-%m-%d')}' AND (classname LIKE 'DESMATAMENTO%' OR classname LIKE 'CS_%' OR classname LIKE 'CICATRIZ%' OR classname = 'DEGRADACAO')"}),
-        os.path.join(RAW, f'rr_deterq_{TEND.strftime("%Y%m%d")}.geojson'), timeout=600, check=deter_ok))  # deterq: with burn scars
+        os.path.join(RAW, f'rr_deterq_{TEND.strftime("%Y%m%d")}.geojson'), timeout=600, check=has_features))  # deterq: with burn scars
 except Exception as e:  # use the latest day already downloaded, or no alerts
     det_geo, used = {'features': []}, 'nothing'
     for n in sorted((n for n in os.listdir(RAW) if n.startswith('rr_deter') and n.endswith('.geojson')), reverse=True):
         b = open(os.path.join(RAW, n), 'rb').read()
-        if deter_ok(b): det_geo, used = load_json(b), n; break
+        if has_features(b): det_geo, used = load_json(b), n; break
     print('DETER download failed, using', used, ':', e)
 DETER, det_geoms, det_days = [], [], []
 QUEIM = []  # burn scars and degradation (DETER): own layer, never counted as deforestation
@@ -423,8 +451,11 @@ WX_CACHE = os.path.join(RAW, 'open_meteo_wx.json')
 wx = None
 for _k in range(3):
     try:
-        _raw = get(url, timeout=600)
-        wx = json.loads(_raw); open(WX_CACHE, 'wb').write(_raw)
+        _raw = get(url, timeout=600); _wx = json.loads(_raw)
+        if not (isinstance(_wx, list) and len(_wx) == len(pts) and all(_h in _wx[0].get('hourly', {}) for _h in ('time', 'wind_speed_10m', 'precipitation'))):
+            raise ValueError('unexpected weather answer')
+        with open(WX_CACHE + '.tmp', 'wb') as _fo: _fo.write(_raw)
+        os.replace(WX_CACHE + '.tmp', WX_CACHE); wx = _wx
         break
     except Exception as _e:
         print('weather try', _k + 1, 'failed:', _e, flush=True)
@@ -448,10 +479,10 @@ meta = {'bbox': [W, S, E, N], 't0': T0.strftime('%Y-%m-%dT%H:%MZ'), 'grid': [GW,
         # when this file was made (UTC): the page shows the age of the data from this, not from the last fire,
         # because at night there can be hours without any new fire even when the data is fresh
         'generated': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%MZ')}
-json.dump({'meta': meta, 'sats': sats, 'muns': muns, 'fires': {k: v for k, v in F.items() if k not in ('r', 'uc')},  # 'r' (risco) and 'uc' are not read by the page
+save_json(os.path.join(OUT, 'roraima3d.json'), {'meta': meta, 'sats': sats, 'muns': muns, 'fires': {k: v for k, v in F.items() if k not in ('r', 'uc')},  # 'r' (risco) and 'uc' are not read by the page
            'events': events, 'weather': weather, 'rr': rr_ring,
            'munis': MUNIS, 'tis': TIS, 'ucs': UCS, 'car': CARS, 'deter': DETER, 'queim': QUEIM, 'lc': LC_GROUPS, 'lcColors': ['#%02x%02x%02x' % c for c in LC_COLORS]},
-          open(os.path.join(OUT, 'roraima3d.json'), 'w', encoding='utf-8'), separators=(',', ':'), ensure_ascii=False)
+          separators=(',', ':'), ensure_ascii=False)
 # small summary for the first screen (shown while the 3D map loads): places with fire in the last 24 h and where
 _t1 = F['t'][-1]; _cells, _bym = set(), {}
 for _i in range(len(F['t']) - 1, -1, -1):
@@ -459,7 +490,7 @@ for _i in range(len(F['t']) - 1, -1, -1):
     _c = (round(F['lat'][_i] / 0.018), round(F['lon'][_i] / 0.018))
     if _c in _cells: continue
     _cells.add(_c); _bym[muns[F['m'][_i]]] = _bym.get(muns[F['m'][_i]], 0) + 1
-json.dump({'generated': meta['generated'], 'lastFire': (T0 + dt.timedelta(minutes=_t1)).strftime('%Y-%m-%dT%H:%M:00Z'), 'places24h': len(_cells),
-           'top': sorted(_bym.items(), key=lambda kv: -kv[1])[:5]}, open(os.path.join(OUT, 'resumo.json'), 'w', encoding='utf-8'), ensure_ascii=False)
+save_json(os.path.join(OUT, 'resumo.json'), {'generated': meta['generated'], 'lastFire': (T0 + dt.timedelta(minutes=_t1)).strftime('%Y-%m-%dT%H:%M:00Z'), 'places24h': len(_cells),
+           'top': sorted(_bym.items(), key=lambda kv: -kv[1])[:5]}, ensure_ascii=False)
 for n in sorted(os.listdir(OUT)):
     print(n, os.path.getsize(os.path.join(OUT, n)))
