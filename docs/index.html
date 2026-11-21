@@ -246,6 +246,12 @@ html.big .panel-in, html.big .pop, html.big .timeline, html.big .mbar, html.big 
 .season-sel { flex: none; max-width: 112px; font: 600 12.5px var(--f-body); color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 5px 4px 5px 8px; cursor: pointer; }
 .season-sel.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .season-sel option { color: var(--ink); background: var(--panel); }
+.carsit { grid-column: 1 / -1; margin: 2px 0 6px 22px; padding: 7px 8px; background: var(--chip); border-radius: 8px; font-size: 12.5px; }
+.carsit .seg { margin-bottom: 6px; }
+.carsit label { display: grid !important; grid-template-columns: auto 10px minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 3px 0; margin: 0; }
+.carsit label i { width: 10px; height: 10px; border-radius: 2px; }
+.carsit label b { font-variant-numeric: tabular-nums; color: var(--ink); }
+.carsit .note { margin: 5px 0 0; font-size: 11.5px; }
 /* past years, in the place of the chart */
 body.hist-on #slider, body.hist-on #tlBody, body.hist-on #play, body.hist-on #speed, body.hist-on #clock, body.hist-on #tlToggle, body.hist-on .hud, body.hist-on #labels .firetop, body.hist-on #sit, body.hist-on #hint { display: none !important; }
 body.hist-on #mPlay { visibility: hidden; }
@@ -987,6 +993,7 @@ body.measuring #labels > * { pointer-events: none; }
             <label><input type="checkbox" id="lyTI" checked> Terras Indígenas</label>
             <label><input type="checkbox" id="lyMun"> Municípios</label>
             <label><input type="checkbox" id="lyCar"> Imóveis rurais (CAR)</label>
+            <div class="carsit" id="carSit" hidden></div>
             <label><input type="checkbox" id="lyDeter"> Desmatamento (DETER)</label>
             <label><input type="checkbox" id="lyQueim"> Área queimada (DETER)</label>
             <label><input type="checkbox" id="lyHeat"> Mapa de calor: queimas autorizadas (FEMARH)</label>
@@ -1411,7 +1418,7 @@ body.measuring #labels > * { pointer-events: none; }
   const munLines = makeDraped(D.munis.flatMap(m => m.r.map(flatToRing)), 0xffffff, 0.4, 0.3, 1.5); munLines.obj.visible = false;
   // rural properties with fire (CAR) and deforestation alerts (DETER): drawn on first use
   const CAR = D.car || [], DET = D.deter || [];
-  let carLayer = null, deterLayer = null, deterFill = null, carSel = null, detSel = null, detSelFill = null, detBox = null;
+  let deterLayer = null, deterFill = null, carSel = null, detSel = null, detSelFill = null, detBox = null;
   const DET_CLS = { DESMATAMENTO_CR: 'desmatamento com solo exposto (corte raso)', DESMATAMENTO_VEG: 'desmatamento com vegetação', CS_DESORDENADO: 'corte seletivo desordenado', CS_GEOMETRICO: 'corte seletivo geométrico', MINERACAO: 'mineração', DEGRADACAO: 'degradação', CICATRIZ_DE_QUEIMADA: 'cicatriz de queimada' };
   // burned or degraded areas (DETER, burn scar / degradation classes): own layer, drawn on first use
   const QM = D.queim || [];
@@ -1434,6 +1441,7 @@ body.measuring #labels > * { pointer-events: none; }
     return PRD.loading;
   }
   const CAR_TIPO = { IRU: 'Imóvel rural', AST: 'Assentamento', PCT: 'Povos e comunidades tradicionais' };
+  const CAR_ST = { AT: 'Ativo', PE: 'Pendente', SU: 'Suspenso', CA: 'Cancelado' };
   const carBox = CAR.map(c => { let a = 1e9, b = -1e9, y0 = 1e9, y1 = -1e9; c.r.forEach(r => { for (let j = 0; j < r.length; j += 2) { a = Math.min(a, r[j]); b = Math.max(b, r[j]); y0 = Math.min(y0, r[j + 1]); y1 = Math.max(y1, r[j + 1]); } }); return [a, y0, b, y1]; });
 
   // ---------- fires
@@ -2442,7 +2450,7 @@ body.measuring #labels > * { pointer-events: none; }
         let a = 1e9, b = -1e9, y0 = 1e9, y1 = -1e9;
         const rings = c[5].map(fl => { let x = fl[0], y = fl[1]; const r = [ox + x / q, oy + y / q]; for (let k = 2; k < fl.length; k += 2) { x += fl[k]; y += fl[k + 1]; r.push(ox + x / q, oy + y / q); }
           for (let j = 0; j < r.length; j += 2) { a = Math.min(a, r[j]); b = Math.max(b, r[j]); y0 = Math.min(y0, r[j + 1]); y1 = Math.max(y1, r[j + 1]); } return r; });
-        return { cod: c[0], tipo: c[1], area: c[2], mun: J.muns[c[3]], cond: c[4], r: rings, box: [a, y0, b, y1] };
+        return { cod: c[0], tipo: c[1], area: c[2], mun: J.muns[c[3]], cond: c[4], status: c[6] || '', r: rings, box: [a, y0, b, y1] };
       });
       CT.ok = true;
     }).catch(() => {}).finally(() => { CT.done = true; });
@@ -3452,10 +3460,64 @@ body.measuring #labels > * { pointer-events: none; }
   $('lyPer').onchange = e => perLines.visible = e.target.checked;
   $('lyTI').onchange = e => { tiLines.obj.visible = e.target.checked; lblEls.forEach((el, k) => { if (PLACES[k][3] === 'ti') el.dataset.off = e.target.checked ? '' : '1'; }); };
   $('lyMun').onchange = e => munLines.obj.visible = e.target.checked;
-  function showCarLayer(on) {
-    if (on && !carLayer) carLayer = makeDraped(CAR.flatMap(c => c.r.map(flatToRing)), 0x5eead4, 0.75, 0.32, 3);
-    if (carLayer) carLayer.obj.visible = on; $('lyCar').checked = on;
+  // CAR by situation, with the names used by SICAR and SIGGARR. "Com fogo" comes with the map; "Todos" downloads car_todos.json only when asked
+  const CAR_N0 = CAR.length;
+  const CAR_SIT = [
+    { k: 'agu', nome: 'Aguardando análise', cor: 0x5eead4 },
+    { k: 'rev', nome: 'Aguardando análise, após revisão ou notificação', cor: 0xfde047 },
+    { k: 'ema', nome: 'Em análise', cor: 0xf472d0 },
+    { k: 'ana', nome: 'Analisados', cor: 0x4ade80 },
+    { k: 'can', nome: 'Cancelados', cor: 0x9ca3af }
+  ];
+  const carSit = cond => { const t = (cond || '').toLowerCase(); return t.startsWith('cancel') ? 'can' : t.startsWith('analisado') ? 'ana' : t.startsWith('em an') ? 'ema' : t.includes('revis') ? 'rev' : 'agu'; };
+  const CF = { todos: false, on: { agu: true, rev: true, ema: true, ana: true, can: true }, layers: {}, merged: false, busy: false };
+  const carShown = k => (CF.todos || k < CAR_N0) && CF.on[carSit(CAR[k].cond)];
+  function mergeCars() {
+    if (CF.merged || !CT.ok) return; CF.merged = true;
+    const tem = new Set(CAR.slice(0, CAR_N0).map(c => c.cod));
+    CT.list.forEach(c => { if (tem.has(c.cod)) return; CAR.push({ cod: c.cod, tipo: c.tipo, cond: c.cond, status: c.status, area: c.area, mun: c.mun, r: c.r, c: [(c.box[0] + c.box[2]) / 2, (c.box[1] + c.box[3]) / 2] }); carBox.push(c.box); });
   }
+  function carRings(c) { // with every property on screen, long outlines are thinned so the map stays light
+    if (!CF.todos) return c.r.map(flatToRing);
+    const M = LIGHT ? 10 : 28;
+    return c.r.map(r => { const q = flatToRing(r); if (q.length <= M) return q; const st_ = (q.length - 1) / (M - 1), o = []; for (let j = 0; j < M - 1; j++) o.push(q[Math.round(j * st_)]); o.push(q[0]); return o; });
+  }
+  function carLayerFor(s) {
+    const key = (CF.todos ? 't:' : 'f:') + s.k;
+    if (!CF.layers[key]) {
+      const rings = []; (CF.todos ? CAR : CAR.slice(0, CAR_N0)).forEach(c => { if (carSit(c.cond) === s.k) rings.push(...carRings(c)); });
+      CF.layers[key] = makeDraped(rings, s.cor, s.k === 'can' ? 0.5 : 0.78, 0.32, CF.todos ? 12 : 3);
+    }
+    return CF.layers[key];
+  }
+  function syncCar() {
+    const on = $('lyCar').checked;
+    Object.entries(CF.layers).forEach(([key, d]) => { const [sc, k] = key.split(':'); d.obj.visible = on && (sc === 't') === CF.todos && CF.on[k]; });
+    if (on) CAR_SIT.forEach(s => { if (CF.on[s.k]) carLayerFor(s).obj.visible = true; });
+  }
+  function renderCarSit(msg) {
+    const list = CF.todos ? CAR : CAR.slice(0, CAR_N0), n = {}; list.forEach(c => { const k = carSit(c.cond); n[k] = (n[k] || 0) + 1; });
+    $('carSit').innerHTML = '<div class="seg" role="group" aria-label="Quais imóveis mostrar"><button type="button" data-cs="0" aria-pressed="' + !CF.todos + '">Com fogo</button><button type="button" data-cs="1" aria-pressed="' + CF.todos + '">Todos</button></div>' +
+      CAR_SIT.map(s => '<label><input type="checkbox" data-sit="' + s.k + '"' + (CF.on[s.k] ? ' checked' : '') + '><i style="background:#' + s.cor.toString(16).padStart(6, '0') + '"></i><span>' + s.nome + '</span><b>' + fmt(n[s.k] || 0) + '</b></label>').join('') +
+      '<p class="note">' + (msg || 'O CAR é uma declaração de quem cadastrou. Sem análise concluída, não prova posse nem regularidade.') + '</p>';
+  }
+  function showCarLayer(on) { $('lyCar').checked = on; $('carSit').hidden = !on; if (on) renderCarSit(); syncCar(); }
+  $('carSit').addEventListener('change', e => { const k = e.target.dataset && e.target.dataset.sit; if (!k) return; CF.on[k] = e.target.checked; syncCar(); });
+  $('carSit').addEventListener('click', async e => {
+    const b = e.target.closest && e.target.closest('[data-cs]'); if (!b || CF.busy) return;
+    const todos = b.dataset.cs === '1'; if (todos === CF.todos) return;
+    CF.busy = true;
+    try {
+      if (todos) {
+        renderCarSit('Baixando todos os imóveis do CAR…');
+        await loadCarTodos();
+        if (!CT.ok) { renderCarSit('Não foi possível baixar todos os imóveis agora. Tente de novo.'); return; }
+        mergeCars(); renderCarSit('Desenhando os imóveis no mapa…');
+        await new Promise(f => setTimeout(f, 30));
+      }
+      CF.todos = todos; syncCar(); renderCarSit();
+    } finally { CF.busy = false; }
+  });
   $('lyCar').onchange = e => showCarLayer(e.target.checked);
   function showProdes() {
     const nt = $('prodesNote');
@@ -3927,7 +3989,7 @@ body.measuring #labels > * { pointer-events: none; }
     if (qk >= 0) { st.sel = { kind: 'queim', k: qk, lon: g.lon, lat: g.lat }; showDetail(); return; }
     const pk = g && PRD.fill && PRD.fill.obj.visible ? prodesAt(g.lon, g.lat, Math.max(0.15, Math.min(3, camera.position.distanceTo(controls.target) * 0.006))) : -1;
     if (pk >= 0) { st.sel = { kind: 'prodes', k: pk, lon: g.lon, lat: g.lat }; showDetail(); return; }
-    const c = g && carLayer && carLayer.obj.visible ? carAt(g.lon, g.lat) : -1;
+    const c = g && $('lyCar').checked ? carAt(g.lon, g.lat, true) : -1;
     st.sel = c >= 0 ? { kind: 'car', k: c } : (g ? scarAt(g.lon, g.lat) : null); showDetail();
   }
   // ---------- coordinates and altitude under the mouse (like Google Earth); click copies
@@ -4076,10 +4138,11 @@ body.measuring #labels > * { pointer-events: none; }
       '<details class="more"><summary>Mais detalhes</summary><div><p>O DETER é o sistema do INPE que avisa rápido sobre mudanças na vegetação, para orientar a fiscalização. A área é aproximada e foi medida dentro do município; pode ser maior.</p>' +
       '<p style="margin-top:6px">Fonte: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">TerraBrasilis, INPE</a>.</p></div></details>');
   }
-  function carAt(lon, lat) {
+  function carAt(lon, lat, onlyShown) {
     let best = -1, ba = 1e18;
     for (let k = 0; k < CAR.length; k++) {
       const b = carBox[k]; if (lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) continue;
+      if (onlyShown && !carShown(k)) continue;
       if (CAR[k].area < ba && CAR[k].r.some(r => pointInRing(lon, lat, r))) { best = k; ba = CAR[k].area; }
     }
     return best;
@@ -4119,7 +4182,7 @@ body.measuring #labels > * { pointer-events: none; }
       '<div class="aware"><b>Fogo no imóvel não quer dizer culpa do dono.</b> Pode ser queima autorizada de pasto ou roça, manejo, fogo que veio de fora, acidente ou incêndio. O satélite não sabe quem acendeu nem se havia autorização. O CAR é declarado pelo próprio dono e não prova posse nem autoria.</div>' +
       legalHtml({ lc: lcIdx, ti: tiHit, dt: -1, dtAny, car: k }) +
       '<button type="button" class="btn" id="carMemo" style="margin:8px 0 2px">📋 Memorial descritivo do CAR</button>' +
-      '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([['Município', c.mun || '–'], ['Situação no CAR', (c.cond || '–')], ['Área declarada', fmt(c.area, 1) + ' ha']]) +
+      '<details class="more"><summary>Mais detalhes</summary><div>' + rowsHtml([['Município', c.mun || '–'], ['Situação no CAR', (c.cond || '–')], ['Cadastro', CAR_ST[c.status] || '–'], ['Área declarada', fmt(c.area, 1) + ' ha']]) +
       '<p style="margin-top:6px">Dados públicos do SICAR. O CAR é declarado pelo próprio dono e pode ter sobreposições; não comprova posse nem autoria do fogo.</p></div></details>' + lawLink());
     const memoBtn = $('carMemo'); if (memoBtn) memoBtn.onclick = () => openCarMemorial(k);
   }
@@ -4605,7 +4668,9 @@ body.measuring #labels > * { pointer-events: none; }
     a.rings.forEach(r => { for (let j = 0; j < r.length; j += 2) { x += r[j]; y += r[j + 1]; n++; } });
     a.rings.forEach(r => { const step = Math.max(2, Math.floor(r.length / 2 / 60) * 2); for (let j = 0; j < r.length; j += step) pts.push([r[j], r[j + 1]]); });
     pts.push([x / n, y / n]);
-    const out = []; CAR.forEach((c, k) => { if (c.r && c.r.some(r => pts.some(p => pointInRing(p[0], p[1], r)))) out.push(k); });
+    let bx0 = 1e9, bx1 = -1e9, by0 = 1e9, by1 = -1e9; a.rings.forEach(r => { for (let j = 0; j < r.length; j += 2) { bx0 = Math.min(bx0, r[j]); bx1 = Math.max(bx1, r[j]); by0 = Math.min(by0, r[j + 1]); by1 = Math.max(by1, r[j + 1]); } });
+    const out = []; CAR.forEach((c, k) => { const b = carBox[k]; if (!c.r || b[2] < bx0 || b[0] > bx1 || b[3] < by0 || b[1] > by1) return;
+      if (c.r.some(r => pts.some(p => pointInRing(p[0], p[1], r))) || a.rings.some(ar => c.r.some(r => pointInRing(r[0], r[1], ar)))) out.push(k); });
     return out;
   }
   const areaBtnHtml = () => st.sel && AREA_KINDS[st.sel.kind] ? '<button type="button" class="btn ar-open" data-area-rep="1">📄 Relatório técnico completo da área</button><p class="note" style="margin:4px 0 0">Imagens de antes e depois, histórico, imóveis, embargos, lei e fontes. Leva cerca de 30 segundos.</p>' + (carsAtSel().length ? '<button type="button" class="btn ar-open" data-area-rep-car="1" style="margin-top:6px">📄 Relatório técnico com CAR (passivo ambiental)</button><p class="note" style="margin:4px 0 0">Inclui o croqui da área, a imagem de satélite com o contorno do imóvel e o memorial do CAR.</p>' : '') : '';
@@ -4623,28 +4688,30 @@ body.measuring #labels > * { pointer-events: none; }
   let areaJs = null; // relatorio-area.js?v=...: change the number on every edit of that file (the offline cache keeps .js by address)
   function openCarMemorial(k) {
     const c = CAR[k]; if (!c || !c.r) return;
-    window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
+    window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, CAR_ST, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
       whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
-    const memo = { cod: c.cod, tipo: c.tipo, tipoNome: CAR_TIPO[c.tipo] || 'Imóvel rural', cond: c.cond, mun: c.mun, area: c.area, rings: c.r };
-    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026112101'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    const memo = { cod: c.cod, tipo: c.tipo, tipoNome: CAR_TIPO[c.tipo] || 'Imóvel rural', cond: c.cond, status: c.status, mun: c.mun, area: c.area, rings: c.r };
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026112102'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
     areaJs.then(() => window.FRR_AREA.memorial(memo)).catch(() => showToast('Não foi possível abrir o memorial agora. Verifique a internet e tente de novo.'));
   }
-  function openAreaReport(withCar) {
+  async function openAreaReport(withCar) {
     const a = st.sel && areaOf(st.sel); if (!a || !a.rings || !a.rings.length) return;
-    const cars = withCar ? carsAtSel().map(k => { const car = CAR[k]; return { cod: car.cod, tipo: car.tipo, tipoNome: CAR_TIPO[car.tipo] || 'Imóvel rural', cond: car.cond, mun: car.mun, area: car.area, rings: car.r }; }) : [];
-    window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
+    if (withCar) { const sel = st.sel; await loadCarTodos(); mergeCars(); if (st.sel !== sel) return; } // every property on the area, with or without fire
+    const cars = withCar ? carsAtSel().map(k => { const car = CAR[k]; return { cod: car.cod, tipo: car.tipo, tipoNome: CAR_TIPO[car.tipo] || 'Imóvel rural', cond: car.cond, status: car.status, mun: car.mun, area: car.area, rings: car.r }; }) : [];
+    window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, CAR_ST, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
       whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
-    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026112101'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026112102'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
     areaJs.then(() => window.FRR_AREA.open(a, cars.length ? { cars } : undefined)).catch(() => showToast('Não foi possível abrir o relatório agora. Verifique a internet e tente de novo.'));
   }
   $('popBody').addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-area-rep],[data-area-rep-car]'); if (t) openAreaReport(t.hasAttribute('data-area-rep-car')); });
   $('popBody').addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-prej]')) openPrejuizo(); });
-  function openPrejuizo() {
+  async function openPrejuizo() {
     const a = st.sel && areaOf(st.sel); if (!a || !a.rings || !a.rings.length) return;
-    const cars = carsAtSel().map(k => { const car = CAR[k]; return { cod: car.cod, tipo: car.tipo, tipoNome: CAR_TIPO[car.tipo] || 'Imóvel rural', cond: car.cond, mun: car.mun, area: car.area, rings: car.r }; });
-    window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
+    const sel = st.sel; await loadCarTodos(); mergeCars(); if (st.sel !== sel) return;
+    const cars = carsAtSel().map(k => { const car = CAR[k]; return { cod: car.cod, tipo: car.tipo, tipoNome: CAR_TIPO[car.tipo] || 'Imóvel rural', cond: car.cond, status: car.status, mun: car.mun, area: car.area, rings: car.r }; });
+    window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, CAR_ST, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
       whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
-    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026112101'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026112102'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
     areaJs.then(() => window.FRR_AREA.prejuizo(a, cars)).catch(() => showToast('Não foi possível abrir o documento agora. Verifique a internet e tente de novo.'));
   }
   // ---------- first visit: a short guide (4 cards, little text); the "?" button shows it again

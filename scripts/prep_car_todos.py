@@ -23,7 +23,7 @@ for c in cars:
     if not rings: continue
     m = c.get('mun') or ''
     if m not in mun_ix: mun_ix[m] = len(muns); muns.append(m)
-    out.append([c['cod'], c['tipo'], c['area'], mun_ix[m], c.get('cond') or '', rings])
+    out.append([c['cod'], c['tipo'], c['area'], mun_ix[m], c.get('cond') or '', rings, c.get('status') or ''])
 path = os.path.join(OUT, 'car_todos.json')
 json.dump({'q': Q, 'origin': [W, S], 'muns': muns, 'cars': out, 'source': 'SICAR (dados públicos)'},
           open(path, 'w', encoding='utf-8'), separators=(',', ':'), ensure_ascii=False)

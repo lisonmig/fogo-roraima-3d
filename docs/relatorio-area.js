@@ -23,6 +23,8 @@
   const br = iso => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : '–';
   const addDays = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
   const today = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  const carSit = cond => { const t = (cond || '').toLowerCase(); return t.startsWith('cancel') ? 'can' : t.startsWith('analisado') ? 'ana' : t.startsWith('em an') ? 'ema' : t.includes('revis') ? 'rev' : 'agu'; };
+  const CAR_GRUPOS = [['agu', 'Aguardando análise'], ['rev', 'Aguardando análise, após revisão ou notificação'], ['ema', 'Em análise'], ['ana', 'Analisados'], ['can', 'Cancelados']];
   // CAR report: from 01/01/2026, or the last 12 months once more than a year has passed
   const carDesde = () => { const d = new Date(Date.now() - 4 * 3600e3 - 365 * 864e5).toISOString().slice(0, 10); return d > '2026-01-01' ? d : '2026-01-01'; };
   const dayDiff = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
@@ -583,19 +585,37 @@
     R.deter = detAll.filter(d => { const b = d.box || boxOf(d.r); return boxHit(b, area.box); }).map(d => ({ d: d.d, cls: d.cls, ha: d.km2 * 100, sh: share(area, (lo, la) => d.r.some(r => pip(lo, la, r))) }))
       .filter(x => x.sh > 0.01).sort((a, b) => a.d < b.d ? -1 : 1);
     const desmBefore = R.deter.filter(x => /^DESMATAMENTO|^CS_|MINERACAO/.test(x.cls) && x.d <= (area.date1 || area.date));
-    R.desmAny = isDesm(area) || desmBefore.length > 0 || R.prodes.length > 0;
-    if (!isDesm(area) && (desmBefore.length || R.prodes.length)) flag(3, 'Desmatamento registrado no mesmo lugar antes do fogo ' + (desmBefore.length ? '(DETER, ' + br(desmBefore[0].d) + ')' : '(PRODES ' + R.prodes.map(p => p.y).join(', ') + ')') + '. Queimar área recém-desmatada é a etapa típica de "limpeza" depois da derrubada e exige autorização.');
+    // only what already existed on the date of the fire counts as a sign about that fire
+    const refData = area.date1 || area.date, prodesAntes = R.prodes.filter(p => (p.y + '-08-01') <= refData);
+    const hoje = (lvl, txt) => area.ano ? flag(1, 'Situação de hoje, não de ' + area.ano + ': ' + txt) : flag(lvl, txt);
+    R.desmAny = isDesm(area) || desmBefore.length > 0 || prodesAntes.length > 0;
+    if (!isDesm(area) && (desmBefore.length || prodesAntes.length)) flag(3, 'Desmatamento registrado no mesmo lugar antes do fogo ' + (desmBefore.length ? '(DETER, ' + br(desmBefore[0].d) + ')' : '(PRODES ' + prodesAntes.map(p => p.y).join(', ') + ')') + '. Queimar área recém-desmatada é a etapa típica de "limpeza" depois da derrubada e exige autorização.');
     const fireAfter = isDesm(area) ? fires.find(f => A.dayOf(f.t) >= area.date) : null;
     if (fireAfter) flag(3, 'Fogo depois do desmatamento: satélites viram focos de calor na área a partir de ' + br(A.dayOf(fireAfter.t)) + '. É a sequência típica de derrubada seguida de queima.');
 
     // --- land tenure and protected areas
     const CT = A.CT && A.CT.list || [];
-    R.car = CT.filter(c => boxHit(c.box, area.box)).map(c => ({ c, sh: share(area, (lo, la) => c.r.some(r => pip(lo, la, r))) })).filter(x => x.sh > 0.005)
-      .sort((a, b) => b.sh - a.sh).slice(0, 8).map(x => ({ cod: x.c.cod, tipo: x.c.tipo, area: x.c.area, cond: x.c.cond, mun: x.c.mun, sh: x.sh, haIn: x.sh * area.haCalc }));
+    // measured on the overlap of each property, so a small property inside a large area is not missed
+    const carHa = c => {
+      const x0 = Math.max(c.box[0], area.box[0]), x1 = Math.min(c.box[2], area.box[2]), y0 = Math.max(c.box[1], area.box[1]), y1 = Math.min(c.box[3], area.box[3]); if (x1 <= x0 || y1 <= y0) return 0;
+      const G = 14, dx = (x1 - x0) / G, dy = (y1 - y0) / G, cel = dx * 111.32 * Math.cos((y0 + y1) / 2 * Math.PI / 180) * dy * 110.57 * 100; let n = 0;
+      for (let i = 0; i < G; i++) for (let j = 0; j < G; j++) { const lo = x0 + (i + .5) * dx, la = y0 + (j + .5) * dy; if (inRings(lo, la, area.rings) && c.r.some(r => pip(lo, la, r))) n++; }
+      return n * cel;
+    };
+    const carMin = Math.min(0.5, area.haCalc * 0.005); // thin slivers between neighbours are not an overlap
+    const carBruto = CT.filter(c => boxHit(c.box, area.box)).map(c => { const ha = carHa(c); return { c, ha, sh: Math.min(1, ha / area.haCalc) }; }).filter(x => x.ha >= carMin).sort((a, b) => b.sh - a.sh);
+    R.car = carBruto.map(x => ({ cod: x.c.cod, tipo: x.c.tipo, area: x.c.area, cond: x.c.cond, status: x.c.status || '', sit: carSit(x.c.cond), mun: x.c.mun, sh: x.sh, haIn: x.ha }));
     R.carNone = !R.car.length && A.CT && A.CT.ok;
-    const carSum = R.car.reduce((a, c) => a + c.sh, 0);
-    if (R.car.length > 1 && carSum > 1.1) flag(2, 'Cadastros sobrepostos: ' + R.car.length + ' imóveis do CAR declaram a mesma área (juntos somam ' + nf(carSum * 100, 0) + '% dela). Sobreposição de CAR pode indicar conflito de posse ou cadastro irregular.');
-    R.car.forEach(c => { if (/cancel|suspens/i.test(c.cond || '')) flag(2, 'Imóvel ' + c.cod + ' tem o CAR com situação "' + c.cond + '".'); });
+    // real overlap: points inside two or more records that are not cancelled. A settlement (AST) perimeter contains its own lots, so it does not count
+    const carVale = carBruto.map(x => x.c).filter(c => carSit(c.cond) !== 'can' && c.status !== 'CA' && c.tipo !== 'AST'), carDup = new Set(); let dupN = 0;
+    area.samples.forEach(p => { const h = carVale.filter(c => p[0] >= c.box[0] && p[0] <= c.box[2] && p[1] >= c.box[1] && p[1] <= c.box[3] && c.r.some(r => pip(p[0], p[1], r))); if (h.length > 1) { dupN++; h.forEach(c => carDup.add(c.cod)); } });
+    const dupSh = dupN / area.samples.length;
+    if (carDup.size > 1 && dupSh >= 0.05) hoje(2, 'Cadastros sobrepostos: ' + nf(carDup.size) + ' imóveis com CAR não cancelado declaram o mesmo chão em cerca de ' + nf(dupSh * 100, 0) + '% desta área. Sobreposição de CAR pode indicar conflito de posse ou cadastro irregular.');
+    const carLista = l => l.slice(0, 5).map(c => c.cod).join(', ') + (l.length > 5 ? ' e mais ' + nf(l.length - 5) : '');
+    const carCan = R.car.filter(c => c.sit === 'can' || c.status === 'CA'), carSus = R.car.filter(c => c.status === 'SU' && c.sit !== 'can'), carPen = R.car.filter(c => c.status === 'PE' && c.sit !== 'can');
+    if (carCan.length) hoje(2, nf(carCan.length) + (carCan.length === 1 ? ' imóvel com CAR cancelado: ' : ' imóveis com CAR cancelado: ') + carLista(carCan) + '.');
+    if (carSus.length) hoje(2, nf(carSus.length) + (carSus.length === 1 ? ' imóvel com CAR suspenso: ' : ' imóveis com CAR suspenso: ') + carLista(carSus) + '.');
+    if (carPen.length) hoje(1, nf(carPen.length) + (carPen.length === 1 ? ' imóvel com CAR pendente: ' : ' imóveis com CAR pendente: ') + carLista(carPen) + '.');
     // vegetation removal permits for those CAR codes (SINAFLOR)
     R.asv = [];
     if (L.ASV) {
@@ -604,21 +624,23 @@
         if (k && codes.has(k)) R.asv.push({ num: a[0], em: a[1], val: a[2], car: a[4], fin: a[5], ha: a[6], sit: a[7], org: a[8], km: near, sameCar: k && codes.has(k) }); });
       const ref = area.date1 || area.date;
       R.asvValid = R.asv.filter(a => a.sameCar && a.em && a.val && a.em <= ref && a.val >= area.date);
-      if (R.desmAny && R.car.length && !R.asvValid.length) flag(3, 'Não há autorização de supressão de vegetação (SINAFLOR/IBAMA) registrada para ' + (R.car.length > 1 ? 'os imóveis do CAR atingidos' : 'o imóvel do CAR atingido') + ' no período. Autorizações emitidas só no sistema estadual podem não aparecer nessa base: confirmar com a FEMARH.');
+      const asvIni = L.ASV.itens.reduce((m, a) => a[1] && a[1] < m ? a[1] : m, '9999');
+      if (R.desmAny && R.car.length && !R.asvValid.length && ref < asvIni) flag(1, 'A base do SINAFLOR usada aqui começa em ' + br(asvIni) + ': não dá para saber se havia autorização na data deste fogo.');
+      else if (R.desmAny && R.car.length && !R.asvValid.length) flag(3, 'Não há autorização de supressão de vegetação (SINAFLOR/IBAMA) registrada para ' + (R.car.length > 1 ? 'os imóveis do CAR atingidos' : 'o imóvel do CAR atingido') + ' no período. Autorizações emitidas só no sistema estadual podem não aparecer nessa base: confirmar com a FEMARH.');
       if (R.asvValid.length) flag(1, 'Há autorização de supressão de vegetação válida no período para o imóvel (nº ' + R.asvValid.map(a => a.num).join(', ') + '). Conferir se a área autorizada corresponde a esta.');
     }
     // public forests (CNFP)
     R.fp = overlaps(area, L.FP, 3).map(o => ({ nome: o.it.a[0], cat: o.it.a[1], prot: o.it.a[2], tipo: o.it.a[3], gov: o.it.a[4], orgao: o.it.a[6], sh: o.share, km: o.km }));
     const fpFree = R.fp.filter(f => f.sh > 0.02 && (/SEM DESTINA/i.test(f.prot) || /GLEBA/i.test(f.cat)));
-    if (fpFree.length) flag(3, 'A área está em terra pública não destinada: ' + fpFree.map(f => (f.nome || f.cat) + ' (' + f.gov.toLowerCase() + ', ' + nf(f.sh * 100, 0) + '% da área)').join('; ') + '. Desmatar ou queimar terra pública não destinada é um dos principais sinais de grilagem.');
+    if (fpFree.length) hoje(3, 'A área está em terra pública não destinada: ' + fpFree.map(f => (f.nome || f.cat) + ' (' + f.gov.toLowerCase() + ', ' + nf(f.sh * 100, 0) + '% da área)').join('; ') + '. Desmatar ou queimar terra pública não destinada é um dos principais sinais de grilagem.');
     // conservation units
     R.uc = overlaps(area, L.UC, 10).map(o => ({ nome: o.it.a[0], cat: o.it.a[1], grupo: o.it.a[2], esfera: o.it.a[3], ano: o.it.a[4], gestor: o.it.a[6], sh: o.share, km: o.km }));
-    R.uc.forEach(u => { if (u.sh > 0.01) flag(/integral/i.test(u.grupo) ? 3 : 2, 'A área está dentro da Unidade de Conservação ' + u.nome + ' (' + u.cat + ', ' + u.grupo.toLowerCase() + ').'); else if (u.km <= 3) flag(1, 'A área fica a ' + kmTxt(u.km) + ' da Unidade de Conservação ' + u.nome + '.'); });
+    R.uc.forEach(u => { if (+u.ano > +refData.slice(0, 4)) { if (u.sh > 0.01) flag(1, 'A área está hoje na Unidade de Conservação ' + u.nome + ', criada em ' + u.ano + ', depois deste fogo.'); } else if (u.sh > 0.01) flag(/integral/i.test(u.grupo) ? 3 : 2, 'A área está dentro da Unidade de Conservação ' + u.nome + ' (' + u.cat + ', ' + u.grupo.toLowerCase() + ').'); else if (u.km <= 3) flag(1, 'A área fica a ' + kmTxt(u.km) + ' da Unidade de Conservação ' + u.nome + '.'); });
     // indigenous lands (FUNAI, already in the map)
     R.ti = (D.tis || []).map(t => { const b = t.box || boxOf(t.r); return { t, b }; }).filter(x => boxHit([area.box[0] - .1, area.box[1] - .1, area.box[2] + .1, area.box[3] + .1], x.b))
       .map(x => { const sh = share(area, (lo, la) => x.t.r.some(r => pip(lo, la, r))); return { nome: x.t.nome, etnia: x.t.etnia, fase: x.t.fase, sh, km: sh > 0 ? 0 : polyDistKm(area, x.t.r, x.b) }; })
       .filter(x => x.sh > 0 || x.km <= 10).sort((a, b) => a.km - b.km);
-    R.ti.forEach(t => { if (t.sh > 0.01) flag(2, 'A área está na Terra Indígena ' + t.nome + '. O uso tradicional do fogo pelos indígenas é permitido; se o fogo foi causado por terceiros, a multa é em dobro (art. 60 do Decreto 6.514/2008).'); });
+    R.ti.forEach(t => { if (t.sh > 0.01) hoje(2, 'A área está na Terra Indígena ' + t.nome + '. O uso tradicional do fogo pelos indígenas é permitido; se o fogo foi causado por terceiros, a multa é em dobro (art. 60 do Decreto 6.514/2008).'); });
     // IBAMA embargoes
     R.emb = [];
     if (L.EMB) {
@@ -629,9 +651,10 @@
         if (km != null && km <= 5) R.emb.push({ termo: a[0], data: a[1], mun: a[2], ha: a[3], tipo: a[4], sit: a[5], des: a[6], orig: a[7], auto: a[8], sh, km, poly: it.rings.length > 0 });
       }
       R.emb.sort((x, y) => x.km - y.km);
-      const onTop = R.emb.filter(e => e.km === 0 && e.sit === 'ativo');
+      const embAntes = R.emb.filter(e => !e.data || e.data <= refData), onTop = embAntes.filter(e => e.km === 0 && e.sit === 'ativo');
       if (onTop.length) flag(3, 'Há embargo ativo do IBAMA sobre esta área (termo ' + onTop.map(e => e.termo).join(', ') + '). Queimar ou usar área embargada é nova infração (art. 79 do Decreto 6.514/2008).');
-      else if (R.emb.length) flag(1, nf(R.emb.length) + (R.emb.length === 1 ? ' embargo' : ' embargos') + ' do IBAMA a até 5 km da área.');
+      else if (embAntes.length) flag(1, nf(embAntes.length) + (embAntes.length === 1 ? ' embargo' : ' embargos') + ' do IBAMA a até 5 km da área' + (area.ano ? ', já existentes em ' + area.ano : '') + '.');
+      if (R.emb.length > embAntes.length) flag(1, nf(R.emb.length - embAntes.length) + (R.emb.length - embAntes.length === 1 ? ' embargo do IBAMA a até 5 km foi emitido' : ' embargos do IBAMA a até 5 km foram emitidos') + ' depois deste fogo e não ' + (R.emb.length - embAntes.length === 1 ? 'indica' : 'indicam') + ' nada sobre ele.');
     }
 
     // --- physical setting
@@ -801,15 +824,19 @@
       const groups = []; R.lcHist.forEach(x => { const g = groups[groups.length - 1]; if (g && g.cls === x.cls) g.to = x.y; else groups.push({ cls: x.cls, from: x.y, to: x.y }); });
       h += '<p><b>Trajetória 2001–2023</b> (classe dominante na área, MODIS 500 m): ' + groups.map(g => esc(LC_NAMES[g.cls]) + ' (' + (g.from === g.to ? g.from : g.from + '–' + g.to) + ')').join(' → ') + '</p>';
     }
-    if (R.prodes.length) h += '<p><b>Desmatamento medido (PRODES):</b> ' + R.prodes.map(p => 'ano ' + p.y + ' (' + nf(p.sh * 100, 0) + '% da área)').join(', ') + '.</p>';
-    if (R.deter.length) h += '<p><b>Alertas DETER na área:</b></p>' + T(R.deter.slice(0, 8).map(d => [br(d.d) + ' · ' + (A.DET_CLS[d.cls] || d.cls.replace(/_/g, ' ').toLowerCase()), haTxt(d.ha) + ' · ' + nf(d.sh * 100, 0) + '% desta área']));
+    if (R.prodes.length) h += '<p><b>Desmatamento medido (PRODES):</b> ' + R.prodes.map(p => 'ano ' + p.y + ' (' + nf(p.sh * 100, 0) + '% da área' + ((p.y + '-08-01') > (area.date1 || area.date) ? ', depois do fogo' : '') + ')').join(', ') + '.</p>';
+    if (R.deter.length) h += '<p><b>Alertas DETER na área:</b></p>' + T(R.deter.slice(0, 8).map(d => [br(d.d) + (d.d > (area.date1 || area.date) ? ' (depois do fogo)' : '') + ' · ' + (A.DET_CLS[d.cls] || d.cls.replace(/_/g, ' ').toLowerCase()), haTxt(d.ha) + ' · ' + nf(d.sh * 100, 0) + '% desta área'])) + (R.deter.length > 8 ? note('Mostrando 8 de ' + nf(R.deter.length) + ' alertas.') : '');
     if (!R.prodes.length && !R.deter.length) h += '<p>Nenhum desmatamento PRODES (últimos 3 anos) ou alerta DETER (desde dez/2024) sobre a área.</p>';
     h += '<p><b>' + (isDesm(area) ? 'Emissão se a vegetação derrubada for queimada' : 'Emissão estimada da queima') + ':</b> cerca de <b>' + nf(R.co2, 0) + ' t de CO₂</b>.</p>' + note('Ordem de grandeza: área × combustível queimado por hectare × fator de emissão (valores de referência do IPCC 2006, vol. 4, tabelas 2.4 e 2.5). Floresta ~100 t de matéria seca por ha; lavrado e pasto ~5–6 t/ha. Incerteza alta.');
 
     // 6. land tenure
-    h += H2(6, 'Situação fundiária e áreas protegidas');
-    if (R.car.length) h += '<p><b>Imóveis do CAR atingidos</b> (dados públicos do SICAR, sem nome do dono):</p>' + T(R.car.map(c => [esc(c.cod), esc(A.CAR_TIPO[c.tipo] || c.tipo || '') + ' · ' + nf(c.area, 0) + ' ha declarados · ' + esc(c.cond || 'situação não informada') + ' · <b>' + haTxt(c.haIn) + ' desta área (' + nf(c.sh * 100, 0) + '%)</b>']));
-    else h += '<p>' + (R.carNone ? 'Nenhum imóvel do CAR sobre a área.' : 'Não foi possível consultar o CAR agora.') + '</p>';
+    h += H2(6, area.ano ? 'Situação atual do local (hoje, não de ' + area.ano + ')' : 'Situação fundiária e áreas protegidas');
+    if (area.ano) h += note('As seções anteriores contam o que aconteceu em ' + area.ano + '. Esta mostra os cadastros de hoje: CAR, embargos, Unidades de Conservação, Terras Indígenas e florestas públicas podem não existir ou ter outra situação naquele ano. O CAR foi criado pela Lei 12.651/2012.');
+    if (R.car.length) {
+      h += '<p><b>Imóveis do CAR atingidos: ' + nf(R.car.length) + '</b> (dados públicos do SICAR, sem nome do dono)</p>';
+      CAR_GRUPOS.forEach(([k, nome]) => { const l = R.car.filter(c => c.sit === k); if (l.length) h += '<p style="margin:8px 0 2px"><b>' + nome + ' (' + nf(l.length) + ')</b></p>' + T(l.map(c => [esc(c.cod), esc(A.CAR_TIPO[c.tipo] || c.tipo || '') + ' · ' + nf(c.area, 0) + ' ha declarados · ' + esc(c.cond || 'situação não informada') + (A.CAR_ST && A.CAR_ST[c.status] ? ' · cadastro ' + A.CAR_ST[c.status].toLowerCase() : '') + ' · <b>' + haTxt(c.haIn) + ' desta área (' + nf(c.sh * 100, 0) + '%)</b>'])); });
+      h += note('O CAR é uma declaração de quem cadastrou. Enquanto a análise não termina, ele não prova posse, propriedade nem regularidade ambiental.');
+    } else h += '<p>' + (R.carNone ? 'Nenhum imóvel do CAR sobre a área.' : 'Não foi possível consultar o CAR agora.') + '</p>';
     const sitFogo = a => a.val < area.date ? 'vencida antes do fogo' : a.em > (area.date1 || area.date) ? 'emitida depois do fogo' : 'vigente na data do fogo';
     if (R.asv.length) h += '<p><b>Autorizações de supressão de vegetação (SINAFLOR) do imóvel do CAR:</b></p>' + T(R.asv.slice(0, 6).map(a => ['Nº ' + esc(a.num), 'emitida ' + br(a.em) + ', válida até ' + br(a.val) + ' · <b>' + sitFogo(a) + '</b> · ' + esc(a.fin) + (a.ha ? ' · ' + nf(a.ha, 1) + ' ha' : '') + ' · ' + esc(a.sit)])) + '<p class="ar-note">O SINAFLOR registra autorização para retirar vegetação (supressão), não para queimar: a autorização de queima é da FEMARH. Esta base pode não trazer todas as autorizações estaduais.</p>';
     else h += '<p>Nenhuma autorização de supressão de vegetação (SINAFLOR/IBAMA) registrada para o imóvel do CAR.</p>';
@@ -817,7 +844,7 @@
     else h += '<p>A área não está em floresta pública cadastrada (CNFP 2025).</p>';
     h += T([['Unidades de Conservação', R.uc.length ? R.uc.slice(0, 3).map(u => esc(u.nome) + ' (' + esc(u.cat) + ', ' + esc(u.grupo.toLowerCase()) + ') · ' + (u.sh > 0 ? '<b>' + nf(u.sh * 100, 0) + '% da área</b>' : 'a ' + kmTxt(u.km))).join('<br>') : 'nenhuma a até 10 km'],
       ['Terras Indígenas', R.ti.length ? R.ti.slice(0, 3).map(t => 'TI ' + esc(t.nome) + (t.etnia ? ' (' + esc(t.etnia) + ')' : '') + ' · ' + (t.sh > 0 ? '<b>' + nf(t.sh * 100, 0) + '% da área</b>' : 'a ' + kmTxt(t.km))).join('<br>') : 'nenhuma a até 10 km']]);
-    if (R.emb.length) h += '<p><b>Embargos do IBAMA a até 5 km</b> (sem nomes):</p>' + T(R.emb.slice(0, 8).map(e => ['Termo ' + esc(e.termo) + ' · ' + br(e.data), (e.ha ? nf(e.ha, 1) + ' ha · ' : '') + esc(e.sit) + (e.des ? ' em ' + br(e.des) : '') + ' · ' + (e.km === 0 ? '<b>sobre a área</b>' : 'a ' + kmTxt(e.km)) + (e.poly ? '' : ' (só o ponto)')]));
+    if (R.emb.length) h += '<p><b>Embargos do IBAMA a até 5 km</b> (sem nomes):</p>' + T(R.emb.slice(0, 8).map(e => ['Termo ' + esc(e.termo) + ' · ' + br(e.data) + (e.data > (area.date1 || area.date) ? ' (depois do fogo)' : ''), (e.ha ? nf(e.ha, 1) + ' ha · ' : '') + esc(e.sit) + (e.des ? ' em ' + br(e.des) : '') + ' · ' + (e.km === 0 ? '<b>sobre a área</b>' : 'a ' + kmTxt(e.km)) + (e.poly ? '' : ' (só o ponto)')])) + (R.emb.length > 8 ? note('Mostrando os 8 mais próximos de ' + nf(R.emb.length) + ' embargos.') : '');
     else h += '<p>Nenhum embargo do IBAMA a até 5 km.</p>';
 
     // 7. physical setting
@@ -997,7 +1024,7 @@
     const linhas = rows => '<table>' + rows.filter(Boolean).map(([k, v]) => '<tr><td>' + esc(k) + '</td><td>' + v + '</td></tr>').join('') + '</table>';
     let h = '';
     h += '<div class="ar-photowarn"><b>Este é o contorno declarado pelo proprietário no CAR.</b> O contorno não comprova posse nem legaliza a ocupação. Os cruzamentos com outras bases são indícios, não prova de infração.</div>';
-    h += '<h2>1 Identificação</h2>' + linhas([['Código do CAR', esc(c.cod)], ['Tipo', esc(c.tipoNome)], ['Situação no CAR', esc(c.cond || '–')],
+    h += '<h2>1 Identificação</h2>' + linhas([['Código do CAR', esc(c.cod)], ['Tipo', esc(c.tipoNome)], ['Situação no CAR', esc(c.cond || '–') + (window.FRR.CAR_ST && window.FRR.CAR_ST[c.status] ? ' · cadastro ' + window.FRR.CAR_ST[c.status].toLowerCase() : '')],
       ['Município', esc(R.mun || c.mun || '–')], ['Outros municípios que a área toca', tocados.length > 1 ? tocados.slice(1).map(x => esc(x[0]) + ' (' + nf(x[1] * 100, 0) + '%)').join(', ') : 'nenhum']]);
     h += '<h2>2 Área</h2>' + linhas([['Área declarada no CAR', nf(decl, 2) + ' ha'], ['Área medida pelo contorno', nf(ha, 2) + ' ha'],
       ['Alqueire paulista (2,42 ha)', nf(ha / AL_PAULISTA, 2) + ' alqueires'], ['Alqueirão (4,84 ha)', nf(ha / AL_GERAL, 2) + ' alqueirões']]);
