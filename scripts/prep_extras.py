@@ -278,16 +278,20 @@ def avisos(src_file, out_dir):
 
 
 
-# ---------- area with fire this year by type of land (VIIRS 375 m squares, each counted once), for the impact page
+# ---------- area with fire in IMPACT_YEAR by type of land (VIIRS 375 m squares, each counted once), for the impact page.
+# impacto.html talks about this specific year (El Niño, soybean harvest): change it only after reviewing the page text.
+IMPACT_YEAR = 2026
+
 def impacto(out_dir):
     d = json.load(open(os.path.join(out_dir, 'roraima3d.json'), encoding='utf-8'))
     F = d['fires']
     t0 = datetime.fromisoformat(d['meta']['t0'].replace('Z', '+00:00'))
-    year = datetime.now(timezone.utc).year
+    year = IMPACT_YEAR
     y0 = (datetime(year, 1, 1, 4, tzinfo=timezone.utc) - t0).total_seconds() / 60   # 1 Jan, Roraima time
+    y1 = (datetime(year + 1, 1, 1, 4, tzinfo=timezone.utc) - t0).total_seconds() / 60
     seen, ti = {}, set()
     for i, t in enumerate(F['t']):
-        if t < y0 or not F['v'][i]:
+        if t < y0 or t >= y1 or not F['v'][i]:
             continue
         k = (round(F['lat'][i] / 0.003375), round(F['lon'][i] / 0.003375))
         if k in seen:

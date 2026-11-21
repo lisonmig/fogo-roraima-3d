@@ -62,7 +62,7 @@ code { font-family: "IBM Plex Mono", ui-monospace, monospace; }
 </div>
 
 <h2>Um ano de seca e fogo</h2>
-<p>Roraima vive em <span class="yy">2026</span> um dos anos mais secos e com mais fogo da sua história recente. O fenômeno El Niño deixou as chuvas abaixo do normal, os rios baixaram cedo e a vegetação seca virou combustível. O estado e quatro municípios (Cantá, Alto Alegre, Normandia e Iracema) decretaram situação de emergência por estiagem; a de Cantá já foi reconhecida pelo governo federal.</p>
+<p>Roraima <span id="vive">vive</span> em <span class="yy">2026</span> um dos anos mais secos e com mais fogo da sua história recente. O fenômeno El Niño deixou as chuvas abaixo do normal, os rios baixaram cedo e a vegetação seca virou combustível. O estado e quatro municípios (Cantá, Alto Alegre, Normandia e Iracema) decretaram situação de emergência por estiagem; a de Cantá já foi reconhecida pelo governo federal.</p>
 <p id="pFocos">Os focos de calor contados pelo INPE estão bem acima da média dos últimos anos.</p>
 <p>Os cientistas mostram que o aquecimento do planeta deixa as secas na Amazônia mais quentes e mais longas, e aumenta os dias em que o tempo favorece o fogo. Quando um El Niño chega sobre esse clima já mais quente, como em 2024 e de novo em <span class="yy">2026</span>, o efeito em Roraima é maior: menos água, mais calor e mais fogo.</p>
 
@@ -143,10 +143,16 @@ code { font-family: "IBM Plex Mono", ui-monospace, monospace; }
   const mi = v => v >= 1e9 ? 'R$ ' + (v / 1e9).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + (v >= 2e9 ? ' bilhões' : ' bilhão') : 'R$ ' + n0(v / 1e6) + ' milhões';
   const usd = v => 'US$ ' + n0(v / 1e6) + ' milhões';
   if (I) document.querySelectorAll('.yy').forEach(e => e.textContent = I.ano);
+  // the text of this page is about one year: when that year ends, the numbers stay closed on it
+  const closed = !!I && +I.generated.slice(0, 4) > I.ano;
+  if (closed) {
+    $('vive').textContent = 'viveu';
+    document.querySelector('.sub').textContent = 'Fogo em Roraima 3D · site educativo independente · números fechados de ' + I.ano + '. Estimativas com fonte; não apontam culpados.';
+  }
   if (I) {
     const P = I.porTipo, pasto = (P['Campo ou pasto'] || 0) + (P['Agricultura'] || 0), flor = P['Floresta'] || 0, lav = P['Lavrado / savana'] || 0;
     $('cArea').textContent = n0(I.totalHa);
-    $('pArea').innerHTML = 'Desde 1º de janeiro, o satélite viu fogo em cerca de <b>' + n0(I.totalHa) + ' hectares</b> de Roraima (' + n0(I.totalHa / 100) + ' km², cerca de ' + (I.totalHa / 22364400 * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '% da área do estado). Por tipo de terreno:';
+    $('pArea').innerHTML = (closed ? 'Em ' + I.ano : 'Desde 1º de janeiro') + ', o satélite viu fogo em cerca de <b>' + n0(I.totalHa) + ' hectares</b> de Roraima (' + n0(I.totalHa / 100) + ' km², cerca de ' + (I.totalHa / 22364400 * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '% da área do estado). Por tipo de terreno:';
     const cols = { 'Campo ou pasto': '#d08a2e', 'Floresta': '#2f6b3a', 'Lavrado / savana': '#b9a45a', 'Agricultura': '#e0b84a' };
     const parts = Object.entries(P).filter(([, v]) => v / I.totalHa >= 0.005);
     $('bar').innerHTML = parts.map(([k, v]) => '<i style="width:' + (v / I.totalHa * 100).toFixed(1) + '%;background:' + (cols[k] || '#888') + '" title="' + k + '"></i>').join('');
@@ -164,14 +170,15 @@ code { font-family: "IBM Plex Mono", ui-monospace, monospace; }
       '<tr><td>Lavrado queimado</td><td>' + n0(lav) + ' ha</td><td class="v">sem valor em reais</td></tr>';
     $('tblNote').textContent = 'Área com fogo atualizada com os dados do mapa. Valores por hectare e da soja: fontes na seção "Como as contas foram feitas".';
   }
-  if (H && H.anos && H.anos[H.ano]) {
-    const y = H.ano, cur = H.anos[y].reduce((a, b) => a + b, 0), prev = (H.anos[y - 1] || []).reduce((a, b) => a + b, 0);
-    const full = +H.ate.slice(5, 7) - 1, past = Object.keys(H.anos).map(Number).filter(a => a >= 1999 && a < y);
+  const yH = I ? I.ano : H && H.ano;
+  if (H && H.anos && H.anos[yH]) {
+    const y = yH, cur = H.anos[y].reduce((a, b) => a + b, 0), prev = (H.anos[y - 1] || []).reduce((a, b) => a + b, 0), over = y < H.ano;
+    const full = over ? 12 : +H.ate.slice(5, 7) - 1, past = Object.keys(H.anos).map(Number).filter(a => a >= 1999 && a < y);
     const upTo = arr => arr.slice(0, full).reduce((a, b) => a + b, 0), avg = past.reduce((s, a) => s + upTo(H.anos[a]), 0) / past.length;
     const pct = Math.round((upTo(H.anos[y]) / avg - 1) * 100);
     $('cFocos').textContent = n0(cur);
     const mes = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'][full - 1];
-    $('pFocos').innerHTML = 'O INPE já contou <b>' + n0(cur) + ' focos de calor</b> em Roraima em ' + y + ' (até ' + H.ate.split('-').reverse().slice(0, 2).join('/') + ')' + (prev && cur > prev ? ', mais do que em todo o ano de ' + (y - 1) + ' (' + n0(prev) + ')' : '') + '. De janeiro a ' + mes + ', foram ' + n0(upTo(H.anos[y])) + ' focos, <b>' + Math.abs(pct) + '% ' + (pct >= 0 ? 'acima' : 'abaixo') + ' da média</b> desde ' + past[0] + '.';
+    $('pFocos').innerHTML = (over ? 'O INPE contou <b>' : 'O INPE já contou <b>') + n0(cur) + ' focos de calor</b> em Roraima em ' + y + (over ? '' : ' (até ' + H.ate.split('-').reverse().slice(0, 2).join('/') + ')') + (prev && cur > prev ? ', mais do que em todo o ano de ' + (y - 1) + ' (' + n0(prev) + ')' : '') + '. De janeiro a ' + mes + ', foram ' + n0(upTo(H.anos[y])) + ' focos, <b>' + Math.abs(pct) + '% ' + (pct >= 0 ? 'acima' : 'abaixo') + ' da média</b> desde ' + past[0] + '.';
   }
   const st = S && S.stations && S.stations.find(s => s.code === '14620000');
   if (st && st.last) {

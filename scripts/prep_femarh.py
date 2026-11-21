@@ -13,6 +13,8 @@ URL = 'https://siggarr.femarh.rr.gov.br/index.php?r=dados&c={}.geojson'
 # ano -> camada do SIGGARR (2026: a camada "_2" é a que o próprio SIGGARR mostra; contém a outra)
 CAMADAS = {2023: ['controle_queimadas_2023'], 2024: ['controle_queimadas_2024'], 2025: ['controle_queimadas_2025'],
            2026: ['controle_queimadas_2026_2', 'vw_queimadas_area']}
+for _a in range(2027, date.today().year + 1):  # cada ano novo ganha camada própria no SIGGARR; se ainda não existir, só conta como falha
+    CAMADAS[_a] = ['controle_queimadas_%d' % _a, 'controle_queimadas_%d_2' % _a]
 MUNS = ['Alto Alegre', 'Amajari', 'Boa Vista', 'Bonfim', 'Cantá', 'Caracaraí', 'Caroebe', 'Iracema', 'Mucajaí',
         'Normandia', 'Pacaraima', 'Rorainópolis', 'São João da Baliza', 'São Luiz', 'Uiramutã']
 TIPOS = ['Pastagem', 'Restos de exploração florestal', 'Restos de cultura', 'Outros']

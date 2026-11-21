@@ -23,6 +23,8 @@
   const br = iso => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : '–';
   const addDays = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
   const today = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  // CAR report: from 01/01/2026, or the last 12 months once more than a year has passed
+  const carDesde = () => { const d = new Date(Date.now() - 4 * 3600e3 - 365 * 864e5).toISOString().slice(0, 10); return d > '2026-01-01' ? d : '2026-01-01'; };
   const dayDiff = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
   const withTimeout = (p, ms) => Promise.race([p, new Promise((_, bad) => setTimeout(() => bad(new Error('tempo esgotado')), ms))]);
   const getJSON = (u, ms = 30000) => withTimeout(fetch(u).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }), ms);
@@ -971,7 +973,7 @@
     el.innerHTML = '<div class="rep-page ar-wait"><p class="rep-kick">Fogo em Roraima 3D · memorial descritivo do CAR</p><h1>Montando o memorial…</h1><p class="rep-sub">Juntando o contorno declarado, os cruzamentos com bases públicas e o relevo.</p></div>';
     try {
       const rings = c.rings.filter(r => r.length >= 6);
-      const area = { rings, box: boxOf(rings), title: 'Imóvel rural (CAR)', date: '2026-01-01', date1: today(), mun: c.mun, source: 'SICAR (CAR, declaração do proprietário)' };
+      const area = { rings, box: boxOf(rings), title: 'Imóvel rural (CAR)', date: carDesde(), date1: today(), mun: c.mun, source: 'SICAR (CAR, declaração do proprietário)' };
       area.samples = samplesOf(rings, area.box); area.edge = edgeOf(rings);
       const cx = area.samples.reduce((a, p) => a + p[0], 0) / area.samples.length, cy = area.samples.reduce((a, p) => a + p[1], 0) / area.samples.length;
       area.center = inRings(cx, cy, rings) ? [cx, cy] : area.samples[Math.floor(area.samples.length / 2)];
@@ -1011,7 +1013,7 @@
     (R.fp || []).forEach(f => itens.push('<b>Floresta pública</b> ' + esc(f.nome) + ' (' + esc(f.tipo || '–') + '): ' + (f.sh > 0 ? shTxt(f.sh) : 'a ' + nf(f.km, 1) + ' km')));
     (R.deter || []).forEach(d => itens.push('<b>Desmatamento (DETER)</b> ' + esc(br(d.d)) + ', ' + esc(d.cls || '–') + ': ' + nf(d.ha, 1) + ' ha dentro da área'));
     (R.prodes || []).forEach(p => itens.push('<b>Desmatamento medido (PRODES)</b> ano ' + p.y + ': ' + nf(p.sh * 100, 0) + '% da área'));
-    if (R.fireStats && R.fireStats.n) itens.push('<b>Fogo em 2026</b>: ' + nf(R.fireStats.n) + ' focos de calor no imóvel desde 01/01 (' + nf(R.fireStats.inside) + ' dentro do perímetro).' + (R.asv && R.asv.length === 0 ? ' Nenhuma autorização de supressão de vegetação encontrada na base para o imóvel; a base pode estar incompleta.' : ''));
+    if (R.fireStats && R.fireStats.n) itens.push('<b>Fogo desde dez/2025</b>: ' + nf(R.fireStats.n) + ' focos de calor no imóvel ou a até 500 m (' + nf(R.fireStats.inside) + ' dentro do perímetro).' + (R.asv && R.asv.length === 0 ? ' Nenhuma autorização de supressão de vegetação encontrada na base para o imóvel; a base pode estar incompleta.' : ''));
     h += '<h2>5 Cruzamentos e passivos (indícios)</h2>' + (itens.length ? '<ul>' + itens.map(x => '<li>' + x + '</li>').join('') + '</ul>' : '<p>Nenhum cruzamento encontrado nas bases consultadas.</p>');
     const dms = d => { d = ((d % 360) + 360) % 360; const g = Math.floor(d), m = Math.floor((d - g) * 60), sx = Math.round(((d - g) * 60 - m) * 60); return g + '°' + String(m).padStart(2, '0') + "'" + String(sx).padStart(2, '0') + '"'; };
     const parts = area.rings.map(ring => { const V = []; for (let j = 0; j < ring.length - 2; j += 2) V.push([ring[j], ring[j + 1]]); return { V, U: V.map(p => llToUtm(p[1], p[0])) }; }).filter(pt => pt.U.length);
@@ -1068,7 +1070,7 @@
   async function carPrep(c) {
     const A = window.FRR;
     const rings = c.rings.filter(r => r.length >= 6);
-    const area = { rings, box: boxOf(rings), title: 'Imóvel rural (CAR)', date: '2026-01-01', date1: today(), mun: c.mun, source: 'SICAR (CAR, declaração do proprietário)' };
+    const area = { rings, box: boxOf(rings), title: 'Imóvel rural (CAR)', date: carDesde(), date1: today(), mun: c.mun, source: 'SICAR (CAR, declaração do proprietário)' };
     area.samples = samplesOf(rings, area.box); area.edge = edgeOf(rings);
     const cx = area.samples.reduce((a, p) => a + p[0], 0) / area.samples.length, cy = area.samples.reduce((a, p) => a + p[1], 0) / area.samples.length;
     area.center = inRings(cx, cy, rings) ? [cx, cy] : area.samples[Math.floor(area.samples.length / 2)];
