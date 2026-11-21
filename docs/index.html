@@ -901,7 +901,7 @@ body.measuring #labels > * { pointer-events: none; }
           <div class="row">
             <button class="btn" id="pickBtn" aria-pressed="false">Marcar no mapa</button>
             <button class="btn" id="gpsBtn" hidden>Marcar onde estou (GPS)</button>
-            <select id="radius" aria-label="Raio"><option value="1">1 km</option><option value="2">2 km</option><option value="5">5 km</option><option value="10" selected>10 km</option><option value="20">20 km</option><option value="50">50 km</option></select>
+            <select id="radius" aria-label="Raio"><option value="1">1 km</option><option value="2" selected>2 km</option><option value="5">5 km</option><option value="10">10 km</option><option value="20">20 km</option><option value="50">50 km</option></select>
             <button class="btn" id="pinClear" hidden>Remover local</button>
           </div>
           <p class="note" id="gpsMsg" hidden></p>
@@ -2231,7 +2231,7 @@ body.measuring #labels > * { pointer-events: none; }
   // ---------- nearby tool
   let circle = null;
   // the marked place is "my place": kept only in this browser, so the map can warn about fire near it when it opens
-  const saveLocal = () => { try { localStorage.setItem('rr3d-local', JSON.stringify(st.pin ? { lon: st.pin.lon, lat: st.pin.lat, label: st.pin.label, R: +$('radius').value } : null)); } catch (e) {} };
+  const saveLocal = () => { try { localStorage.setItem('rr3d-local', JSON.stringify(st.pin ? { lon: st.pin.lon, lat: st.pin.lat, label: st.pin.label, R: +$('radius').value, Rv: 2 } : null)); } catch (e) {} };
   function setPin(lon, lat, label) {
     st.pin = { lon, lat, label: label || 'Ponto marcado' };
     pinEl.textContent = st.pin.label; pinEl.hidden = false;
@@ -5024,7 +5024,7 @@ body.measuring #labels > * { pointer-events: none; }
   try { // my place saved in this browser
     const v = JSON.parse(localStorage.getItem('rr3d-local') || 'null');
     if (v && isFinite(v.lon) && isFinite(v.lat) && v.lon >= W && v.lon <= E && v.lat >= S && v.lat <= N) {
-      if (v.R && [...$('radius').options].some(o => +o.value === +v.R)) $('radius').value = String(v.R);
+      if (v.R && (v.Rv || +v.R !== 10) && [...$('radius').options].some(o => +o.value === +v.R)) $('radius').value = String(v.R); // 10 km saved by an older version was only the old default
       setPin(+v.lon, +v.lat, String(v.label || 'Ponto marcado').slice(0, 80));
     }
   } catch (e) {}
