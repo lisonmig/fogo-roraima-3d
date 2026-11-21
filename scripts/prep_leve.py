@@ -73,6 +73,10 @@ for j, la in enumerate(W['lats']):
         k = j*W['cols']+i; vento.append([lo, la, ws[k], wd[k]])
 S = J('seca.json'); seca = [{'n': s['name'], 'r': s['river'], 'c': [s['lon'], s['lat']], 'cm': (s.get('last') or {}).get('cm'), 'k': s.get('risk')} for s in (S or {}).get('stations', [])]
 O = {'u': gen.strftime('%Y-%m-%dT%H:%MZ'), 'f': fires, 'sc': sc, 'ev': ev, 'rios': rios, 'au': au, 'v': vento, 'seca': seca, 'n': cnt}
+_rr = D['rr']
+if _rr and isinstance(_rr[0], list) and len(_rr[0]) == 2 and not isinstance(_rr[0][0], list): _rr = [[v for q in _rr for v in q]]
+elif _rr and not isinstance(_rr[0], list): _rr = [_rr]
+O['rr'] = [ring(r, .001) for r in _rr]  # contorno do estado: a página cobre o que fica fora
 with open(os.path.join(P, 'leve.json.tmp'), 'w', encoding='utf-8', newline='\n') as f: json.dump(O, f, ensure_ascii=False, separators=(',', ':'))
 os.replace(os.path.join(P, 'leve.json.tmp'), os.path.join(P, 'leve.json'))
 print('leve.json', os.path.getsize(os.path.join(P, 'leve.json')), {k: len(json.dumps(v, separators=(',', ':'))) for k, v in O.items()})

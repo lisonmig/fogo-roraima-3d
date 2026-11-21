@@ -20,7 +20,7 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1917;--tx:#fafaf9;--mut:#c4c0bb;--line:#44403c;--acc:#fb923c;--soft:#292524}}
 :root[data-theme="dark"]{--bg:#1c1917;--tx:#fafaf9;--mut:#c4c0bb;--line:#44403c;--acc:#fb923c;--soft:#292524}
 *{box-sizing:border-box}html,body{height:100%;margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-#map{position:fixed;inset:0;background:#dfe6dc}
+#map{position:fixed;inset:0;background:var(--soft)}
 .bar{position:fixed;z-index:1000;top:max(10px,env(safe-area-inset-top));left:10px;right:10px;display:flex;gap:8px;align-items:center;justify-content:space-between;pointer-events:none}
 .brand{pointer-events:auto;background:var(--bg);border-radius:10px;padding:7px 12px;box-shadow:0 1px 5px #0005;min-width:0;flex:1;max-width:330px}
 .brand b{display:block;font-size:16px}.brand b span{color:var(--acc)}.brand small{display:block;color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -97,12 +97,16 @@ $('b3d').onclick=go3d;$('askYes').onclick=go3d;$('askNo').onclick=function(){sto
 if(!store('frr-3d-perg'))$('ask').hidden=false;
 if(!window.L){$('upd').textContent='Não foi possível abrir o mapa. Confira a internet.';return}
 var cv=L.canvas({padding:.2,tolerance:6});
-var map=L.map('map',{preferCanvas:true,renderer:cv,minZoom:5,maxZoom:17,maxBounds:[[-4,-68],[8,-55]]}).fitBounds([[-1.6,-64.85],[5.3,-58.85]]);
+var BX=L.latLngBounds([[-1.6,-64.85],[5.3,-58.85]]),TB=[[-1.8,-65.05],[5.5,-58.65]];
+function topo(){return innerWidth<768?122:12}
+var map=L.map('map',{preferCanvas:true,renderer:cv,minZoom:4,maxZoom:17,zoomSnap:.25,maxBounds:[[-3.2,-66.6],[6.9,-57.1]],maxBoundsViscosity:1}).fitBounds(BX,{paddingTopLeft:[8,topo()],paddingBottomRight:[8,20]});
+map.setMinZoom(map.getZoom());addEventListener('resize',function(){map.setMinZoom(map.getBoundsZoom(BX,false,L.point(16,topo()+20)))});
+map.createPane('mask').style.zIndex=420;map.getPane('mask').style.pointerEvents='none';
 map.zoomControl.setPosition('topright');
 var OA='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-var bases={osm:L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:OA}),
-sat:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:17,attribution:'Imagem © Esri'}),
-topo:L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:OA+', © OpenTopoMap'})};
+var bases={osm:L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,bounds:TB,attribution:OA}),
+sat:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:17,bounds:TB,attribution:'Imagem © Esri'}),
+topo:L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,bounds:TB,attribution:OA+', © OpenTopoMap'})};
 var cur=store('frr-base');if(!bases[cur])cur='osm';bases[cur].addTo(map);
 function markBase(){document.querySelectorAll('[data-b]').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.b===cur)})}
 document.querySelectorAll('[data-b]').forEach(function(b){b.onclick=function(){map.removeLayer(bases[cur]);cur=b.dataset.b;bases[cur].addTo(map);bases[cur].bringToBack();store('frr-base',cur);markBase()}});markBase();
@@ -213,7 +217,9 @@ CARS.forEach(function(s,i){var l=document.createElement('label'),c=document.crea
 var anoG=L.layerGroup(),anoRun=0,ANOH=['fire','per','scar','top','wind'];for(var yy=2025;yy>=2003;yy--){var yo=document.createElement('option');yo.value=yy;yo.textContent=yy;$('ano').appendChild(yo)}
 function anoFora(){anoRun++;anoG.clearLayers();map.removeLayer(anoG);$('anoBar').hidden=true;$('ano').value='';ANOH.forEach(function(k){if(saved[k]!==false)G[k].addTo(map)});ordena();rotulos();alertaPin()}
 $('anoX').onclick=anoFora;$('ano').onchange=function(){var y=this.value;if(!y){anoFora();return}var run=++anoRun;$('moreMsg').textContent='Baixando focos de '+y+'…';fetch('rel/anos/'+y+'.json').then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(J){if(run!==anoRun)return;anoG.clearLayers();var f=J.f,cel={};for(var i=0;i+3<f.length;i+=4){var k=f[i]+'_'+f[i+1];if(cel[k])continue;cel[k]=1;L.circleMarker([J.origin[1]+f[i+1]*J.g,J.origin[0]+f[i]*J.g],{renderer:cv,radius:2.5,stroke:false,fillColor:'#dc2626',fillOpacity:.75,interactive:false}).addTo(anoG)}ANOH.forEach(function(k){map.removeLayer(G[k])});anoG.addTo(map);$('alerta').hidden=true;$('anoTxt').textContent=n(f.length/4)+' focos em '+y+' (INPE)';$('anoBar').hidden=false;$('moreMsg').textContent='Focos do satélite de referência do INPE em '+y+'.';rotulos()}).catch(function(){if(run!==anoRun)return;$('ano').value='';$('moreMsg').textContent='Não foi possível baixar '+y+'. Tente de novo.'})};
+function dentroRR(D,x,y){if(!D.rr)return true;var c=false;D.rr.forEach(function(r){for(var i=0,j=r.length-2;i<r.length;j=i,i+=2)if((r[i+1]>y)!==(r[j+1]>y)&&x<(r[j]-r[i])*(y-r[i+1])/(r[j+1]-r[i+1])+r[i])c=!c});return c}
 function draw(D){
+if(D.rr){var cor=getComputedStyle(document.documentElement).getPropertyValue('--soft').trim()||'#f5f5f4';L.polygon([[[-30,-100],[35,-100],[35,-20],[-30,-20]]].concat(D.rr.map(ll)),{renderer:L.svg({pane:'mask',padding:1}),pane:'mask',interactive:false,fillColor:cor,fillOpacity:1,color:'#78716c',weight:1.5}).addTo(map)}
 var f=D.f;for(var i=0;i<f.length;i+=3)(function(lo,la,h){var ex=Math.max(0,(Date.now()-Date.parse(D.u.replace('Z',':00Z')))/36e5),vh=Math.round(h+ex);L.circleMarker([la,lo],{renderer:cv,radius:h<6?5:h<24?4:3,stroke:false,fillColor:h<6?'#dc2626':h<24?'#ea580c':'#92400e',fillOpacity:.9}).bindPopup('<b>Foco de calor</b><br>Visto há '+(vh<1?'menos de 1 hora':vh+' h')+'<br><span class="note">Fonte: INPE</span>').addTo(G.fire)})(f[i],f[i+1],f[i+2]);
 var sq=[],s=D.sc,sx=0,sy=0,ST=.003375,M=ST/2;for(var k=0;k<s.length;k+=2){sx+=s[k];sy+=s[k+1];var x=sx*ST,y=sy*ST;sq.push([[y-M,x-M],[y-M,x+M],[y+M,x+M],[y+M,x-M]])}
 if(sq.length)L.polygon(sq,{renderer:cv,stroke:false,fillColor:'#44291a',fillOpacity:.45,interactive:false}).addTo(G.scar);
@@ -223,7 +229,7 @@ D.ev.slice().reverse().forEach(function(e){var c=SIT[e.s][1];L.polygon(e.r.map(l
 var INC=D.ev.filter(function(e){return e.ti==='Incêndio'}),used=[],c=0;INC.forEach(function(e){if(c>=5||used.some(function(u){return Math.abs(u[0]-e.c[0])<.15&&Math.abs(u[1]-e.c[1])<.15}))return;used.push(e.c);c++;L.tooltip({permanent:true,direction:'top',className:e.s==='burn'?'lf':'lf lo',interactive:false}).setLatLng([e.c[1],e.c[0]]).setContent(esc(e.m||'Incêndio')+' · '+n(e.ha)+' ha').addTo(G.top)});
 D.au.f.forEach(function(a){L.polygon(a.r.map(ll),{renderer:cv,color:'#16a34a',weight:1.5,fillOpacity:.08}).bindPopup('<b>Área com autorização</b><br>'+esc(a.t)+' · '+n(Math.round(a.ha))+' ha<br>De '+br(a.a)+' a '+br(a.b)+'<br><span class="note">Fonte: FEMARH</span>').addTo(G.auth)});
 D.au.q.forEach(function(r){L.circle([r[1],r[0]],{renderer:cv,radius:Math.max(150,Math.sqrt(Math.max(0,r[2])*1e4/Math.PI)),color:'#ca8a04',weight:1.5,fillOpacity:.08}).bindPopup('<b>Queima autorizada</b><br>'+n(Math.round(r[2]))+' ha · de '+br(r[3])+' a '+br(r[4])+'<br><span class="note">O círculo não é o limite real. Fonte: FEMARH</span>').addTo(G.auth)});
-D.v.forEach(function(w){L.marker([w[1],w[0]],{interactive:false,keyboard:false,icon:L.divIcon({className:'wa',iconSize:[18,18],html:'<span style="display:inline-block;transform:rotate('+((w[3]+180)%360)+'deg)" title="'+Math.round(w[2]/10)+' km/h">↑</span>'})}).addTo(G.wind)});
+D.v.forEach(function(w){if(!dentroRR(D,w[0],w[1]))return;L.marker([w[1],w[0]],{interactive:false,keyboard:false,icon:L.divIcon({className:'wa',iconSize:[18,18],html:'<span style="display:inline-block;transform:rotate('+((w[3]+180)%360)+'deg)" title="'+Math.round(w[2]/10)+' km/h">↑</span>'})}).addTo(G.wind)});
 var dt=new Date(D.u.replace('Z',':00Z'));$('upd').textContent='Atualizado '+dt.toLocaleString('pt-BR',{timeZone:'America/Boa_Vista',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
 $('shBody').innerHTML='<div class="stats"><div><b>'+n(f.length/3)+'</b><span>focos em 48 h</span></div><div><b>'+n(D.n.burn)+'</b><span>queimando</span></div><div><b>'+n(D.n.obs)+'</b><span>em observação</span></div></div><div id="exBox"></div><h2>Maiores incêndios recentes</h2><div id="lst"></div><p class="note">Dados do INPE, ANA e FEMARH. Site educativo independente. Estar fora da lista de autorizações não quer dizer que a queima é ilegal.</p><p class="note"><a href="sobre.html">Sobre</a> · <a href="termos.html">Termos de uso</a> · <a href="impacto.html">Perdas econômicas</a></p>';
 (INC.length?INC:D.ev).slice(0,30).forEach(function(e){var t=document.createElement('button');t.className='it';t.innerHTML='<b>'+esc(e.m||'Sem município')+' · '+n(e.ha)+' ha</b><span>'+SIT[e.s][0]+' · '+esc(e.ti||'')+'</span>';t.onclick=function(){fecha(true);map.once('moveend',function(){L.popup().setLatLng([e.c[1],e.c[0]]).setContent(evHtml(e)).openOn(map)});map.flyTo([e.c[1],e.c[0]],11,{duration:.6})};$('lst').appendChild(t)});
