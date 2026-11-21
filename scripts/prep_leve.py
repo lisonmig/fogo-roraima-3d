@@ -113,6 +113,7 @@ ES_ = J('estradas.json')
 if ES_:
     ox, oy = ES_['origin']; q = ES_['q']
     salva('estradas', [[w[0], fino(delta(w[3:], ox, oy, q), .002, 3)] for w in ES_['ways'] if w[0] <= 1])
+    salva('vicinais', [[w[0], fino(delta(w[3:], ox, oy, q), .0012, 3)] for w in ES_['ways'] if w[0] >= 2])
     PRIV = re.compile(r'fazenda|s[ií]tio|ch[aá]cara|retiro|est[aâ]ncia|haras|granja', re.I)  # nunca nome de imóvel
     lug = {}
     for x in ES_['places']:
@@ -135,6 +136,6 @@ for e in E['events']:
     if 7 < n <= 60: sem.append({'ti': e.get('tipo'), 'ha': round(e.get('ha') or 0), 'm': e.get('mun'), 'a': e['d0'], 'b': e['d1'], 'r': [ring(r) for r in e['r']]})
 salva('inpe', sem)
 if Q: salva('calor', [[r[0], r[1]] for rows in Q['anos'].values() for r in rows])
-for n in 'ti mun deter queim prodes car estradas inpe calor lugares'.split():
+for n in 'ti mun deter queim prodes car estradas inpe calor lugares vicinais'.split():
     a = os.path.join(P, 'leve_' + n + '.json')
     if os.path.exists(a): print(n, os.path.getsize(a))

@@ -28,14 +28,14 @@ button{font:inherit;color:inherit;cursor:pointer}
 .btn{pointer-events:auto;border:0;background:var(--bg);border-radius:10px;min-height:44px;padding:0 13px;font-weight:600;box-shadow:0 1px 5px #0005}
 .btn.pri{background:#c2410c;color:#fff}
 #lyBtn{position:fixed;z-index:1000;left:10px;bottom:calc(30px + env(safe-area-inset-bottom));width:76px;height:76px;border:2px solid #fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 6px #0007;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:flex-end;justify-content:center;padding:0 0 5px;text-shadow:0 1px 3px #000}
-.th-sat{background:radial-gradient(circle at 30% 30%,#7b8a55,transparent 45%),radial-gradient(circle at 75% 70%,#2f5233,transparent 50%),#8a7a55}
-.th-osm{background:linear-gradient(35deg,transparent 46%,#fff 47% 52%,transparent 53%),linear-gradient(120deg,#cfe3c5 55%,#a9d3ee 56%)}
-.th-topo{background:repeating-radial-gradient(circle at 40% 60%,#e9e2c8 0 5px,#b99f73 6px 7px)}
+.th-sat{background:#555 url(camadas/sat.webp) center/cover}
+.th-osm{background:#ddd url(camadas/2d-mapa.webp) center/cover}
+.th-topo{background:#ccc url(camadas/2d-relevo.webp) center/cover}
 #lyPanel{position:fixed;z-index:1001;left:10px;bottom:calc(114px + env(safe-area-inset-bottom));width:min(320px,calc(100vw - 20px));max-height:calc(100vh - 210px);overflow:auto;background:var(--bg);border-radius:12px;padding:12px;box-shadow:0 2px 12px #0006}
 #lyPanel h2,#sheet h2{font-size:13px;margin:0 0 7px;color:var(--mut)}
 .bases{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
 .bases button{border:0;background:none;padding:0;font-size:12px;text-align:center}
-.bases i{display:block;height:54px;border-radius:8px;border:2px solid var(--line);margin-bottom:3px}.bases [aria-pressed=true] i{border-color:var(--acc)}.bases [aria-pressed=true]{font-weight:700;color:var(--acc)}
+.bases i{display:block;height:54px;border-radius:8px;border:2px solid var(--line);margin-bottom:3px}.bases [aria-pressed=true] i{border-color:#1a73e8}.bases [aria-pressed=true]{font-weight:700;color:#1a73e8}
 .chk{display:grid;grid-template-columns:1fr 1fr;gap:0 8px}.chk label{display:flex;align-items:center;gap:7px;min-height:38px;font-size:14px}.chk input{width:18px;height:18px;accent-color:#c2410c;flex:none}
 #sumBtn{position:fixed;z-index:1000;right:10px;bottom:calc(30px + env(safe-area-inset-bottom))}
 #locBtn{position:fixed;z-index:1000;right:10px;bottom:calc(84px + env(safe-area-inset-bottom))}
@@ -108,7 +108,7 @@ var bases={osm:L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{max
 sat:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:17,bounds:TB,attribution:'Imagem © Esri'}),
 topo:L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,bounds:TB,attribution:OA+', © OpenTopoMap'})};
 var cur=store('frr-base');if(!bases[cur])cur='osm';bases[cur].addTo(map);
-function markBase(){document.querySelectorAll('[data-b]').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.b===cur)})}
+function markBase(){$('lyBtn').className='th-'+cur;document.querySelectorAll('[data-b]').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.b===cur)})}
 document.querySelectorAll('[data-b]').forEach(function(b){b.onclick=function(){map.removeLayer(bases[cur]);cur=b.dataset.b;bases[cur].addTo(map);bases[cur].bringToBack();store('frr-base',cur);markBase()}});markBase();
 var pushed=false;function aberto(){if(!pushed){try{history.pushState({frr:1},'');pushed=true}catch(e){}}}
 function fecha(volta){$('lyPanel').hidden=true;$('sheet').hidden=true;$('emg').hidden=true;$('emgBtn').setAttribute('aria-expanded','false');$('lyBtn').setAttribute('aria-expanded','false');if(volta&&pushed){pushed=false;try{history.back()}catch(e){}}}
@@ -144,13 +144,14 @@ var MORE=[
 ['queim','Área queimada (DETER)',function(d,g){poly(d,{_g:g,color:'#7c2d12'},function(x){return '<b>Cicatriz de queimada</b><br>'+br(x.d)+' · '+n(x.k)+' km²<br><span class="note">Fonte: INPE/DETER</span>'})}],
 ['prodes','Desmatamento medido (PRODES)',function(d,g){poly(d,{_g:g,color:'#9d174d'},function(x){return '<b>Desmatamento '+esc(x.y)+'</b><br>'+n(x.k)+' km²<br><span class="note">Fonte: INPE/PRODES</span>'})}],
 ['calor','Mapa de calor: queimas autorizadas (FEMARH)',function(d,g){d.forEach(function(r){L.circleMarker([r[1],r[0]],{renderer:cv,radius:9,stroke:false,fillColor:'#eab308',fillOpacity:.14,interactive:false}).addTo(g)})}],
-['estradas','Estradas principais',function(d,g){d.forEach(function(w){L.polyline(ll(w[1]),{renderer:cv,color:w[0]?'#a16207':'#b91c1c',weight:w[0]?1:2,opacity:.8,interactive:false}).addTo(g)})}]
+['vicinais','Vicinais e ramais',function(d,g){[[2,'#78716c'],[3,'#a8875f']].forEach(function(k){L.polyline(d.filter(function(w){return w[0]===k[0]}).map(function(w){return ll(w[1])}),{renderer:cv,color:k[1],weight:1,opacity:.85,interactive:false}).addTo(g)})}],
+['estradas','Rodovias',function(d,g){d.forEach(function(w){L.polyline(ll(w[1]),{renderer:cv,color:w[0]?'#a16207':'#b91c1c',weight:w[0]?1:2,opacity:.8,interactive:false}).addTo(g)})}]
 ];
 MORE.forEach(function(m){var g=L.layerGroup(),st=0;X[m[0]]=g;var l=document.createElement('label'),c=document.createElement('input');c.type='checkbox';c.id='more-'+m[0];
 c.onchange=function(){if(m[0]==='car')$('carSit').hidden=!c.checked;if(!c.checked){map.removeLayer(g);if(m[0]==='car'){map.removeLayer(carG);$('moreMsg').textContent='Cada opção só baixa os dados quando for ligada.'}return}
 if(st===2){g.addTo(map);if(m[0]==='car'){carG.addTo(map);drawCar()}ordena();return}if(st===1)return;st=1;$('moreMsg').textContent='Baixando '+m[1]+'…';
 fetch('leve_'+m[0]+'.json').then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){st=2;m[2](d,g);if(c.checked)g.addTo(map);else{map.removeLayer(g);map.removeLayer(carG)}if(m[0]!=='car')$('moreMsg').textContent=m[1]+' pronto.';ordena()}).catch(function(){st=0;c.checked=false;$('moreMsg').textContent='Não foi possível baixar '+m[1]+'. Tente de novo.'})};
-l.appendChild(c);l.appendChild(document.createTextNode(m[1]));$('chk2').appendChild(l)});
+l.appendChild(c);l.appendChild(document.createTextNode(m[1]));$(m[0]==='estradas'||m[0]==='vicinais'?'chk':'chk2').appendChild(l)});
 L.Popup.prototype.options.autoPanPaddingTopLeft=L.point(10,125);L.Popup.prototype.options.autoPanPaddingBottomRight=L.point(10,40);
 var DD=null,POP=null,pin=null,pinM=null,pinC=null,pickOn=false,pinExH='';
 var CPT = { ec: 'encoberto com chuvas isoladas', ci: 'chuvas isoladas', c: 'chuva', in: 'instável', pp: 'possibilidade de pancadas de chuva', cm: 'chuva pela manhã', cn: 'chuva à noite',

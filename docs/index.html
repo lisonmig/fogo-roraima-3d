@@ -743,6 +743,19 @@ body.measuring #labels > * { pointer-events: none; }
   .compass { width: 44px; height: 44px; }
 }
 </style>
+<style>
+#camBtn{position:absolute;z-index:5;left:max(12px,env(safe-area-inset-left,0px));bottom:46px;width:72px;height:72px;border:2px solid #fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 6px #0009;color:#fff;font:700 12px var(--f-body);display:flex;align-items:flex-end;justify-content:center;padding:0 0 5px;text-shadow:0 1px 3px #000;cursor:pointer;background:#555 url(camadas/sat.webp) center/cover}
+.pop:not([hidden]) ~ #camBtn{display:none}
+#camPanel{position:absolute;z-index:6;left:max(12px,env(safe-area-inset-left,0px));bottom:126px;width:min(340px,calc(100% - 24px));max-height:calc(100% - 190px);overflow:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:0 4px 18px #0007}
+#camPanel h2{font-size:13px;margin:0 0 7px;color:var(--muted)}
+#camPanel .checks{margin-top:0}
+.cam-bases{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.cam-bases button{border:0;background:none;color:var(--ink);padding:0;font:500 11.5px var(--f-body);cursor:pointer;text-align:center;min-width:0}.cam-bases img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:9px;border:2px solid transparent;box-shadow:0 0 0 1px var(--line);margin-bottom:3px}
+.cam-bases button[aria-pressed=true]{color:#1a73e8;font-weight:700}.cam-bases button[aria-pressed=true] img{border-color:#1a73e8;box-shadow:none}
+#camMore{margin-top:8px;border-top:1px solid var(--line);padding-top:4px}
+#camMore summary{min-height:40px;display:flex;align-items:center;font-weight:700;color:var(--accent);cursor:pointer}
+@media (max-width:880px){#camBtn{bottom:calc(112px + env(safe-area-inset-bottom,0px));width:64px;height:64px}#camPanel{bottom:calc(184px + env(safe-area-inset-bottom,0px));max-height:calc(100% - 270px)}}
+</style>
 
 <div class="app" id="app">
   <main class="view" id="view">
@@ -1012,7 +1025,7 @@ body.measuring #labels > * { pointer-events: none; }
             <p class="note" id="heatNote"></p>
           </div>
           <label class="fl" for="roads" style="margin-top:10px">Estradas
-            <select id="roads"><option value="off">Não mostrar</option><option value="main">Só rodovias (BR e RR)</option><option value="all">Todas, com vicinais e ramais</option></select></label>
+            <select id="roads"><option value="off">Não mostrar</option><option value="main">Só rodovias (BR e RR)</option><option value="vic">Só vicinais e ramais</option><option value="all">Todas, com vicinais e ramais</option></select></label>
           <p class="note" id="roadsNote" hidden>Nas cidades aparecem só as avenidas principais; no interior, todas as estradas, vicinais e ramais. Aproxime o mapa para ver os nomes.</p>
         </section>
         <section class="sec" id="sitSec">
@@ -2895,7 +2908,7 @@ body.measuring #labels > * { pointer-events: none; }
     if (st.sel) showDetail(); if (st.pin) { renderNear(); renderMyStatus(); }
   }
   function drawRoads() {
-    const show = RD.mode === 'off' ? [] : RD.mode === 'main' ? [0, 1] : [0, 1, 2, 3];
+    const show = RD.mode === 'off' ? [] : RD.mode === 'main' ? [0, 1] : RD.mode === 'vic' ? [2, 3] : [0, 1, 2, 3];
     for (let c = 0; c < 4; c++) {
       const on = show.includes(c);
       if (on && !RD.layers[c] && RD.ok) {
@@ -2906,7 +2919,7 @@ body.measuring #labels > * { pointer-events: none; }
       if (RD.layers[c]) RD.layers[c].obj.visible = on;
     }
   }
-  function setRoads(mode) { RD.mode = mode; $('roads').value = mode; $('roadsNote').hidden = mode === 'off'; drawRoads(); lblDirty = true; }
+  function setRoads(mode) { RD.mode = mode; $('roads').value = mode; if ($('lyRoads')) { $('lyRoads').checked = mode === 'main' || mode === 'all'; $('lyVic').checked = mode === 'vic' || mode === 'all'; } $('roadsNote').hidden = true; drawRoads(); lblDirty = true; }
   $('roads').onchange = e => setRoads(e.target.value);
 
   function segKm(lon, lat, a, b) { // distance from a point to a segment, in km (local flat projection)
@@ -2963,7 +2976,7 @@ body.measuring #labels > * { pointer-events: none; }
     if (RD.ok && !$('labels').hidden) {
       for (const p of RD.places) if (p.kind >= 2 && dist < KIND_MAXD[p.kind] && near(p.lon, p.lat)) cands.push({ txt: p.name, cls: p.kind === 5 ? 'farm' : 'vil', lon: p.lon, lat: p.lat, pri: p.kind });
       if (RD.mode !== 'off') for (const a of RD.labels) {
-        if (a.c >= 2 ? RD.mode !== 'all' || dist > 110 : dist > 420) continue;
+        if (a.c >= 2 ? RD.mode === 'main' || dist > 110 : RD.mode === 'vic' || dist > 420) continue;
         if (!near(a.lon, a.lat)) continue;
         const t = RD.names[a.n];
         cands.push({ txt: t, cls: 'road' + (/^BR-/.test(t) ? ' br' : /^RR-/.test(t) ? ' rr' : ''), lon: a.lon, lat: a.lat, pri: a.c < 2 ? 1.5 : 3.5, road: true });
@@ -3100,7 +3113,7 @@ body.measuring #labels > * { pointer-events: none; }
     if (hit.kind === 'place') { goToPoint(hit.item.lon, hit.item.lat, hit.item.name); return; }
     if (hit.kind === 'road') {
       const ws = RD.ways.filter(w => w.n === hit.item.n && (hit.item.m === null || w.m === hit.item.m));
-      if (RD.mode === 'off' || (RD.mode === 'main' && ws.some(w => w.c >= 2))) setRoads('all');
+      if (RD.mode === 'off' || (RD.mode === 'main' && ws.some(w => w.c >= 2)) || (RD.mode === 'vic' && ws.some(w => w.c < 2))) setRoads('all');
       highlight = makeDraped(ws.map(w => w.pts), 0x7dd3fc, 1, 0.45, 0.6); highlight.obj.renderOrder = 6;
       let a = 1e9, b = -1e9, c = 1e9, d = -1e9; ws.forEach(w => w.pts.forEach(([x, y]) => { a = Math.min(a, x); b = Math.max(b, x); c = Math.min(c, y); d = Math.max(d, y); }));
       flyTo(orbitPose(toX((a + b) / 2), toZ((c + d) / 2), Math.max(25, Math.max((b - a) * KX, (d - c) * KZ) * 1.5), 0.15, 0.8));
@@ -4888,6 +4901,7 @@ body.measuring #labels > * { pointer-events: none; }
     const tops = [
       [() => $('report'), () => { const r = $('report'), b = r.querySelector('#arCancel, [data-a=close]'); if (b) b.click(); else r.remove(); }],
       [() => $('tour'), () => { const b = $('tour').querySelector('[data-t=skip]'); if (b) b.click(); else $('tour').remove(); }],
+      [() => $('camPanel') && !$('camPanel').hidden, () => { $('camPanel').hidden = true; $('camBtn').setAttribute('aria-expanded', 'false'); }],
       [() => MEAS.on, () => measOff()],
       [() => st.picking, () => stopPicking()],
       [() => tools.classList.contains('open'), () => { tools.classList.remove('open'); $('moreBtn').setAttribute('aria-expanded', 'false'); }],
@@ -5048,6 +5062,40 @@ body.measuring #labels > * { pointer-events: none; }
   const offNote = () => busyShow(); // the 'no internet' pill on the map stays while offline
   offNote(); window.addEventListener('offline', offNote);
   // arrival like a plane: from the whole state, glide toward the most important fire, upwind so the smoke goes away from the eye
+// ---------- 'Camadas' like Google Maps: map background and the main layers in a corner of the map; the rest under 'Mais opções'
+(function () {
+  const lab = id => $(id).closest('label');
+  const rename = (id, txt) => { const l = lab(id), t = [...l.childNodes].filter(n => n.nodeType === 3).pop(); if (t) t.textContent = ' ' + txt; };
+  const btn = document.createElement('button'), box = document.createElement('section');
+  btn.id = 'camBtn'; btn.type = 'button'; btn.textContent = 'Camadas'; btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-controls', 'camPanel');
+  box.id = 'camPanel'; box.hidden = true; box.setAttribute('aria-label', 'Camadas do mapa');
+  box.innerHTML = '<h2>Fundo do mapa</h2><div class="cam-bases" id="camBases"></div><div id="camBaseX" hidden></div><h2>Mostrar</h2><div class="checks" id="camMain"></div><details id="camMore"><summary>Mais opções</summary><div class="checks" id="camRest"></div><div id="camNotes"></div></details>';
+  view.appendChild(btn); view.appendChild(box);
+  const old = $('base').closest('section'), NOMES = { sat: 'Satélite', relevo: 'Mapa', temp: 'Temperatura', lc: 'Vegetação', inpe: 'Floresta', risco: 'Risco', nasa: 'Ontem', none: 'Só relevo' };
+  $('camBaseX').appendChild($('base').closest('label'));
+  box.insertBefore($('nasaNote'), $('camBaseX')); box.insertBefore($('tempBox'), $('camBaseX'));
+  const marca = () => { $('camBases').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.b === $('base').value)); btn.style.backgroundImage = 'url(camadas/' + $('base').value + '.webp)'; };
+  [...$('base').options].forEach(o => { const b = document.createElement('button'); b.type = 'button'; b.dataset.b = o.value; b.innerHTML = '<img loading="lazy" alt="" width="72" height="72" src="camadas/' + o.value + '.webp">' + (NOMES[o.value] || o.textContent); b.title = o.textContent; b.onclick = () => { $('base').value = o.value; applyBase(o.value); marca(); }; $('camBases').appendChild(b); });
+  $('base').addEventListener('change', marca); marca();
+  rename('lyInpe', 'Contornos'); rename('lyPer', 'Contornos antigos (até 29/09)');
+  ['lyFire', 'lyInpe', 'lyScar', 'lyAuth', 'lyWind', 'lyLbl', 'lyTop', 'lyRios'].forEach(id => $('camMain').appendChild(lab(id)));
+  ['lyPer', 'lyTI', 'lyMun', 'lyCar'].forEach(id => $('camRest').appendChild(lab(id)));
+  $('camRest').appendChild($('carSit'));
+  ['lyDeter', 'lyQueim', 'lyHeat', 'lyProdes'].forEach(id => $('camRest').appendChild(lab(id)));
+  ['prodesNote', 'heatBox'].forEach(id => $('camNotes').appendChild($(id)));
+  const roadL = $('roads').closest('label'); roadL.hidden = true; $('camNotes').appendChild(roadL); box.insertBefore($('roadsNote'), $('camMore'));
+  [['lyRoads', 'Rodovias'], ['lyVic', 'Vicinais e ramais']].forEach(([id, nome]) => { const l = document.createElement('label'); l.innerHTML = '<input type="checkbox" id="' + id + '"> ' + nome; $('camMain').appendChild(l); });
+  $('lyRoads').onchange = $('lyVic').onchange = () => { const a = $('lyRoads').checked, b = $('lyVic').checked; setRoads(a && b ? 'all' : a ? 'main' : b ? 'vic' : 'off'); };
+  setRoads($('roads').value);
+  old.innerHTML = '<h2>Camadas</h2><p class="note" style="margin:0 0 8px">O fundo do mapa e os filtros ficam no botão Camadas, no canto do mapa.</p><button class="btn" id="camOpen" type="button">Abrir Camadas</button>';
+  const abre = on => { box.hidden = !on; btn.setAttribute('aria-expanded', on); if (on) marca(); };
+  btn.onclick = () => abre(box.hidden);
+  $('camOpen').onclick = () => { if (isMob()) setDState(dMin); abre(true); };
+  view.addEventListener('pointerdown', e => { if (!box.hidden && !box.contains(e.target) && !btn.contains(e.target)) abre(false); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && !box.hidden) abre(false); });
+  // only the main layers start on
+  [['lyPer', false], ['lyTI', false], ['lyAuth', true]].forEach(([id, on]) => { if ($(id).checked !== on) { $(id).checked = on; $(id).dispatchEvent(new Event('change')); } });
+})();
   // ---------- 'Link desta vista' (like Google Earth): the link keeps the camera angle and the moment; never the marked place (privacy)
   let viewLinked = false;
   function viewLink() {
