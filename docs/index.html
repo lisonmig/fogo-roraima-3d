@@ -1355,12 +1355,18 @@ body.measuring #labels > * { pointer-events: none; }
   const texBurn = new THREE.CanvasTexture(burnCanvas);
   const heatCanvas = document.createElement('canvas'); heatCanvas.width = LIGHT ? 512 : 768; heatCanvas.height = Math.round(heatCanvas.width * HKM / WKM);
   const texHeat = new THREE.CanvasTexture(heatCanvas);
+  // ground layer: outlines and selections are painted into textures of the terrain, so they stick to the ground at any angle
+  const mkOv = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const tex = new THREE.CanvasTexture(c); tex.premultiplyAlpha = true; tex.minFilter = THREE.LinearMipmapLinearFilter || THREE.LinearMipMapLinearFilter; tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); return { c, ctx: c.getContext('2d'), tex }; };
+  const ovW = Math.min(renderer.capabilities.maxTextureSize, LIGHT ? 1400 : 2048), ovV = LIGHT ? 1024 : 1536;
+  const ovA = mkOv(ovW, Math.round(ovW * HKM / WKM)), ovB = mkOv(ovV, ovV), ovS = mkOv(ovV, ovV);
   const terrainMat = new THREE.ShaderMaterial({
     uniforms: { uMap: { value: texImg }, uBurn: { value: texBurn }, uMapOn: { value: 1 }, uBurnOn: { value: 1 }, uPlain: { value: new THREE.Color(css('--plain')) },
-      uDet: { value: texImg }, uDetBox: { value: new THREE.Vector4(0, 0, 1, 1) }, uDetOn: { value: 0 }, uHeat: { value: texHeat }, uHeatOn: { value: 0 } },
+      uDet: { value: texImg }, uDetBox: { value: new THREE.Vector4(0, 0, 1, 1) }, uDetOn: { value: 0 }, uHeat: { value: texHeat }, uHeatOn: { value: 0 },
+      uOv0: { value: ovA.tex }, uOv1: { value: ovB.tex }, uSel: { value: ovS.tex }, uOv1Box: { value: new THREE.Vector4(0, 0, 1, 1) }, uSelBox: { value: new THREE.Vector4(0, 0, 1, 1) }, uOv1On: { value: 0 }, uSelOn: { value: 0 }, uSelA: { value: 1 } },
     vertexShader: `varying vec2 vUv; varying vec3 vN; void main(){ vUv = uv; vN = normal; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `uniform sampler2D uMap; uniform sampler2D uBurn; uniform float uMapOn; uniform float uBurnOn; uniform vec3 uPlain;
       uniform sampler2D uDet; uniform vec4 uDetBox; uniform float uDetOn; uniform sampler2D uHeat; uniform float uHeatOn;
+      uniform sampler2D uOv0; uniform sampler2D uOv1; uniform sampler2D uSel; uniform vec4 uOv1Box; uniform vec4 uSelBox; uniform float uOv1On; uniform float uSelOn; uniform float uSelA;
       varying vec2 vUv; varying vec3 vN;
       void main(){
         vec3 base = mix(uPlain, texture2D(uMap, vUv).rgb, uMapOn);
@@ -1372,7 +1378,12 @@ body.measuring #labels > * { pointer-events: none; }
         vec4 hm = texture2D(uHeat, vUv); base = mix(base, hm.rgb, hm.a * uHeatOn);
         vec3 n = normalize(vN); vec3 L = normalize(vec3(-0.55, 0.75, -0.40));
         float l = 0.42 + 0.85 * max(dot(n, L), 0.0) + 0.10 * (1.0 - n.y);
-        gl_FragColor = vec4(base * l, 1.0);
+        vec3 col = base * l;
+        vec4 o = texture2D(uOv0, vUv);
+        if (uOv1On > 0.0) { vec2 q = (vUv - uOv1Box.xy) / (uOv1Box.zw - uOv1Box.xy); if (q.x > 0.0 && q.x < 1.0 && q.y > 0.0 && q.y < 1.0) { vec2 e = min(q, 1.0 - q); o = mix(o, texture2D(uOv1, q), smoothstep(0.0, 0.05, min(e.x, e.y))); } }
+        col = col * (1.0 - o.a) + o.rgb;
+        if (uSelOn > 0.0) { vec2 q = (vUv - uSelBox.xy) / (uSelBox.zw - uSelBox.xy); if (q.x > 0.0 && q.x < 1.0 && q.y > 0.0 && q.y < 1.0) { vec4 h = texture2D(uSel, q) * uSelA; col = col * (1.0 - h.a) + h.rgb; } }
+        gl_FragColor = vec4(col, 1.0);
       }`
   });
   const terrain = new THREE.Mesh(geo, terrainMat); scene.add(terrain);
@@ -1387,32 +1398,97 @@ body.measuring #labels > * { pointer-events: none; }
     }
   }
   const flatToRing = r => { const out = []; for (let j = 0; j < r.length; j += 2) out.push([r[j], r[j + 1]]); return out; };
-  const draped = [];
-  function makeDraped(rings, color, opacity, lift, step, dash) {
-    const ll = []; drapeSegments(rings, step || 1.5, (a, b, c, d) => ll.push(a, b, c, d));
-    const pos = new Float32Array(ll.length / 2 * 3), g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const mat = dash ? new THREE.LineDashedMaterial({ color, transparent: true, opacity, depthWrite: false, dashSize: dash, gapSize: dash * 0.8 })
-      : new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false });
-    const obj = new THREE.LineSegments(g, mat);
-    obj.frustumCulled = false; scene.add(obj);
-    const d = { obj, ll, pos, lift, place() { for (let k = 0; k < ll.length / 2; k++) { const lon = ll[k * 2], lat = ll[k * 2 + 1]; pos[k * 3] = toX(lon); pos[k * 3 + 1] = yAt(lon, lat) + lift; pos[k * 3 + 2] = toZ(lat); } g.attributes.position.needsUpdate = true; if (dash) obj.computeLineDistances(); } };
-    d.place(); draped.push(d); return d;
+  const draped = [], OV = { dirty: true, selDirty: false, cam: '', moved: 0, idle: false, last: -1e9, box: null, pulse: -1e9, selKey: '' };
+  const ovTouch = d => { if (d.sel) OV.selDirty = true; else OV.dirty = true; };
+  function ovLayer(kind, rings, color, opacity, lift, dash, sel) {
+    let vis = true, order = 0;
+    const d = { kind, rings, color: '#' + color.toString(16).padStart(6, '0'), opacity, dash, sel, path: null, halo: kind === 'line' && color === 0xffffff && opacity === 1 && lift >= 0.9, place() {},
+      obj: { get visible() { return vis; }, set visible(v) { if (vis !== !!v) { vis = !!v; ovTouch(d); } }, get renderOrder() { return order; }, set renderOrder(v) { order = v; ovTouch(d); } } };
+    draped.push(d); ovTouch(d); return d;
   }
-  // filled areas on the terrain (triangulated polygons), kept in the same list as the draped lines
-  function makeFill(rings, color, opacity, lift) {
-    const ll = [], idx = [];
-    rings.forEach(r => {
-      const pts = r.map(p => new THREE.Vector2(p[0], p[1])); if (pts.length > 3 && pts[0].equals(pts[pts.length - 1])) pts.pop();
-      if (pts.length < 3) return; let tris; try { tris = THREE.ShapeUtils.triangulateShape(pts, []); } catch (e) { return; }
-      const n0 = ll.length / 2; pts.forEach(p => ll.push(p.x, p.y)); tris.forEach(t => idx.push(n0 + t[0], n0 + t[1], n0 + t[2]));
+  function makeDraped(rings, color, opacity, lift, step, dash) { const n = rings.reduce((a, r) => a + r.length, 0); const d = ovLayer('line', rings, color, opacity, lift, dash, lift >= 0.45 && n < 20000); d.dense = n > 20000; return d; }
+  function makeFill(rings, color, opacity, lift) { return ovLayer('fill', rings, color, opacity, lift, 0, color === 0xffffff); }
+  function removeDraped(d) { if (!d) return; const i = draped.indexOf(d); if (i >= 0) draped.splice(i, 1); ovTouch(d); }
+  function ovPath(d) {
+    if (d.path) return d.path;
+    const p = new Path2D();
+    for (const r of d.rings) { for (let k = 0; k < r.length; k++) { const x = (r[k][0] - W) * KX, y = (N - r[k][1]) * KZ; if (k) p.lineTo(x, y); else p.moveTo(x, y); } if (d.kind === 'fill') p.closePath(); }
+    return d.path = p;
+  }
+  function ovData(d) { // km coordinates and the box of each outline, so only what is in the picture gets drawn
+    if (d.km) return d.km;
+    let n = 0; d.rings.forEach(r => { n += r.length; });
+    const xy = new Float32Array(n * 2), rs = new Uint32Array(d.rings.length + 1), bb = new Float32Array(d.rings.length * 4); let j = 0;
+    d.rings.forEach((r, i) => { rs[i] = j; let a = 1e9, b = 1e9, e = -1e9, f = -1e9; for (const q of r) { const x = (q[0] - W) * KX, y = (N - q[1]) * KZ; xy[j * 2] = x; xy[j * 2 + 1] = y; j++; a = Math.min(a, x); b = Math.min(b, y); e = Math.max(e, x); f = Math.max(f, y); } bb[i * 4] = a; bb[i * 4 + 1] = b; bb[i * 4 + 2] = e; bb[i * 4 + 3] = f; });
+    rs[d.rings.length] = j;
+    // neighbours are drawn together: a batch that covers a small piece of the map is much cheaper to paint
+    const cell = new Int32Array(d.rings.length), ord = new Uint32Array(d.rings.length);
+    for (let i = 0; i < cell.length; i++) { ord[i] = i; cell[i] = Math.floor((bb[i * 4] + bb[i * 4 + 2]) / 2 / 30) * 1000 + Math.floor((bb[i * 4 + 1] + bb[i * 4 + 3]) / 2 / 30); }
+    ord.sort((a, b) => cell[a] - cell[b]);
+    return d.km = { xy, rs, bb, cell, ord };
+  }
+  function ovStroke(c, d, box, u) { // small batches, skipping points closer than one pixel: thousands of outlines stay fast
+    const { xy, rs, bb, cell, ord } = ovData(d), tol = 0.8 * u, tiny = 1.4 * u; let pts = 0, now_ = null; c.beginPath();
+    for (let w_ = 0; w_ < ord.length; w_++) {
+      const i = ord[w_];
+      if (bb[i * 4 + 2] < box[0] || bb[i * 4] > box[2] || bb[i * 4 + 3] < box[1] || bb[i * 4 + 1] > box[3]) continue;
+      if (d.dense && bb[i * 4 + 2] - bb[i * 4] < tiny && bb[i * 4 + 3] - bb[i * 4 + 1] < tiny) continue;
+      if (pts && cell[i] !== now_) { c.stroke(); c.beginPath(); pts = 0; }
+      now_ = cell[i];
+      let lx = xy[rs[i] * 2], ly = xy[rs[i] * 2 + 1]; c.moveTo(lx, ly); pts++;
+      for (let k = rs[i] + 1, e = rs[i + 1]; k < e; k++) { const x = xy[k * 2], y = xy[k * 2 + 1]; if (k < e - 1 && Math.abs(x - lx) + Math.abs(y - ly) < tol) continue; c.lineTo(x, y); lx = x; ly = y; pts++; }
+      if (pts > 1200) { c.stroke(); c.beginPath(); pts = 0; }
+    }
+    if (pts) c.stroke();
+  }
+  function ovPaint(o, box, sel, wide) { // box in km from the north-west corner
+    const c = o.ctx, w = o.c.width, h = o.c.height, sx = w / (box[2] - box[0]), sy = h / (box[3] - box[1]), u = 1 / ((sx + sy) / 2);
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, w, h); c.setTransform(sx, 0, 0, sy, -box[0] * sx, -box[1] * sy); c.lineJoin = 'round'; c.lineCap = 'round';
+    draped.map((d, i) => [d, i]).filter(([d]) => d.obj.visible && !!d.sel === sel).sort((a, b) => a[0].obj.renderOrder - b[0].obj.renderOrder || a[1] - b[1]).forEach(([d]) => {
+      const path = d.kind === 'fill' || sel ? ovPath(d) : null; c.shadowBlur = 0; c.setLineDash([]); c.lineJoin = d.dense ? 'bevel' : 'round'; c.lineCap = d.dense ? 'butt' : 'round';
+      if (d.kind === 'fill') { c.globalAlpha = d.opacity; c.fillStyle = d.color; c.fill(path); return; }
+      if (sel) {
+        if (d.halo) { c.globalAlpha = 0.14; c.fillStyle = '#fff'; c.fill(path); }
+        c.globalAlpha = 0.55; c.strokeStyle = '#0b0f14'; c.lineWidth = 4.4 * u; c.stroke(path);
+        c.globalAlpha = d.opacity; c.strokeStyle = d.color; c.lineWidth = 2.1 * u; c.shadowColor = 'rgba(255,255,255,.8)'; c.shadowBlur = 7; c.stroke(path); return;
+      }
+      // thousands of outlines seen from far away become a light veil, so the satellite image stays visible
+      c.globalAlpha = d.opacity * (d.dense ? Math.max(0.3, Math.min(1, 0.1 / u)) : 1); c.strokeStyle = d.color; c.lineWidth = (wide ? (d.dense ? 1 : 1.7) : 1.2) * u;
+      if (d.dash) c.setLineDash([Math.max(d.dash, 5 * u), Math.max(d.dash * 0.8, 4 * u)]);
+      ovStroke(c, d, box, u);
     });
-    const pos = new Float32Array(ll.length / 2 * 3), g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(idx);
-    const obj = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
-    obj.frustumCulled = false; scene.add(obj);
-    const d = { obj, ll, pos, lift, place() { for (let k = 0; k < ll.length / 2; k++) { const lon = ll[k * 2], lat = ll[k * 2 + 1]; pos[k * 3] = toX(lon); pos[k * 3 + 1] = yAt(lon, lat) + lift; pos[k * 3 + 2] = toZ(lat); } g.attributes.position.needsUpdate = true; } };
-    d.place(); draped.push(d); return d;
+    c.globalAlpha = 1; c.shadowBlur = 0; c.setLineDash([]); o.tex.needsUpdate = true;
   }
-  function removeDraped(d) { if (!d) return; scene.remove(d.obj); d.obj.geometry.dispose(); const i = draped.indexOf(d); if (i >= 0) draped.splice(i, 1); }
+  const ovUv = b => [b[0] / WKM, 1 - b[3] / HKM, b[2] / WKM, 1 - b[1] / HKM];
+  function ovViewBox() { // area around the camera target, sharper than the whole-state layer; null when the whole state is on screen
+    const t = controls.target, p = camera.position, dist = p.distanceTo(t), v = 2 * dist * Math.tan(camera.fov * Math.PI / 360), half = Math.max(v, v * camera.aspect) * 0.95;
+    if (half * 2 > Math.min(WKM, HKM) * 0.72) return null;
+    const lon = cLon + (t.x + (p.x - t.x) * 0.22) / KX, lat = cLat - (t.z + (p.z - t.z) * 0.22) / KZ, cx = Math.max(half, Math.min(WKM - half, (lon - W) * KX)), cy = Math.max(half, Math.min(HKM - half, (N - lat) * KZ));
+    return [cx - half, cy - half, cx + half, cy + half];
+  }
+  function ovDetail(box) {
+    OV.box = box; const u = terrainMat.uniforms;
+    if (box) { ovPaint(ovB, box, false); u.uOv1Box.value.set(...ovUv(box)); u.uOv1On.value = 1; } else u.uOv1On.value = 0;
+    ovSel();
+  }
+  function ovSel() {
+    const box = OV.box || [0, 0, WKM, HKM], u = terrainMat.uniforms, on = draped.filter(d => d.sel && d.obj.visible), key = on.map(d => draped.indexOf(d) + ':' + d.rings.length).join('|');
+    ovPaint(ovS, box, true); u.uSelBox.value.set(...ovUv(box)); u.uSelOn.value = on.length ? 1 : 0; OV.selDirty = false;
+    if (key !== OV.selKey) { OV.selKey = key; if (on.length) OV.pulse = performance.now(); }
+  }
+  const ovCalm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function ovTick(now) {
+    const p = camera.position, t = controls.target, sig = [p.x, p.y, p.z, t.x, t.z].map(v => v.toFixed(2)).join();
+    if (sig !== OV.cam) { OV.cam = sig; OV.moved = now; OV.idle = false; }
+    else if (!OV.idle && now - OV.moved > 160) {
+      OV.idle = true; const b = ovViewBox(), c = OV.box;
+      if (!b !== !c || (b && (Math.abs(b[0] - c[0]) + Math.abs(b[1] - c[1]) > (c[2] - c[0]) * 0.14 || Math.abs((b[2] - b[0]) / (c[2] - c[0]) - 1) > 0.2))) ovDetail(b);
+    }
+    if (OV.dirty && now - OV.last > 120) { OV.dirty = false; OV.last = now; ovPaint(ovA, [0, 0, WKM, HKM], false, true); ovDetail(OV.box); }
+    else if (OV.selDirty) ovSel();
+    const k = (now - OV.pulse) / 1000; // a short pulse on what was just selected
+    terrainMat.uniforms.uSelA.value = ovCalm || k >= 1.6 ? 1 : Math.min(1, k / 0.12) * (1 - 0.4 * Math.exp(-k * 2.2) * (0.5 + 0.5 * Math.cos(k * 9)));
+  }
   makeDraped([D.rr], 0xfad678, 0.9, 0.4);
   const tiLines = makeDraped(D.tis.flatMap(t => t.r.map(flatToRing)), 0xd8a4ff, 0.85, 0.35, 1.2);
   const munLines = makeDraped(D.munis.flatMap(m => m.r.map(flatToRing)), 0xffffff, 0.4, 0.3, 1.5); munLines.obj.visible = false;
@@ -3479,14 +3555,14 @@ body.measuring #labels > * { pointer-events: none; }
   }
   function carRings(c) { // with every property on screen, long outlines are thinned so the map stays light
     if (!CF.todos) return c.r.map(flatToRing);
-    const M = LIGHT ? 10 : 28;
+    const M = LIGHT ? 16 : 64;
     return c.r.map(r => { const q = flatToRing(r); if (q.length <= M) return q; const st_ = (q.length - 1) / (M - 1), o = []; for (let j = 0; j < M - 1; j++) o.push(q[Math.round(j * st_)]); o.push(q[0]); return o; });
   }
   function carLayerFor(s) {
     const key = (CF.todos ? 't:' : 'f:') + s.k;
     if (!CF.layers[key]) {
       const rings = []; (CF.todos ? CAR : CAR.slice(0, CAR_N0)).forEach(c => { if (carSit(c.cond) === s.k) rings.push(...carRings(c)); });
-      CF.layers[key] = makeDraped(rings, s.cor, s.k === 'can' ? 0.5 : 0.78, 0.32, CF.todos ? 12 : 3);
+      CF.layers[key] = makeDraped(rings, s.cor, s.k === 'can' ? 0.5 : 0.78, 0.32, 3);
     }
     return CF.layers[key];
   }
@@ -4921,7 +4997,7 @@ body.measuring #labels > * { pointer-events: none; }
     controls.update();
     if (windLines.visible && !reduce) stepWind(st.t / STEP);
     sharpTick(now);
-    renderer.render(scene, camera);
+    ovTick(now); renderer.render(scene, camera);
     perfTick(now);
     const r = renderer.domElement.getBoundingClientRect();
     if (!$('labels').hidden) PLACES.forEach((p, k) => place(lblEls[k], p[2], p[1], 0.8, r));
