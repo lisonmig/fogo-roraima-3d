@@ -25,3 +25,7 @@ dados-3d/sinaflor_asv.csv
 # arquivo de focos gerado pelo robô a cada execução (não versionar: uma cópia antiga no git
 # era publicada quando a geração falhava)
 docs/roraima3d.json
+
+# dados da versão 2D, gerados pelo robô a cada execução
+docs/leve.json
+docs/leve_*.json
