@@ -1295,7 +1295,7 @@ body.measuring #labels > * { pointer-events: none; }
   const camera = new THREE.PerspectiveCamera(36, 1, 0.5, 6000);
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.08;
-  controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 6; controls.maxDistance = 1000;
+  controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 0.4; controls.maxDistance = 1000;
   controls.screenSpacePanning = false;
   // toque (como no Google Earth): um dedo só move a vista; dois dedos dão zoom (pinça), giram e inclinam. O mouse não muda.
   controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
@@ -4051,9 +4051,11 @@ body.measuring #labels > * { pointer-events: none; }
     const g = groundAt(clientX, clientY);
     // a click right on a river opens its water card
     if (g && $('lyRios').checked) {
-      const tol = Math.max(0.2, Math.min(4, camera.position.distanceTo(controls.target) * 0.008)), rv = riverAt(g.lon, g.lat, tol);
+      const tol = Math.max(0.03, Math.min(4, camera.position.distanceTo(controls.target) * 0.008)), rv = riverAt(g.lon, g.lat, tol);
       if (rv) { st.sel = { kind: 'river', name: rv.n >= 0 ? RV.names[rv.n] : '', lon: g.lon, lat: g.lat }; showDetail(); return; }
     }
+    // close to the ground, a property of the CAR layer comes before the large outline of the fire around it
+    if (g && $('lyCar').checked && camera.position.distanceTo(controls.target) <= 25) { const c0 = carAt(g.lon, g.lat, true); if (c0 >= 0) { st.sel = { kind: 'car', k: c0 }; showDetail(); return; } }
     const ki = g && $('lyInpe').checked && IN.ev.length ? inpeAt(g.lon, g.lat, dayOf(st.t), false) : -1;
     if (ki >= 0) { st.sel = { kind: 'inpe', k: ki }; showDetail(); return; }
     const k = g && perLines.visible ? eventAt(g.lon, g.lat) : -1;
@@ -4644,7 +4646,7 @@ body.measuring #labels > * { pointer-events: none; }
     if (!sharp.on || !sharp.base || now - sharp.at < 450 || now < sharp.retry) return; sharp.at = now;
     const tx = controls.target.x, tz = controls.target.z, still = Math.hypot(tx - sharp.lx, tz - sharp.lz) < 0.02; sharp.lx = tx; sharp.lz = tz;
     const d = camera.position.distanceTo(controls.target); if (d > 72 || !still || fly) return;
-    const BX = d <= 12 ? 16 : d <= 24 ? 32 : d <= 48 ? 64 : 128, step = BX / 4, ix = Math.round(tx / step), iz = Math.round(tz / step), key = BX + ':' + ix + ':' + iz;
+    const BX = d <= 3 ? 6 : d <= 12 ? 16 : d <= 24 ? 32 : d <= 48 ? 64 : 128, step = BX / 4, ix = Math.round(tx / step), iz = Math.round(tz / step), key = BX + ':' + ix + ':' + iz;
     if (key === sharp.key || key === sharp.want) return; sharp.want = key;
     const lon = cLon + ix * step / KX, lat = cLat - iz * step / KZ, hx = BX / 2 / KX, hz = BX / 2 / KZ, px = LIGHT && BX >= 64 ? 512 : 1024, token = ++sharp.token;
     const img = new Image(); img.crossOrigin = 'anonymous';
@@ -4768,7 +4770,7 @@ body.measuring #labels > * { pointer-events: none; }
     window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, CAR_ST, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
       whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
     const memo = { cod: c.cod, tipo: c.tipo, tipoNome: CAR_TIPO[c.tipo] || 'Imóvel rural', cond: c.cond, status: c.status, mun: c.mun, area: c.area, rings: c.r };
-    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026112102'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026112103'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
     areaJs.then(() => window.FRR_AREA.memorial(memo)).catch(() => showToast('Não foi possível abrir o memorial agora. Verifique a internet e tente de novo.'));
   }
   async function openAreaReport(withCar) {
@@ -4777,7 +4779,7 @@ body.measuring #labels > * { pointer-events: none; }
     const cars = withCar ? carsAtSel().map(k => { const car = CAR[k]; return { cod: car.cod, tipo: car.tipo, tipoNome: CAR_TIPO[car.tipo] || 'Imóvel rural', cond: car.cond, status: car.status, mun: car.mun, area: car.area, rings: car.r }; }) : [];
     window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, CAR_ST, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
       whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
-    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026112102'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026112103'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
     areaJs.then(() => window.FRR_AREA.open(a, cars.length ? { cars } : undefined)).catch(() => showToast('Não foi possível abrir o relatório agora. Verifique a internet e tente de novo.'));
   }
   $('popBody').addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-area-rep],[data-area-rep-car]'); if (t) openAreaReport(t.hasAttribute('data-area-rep-car')); });
@@ -4788,7 +4790,7 @@ body.measuring #labels > * { pointer-events: none; }
     const cars = carsAtSel().map(k => { const car = CAR[k]; return { cod: car.cod, tipo: car.tipo, tipoNome: CAR_TIPO[car.tipo] || 'Imóvel rural', cond: car.cond, status: car.status, mun: car.mun, area: car.area, rings: car.r }; });
     window.FRR = { D, F, IN, PRD, DET, QM, CT, RV, RD, CAR_TIPO, CAR_ST, DET_CLS, loc, fmtT, dayOf, elevAt, lcAt, loadCarTodos, loadProdes,
       whereText: (lo, la) => { const h = whereTxt(lo, la); return h ? h.replace(/<[^>]+>/g, '').replace(/^📍\s*/, '') : ''; } };
-    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026112102'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
+    if (!areaJs) areaJs = new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'relatorio-area.js?v=2026112103'; sc.onload = ok; sc.onerror = () => { areaJs = null; bad(); }; document.head.appendChild(sc); });
     areaJs.then(() => window.FRR_AREA.prejuizo(a, cars)).catch(() => showToast('Não foi possível abrir o documento agora. Verifique a internet e tente de novo.'));
   }
   // ---------- first visit: a short guide (4 cards, little text); the "?" button shows it again
@@ -4980,6 +4982,15 @@ body.measuring #labels > * { pointer-events: none; }
     const ok = tmpV.z < 1 && Math.abs(tmpV.x) < 1.05 && Math.abs(tmpV.y) < 1.05;
     el.hidden = !ok || el.dataset.off === '1'; if (ok) { el.style.left = (tmpV.x + 1) / 2 * r.width + 'px'; el.style.top = (1 - tmpV.y) / 2 * r.height + 'px'; }
   }
+  // close zoom: the camera follows the ground, so a small property can be seen and clicked
+  function closeTick() {
+    const t = controls.target, p = camera.position, d = p.distanceTo(t), g = yAt(cLon + t.x / KX, cLat - t.z / KZ), k = Math.max(0, Math.min(1, (40 - d) / 28)), dy = fly ? 0 : (g * k - t.y) * 0.16;
+    if (Math.abs(dy) > 1e-4) { t.y += dy; p.y += dy; }
+    const floor = yAt(cLon + p.x / KX, cLat - p.z / KZ) + Math.max(0.04, d * 0.05);
+    if (p.y < floor) { p.y = floor; camera.lookAt(t); }
+    const n = Math.max(0.015, Math.min(0.5, d * 0.04));
+    if (Math.abs(n / camera.near - 1) > 0.12) { camera.near = n; camera.updateProjectionMatrix(); }
+  }
   function frame(now) {
     const dtReal = Math.max(0, (now - prev) / 1000), dt = Math.min(0.1, dtReal); prev = now;
     if (st.playing) { const nt = st.t + Math.min(0.5, dtReal) * st.speed * 60; if (nt >= period.to) { setTime(period.to, true); pause(); } else setTime(nt); }
@@ -4998,7 +5009,7 @@ body.measuring #labels > * { pointer-events: none; }
     controls.update();
     if (windLines.visible && !reduce) stepWind(st.t / STEP);
     sharpTick(now);
-    ovTick(now); renderer.render(scene, camera);
+    closeTick(); ovTick(now); renderer.render(scene, camera);
     perfTick(now);
     const r = renderer.domElement.getBoundingClientRect();
     if (!$('labels').hidden) PLACES.forEach((p, k) => place(lblEls[k], p[2], p[1], 0.8, r));

@@ -992,6 +992,24 @@
   const dmsTxt = (v, pos, neg) => { const x = Math.abs(v), d = Math.floor(x), mf = (x - d) * 60, m = Math.floor(mf), s = (mf - m) * 60;
     return d + '° ' + String(m).padStart(2, '0') + '′ ' + s.toFixed(2).replace('.', ',') + '″ ' + (v >= 0 ? pos : neg); };
   const decTxt = (v, d = 6) => v.toFixed(d).replace('.', ',');
+  // areas declared in the CAR (SIGGARR/FEMARH), by property code; no names
+  let carAreasP = null;
+  const carAreasOf = async cod => {
+    if (!carAreasP) carAreasP = fetch('rel/car_areas.json').then(r => r.ok ? r.json() : null).catch(() => null);
+    const J = await carAreasP; return J && J.imoveis ? { v: J.imoveis[cod] || null, n: J.n, campos: J.campos, gerado: J.gerado } : null;
+  };
+  function carAreasHtml(c, decl, linhas) {
+    const X = c.areas, link = '<a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">Demonstrativo do CAR (SICAR)</a>';
+    let h = '<h3>Áreas do imóvel declaradas no CAR</h3>';
+    if (!X || !X.v) return h + '<p class="ar-note">' + (X ? 'A base pública do SIGGARR (FEMARH) traz este detalhamento para ' + nf(X.n) + ' imóveis, e este ainda não está entre eles.' : 'Não foi possível consultar a base do SIGGARR (FEMARH) agora.') + ' Reserva Legal, área consolidada, remanescente, APP, servidão e área líquida podem ser conferidas no ' + link + '.</p>';
+    const o = {}; X.campos.forEach((k, i) => { o[k] = X.v[i] || 0; });
+    const base = o.imovel || decl || 1, val = v => '<b>' + nf(v, 2) + ' ha</b> · ' + nf(v / base * 100, 1) + '%';
+    const rlTipo = [['proposta', o.rl_prop], ['averbada', o.rl_aver], ['aprovada e não averbada', o.rl_apro]].filter(x => x[1] > 0).map(x => x[0] + ': ' + nf(x[1], 2) + ' ha').join(' · ');
+    h += linhas([['Área do imóvel', '<b>' + nf(o.imovel, 2) + ' ha</b>'], ['Área líquida do imóvel', val(o.liquida)], ['Reserva Legal', val(o.rl) + (rlTipo ? '<br><small>' + rlTipo + '</small>' : '')],
+      ['Área consolidada', val(o.cons)], ['Remanescente de vegetação nativa', val(o.rem)], ['Área de Preservação Permanente (APP)', val(o.app)], ['Servidão administrativa', val(o.serv)],
+      o.uso > 0 ? ['Uso restrito (declividade de 25° a 45°)', val(o.uso)] : null, o.pousio > 0 ? ['Área de pousio', val(o.pousio)] : null, o.nclass > 0 ? ['Área não classificada', val(o.nclass)] : null]);
+    return h + '<p class="ar-note">Valores declarados no CAR, na base pública do SIGGARR/FEMARH (' + br(X.gerado) + '). As áreas se sobrepõem (a Reserva Legal pode estar no remanescente, e a APP em área consolidada), por isso a soma não fecha com o total. A área líquida é a do imóvel sem a servidão administrativa. Declaração não analisada não comprova regularidade.</p>';
+  }
   async function openMemorial(c) {
     if (running) { avisa('Aguarde o relatório atual terminar (ou cancele) e tente de novo.'); return; } running = true;
     const A = window.FRR;
@@ -1009,6 +1027,7 @@
       const [FP, UC, EMB, SOL, GEO] = await Promise.all(['florestas_publicas.json', 'ucs.json', 'embargos.json', 'solos.json', 'geologia.json'].map(polyLayer));
       const [ASV, POP, SAU, REC] = await Promise.all(['asv.json', 'populacao.json', 'saude.json', 'recorrencia.json'].map(layer));
       const R = analyse(area, A, { FP, UC, EMB, SOL, GEO, ASV, POP, SAU, REC, img: { figs: {}, sev: { cover: 0, classes: [], mean: null } }, lc: [], wx: {}, ph: [] });
+      c.areas = await carAreasOf(c.cod);
       renderMemorial(el, c, area, R);
     } catch (e) {
       el.querySelector('.rep-page').insertAdjacentHTML('beforeend', '<p style="color:#b42318">Não foi possível montar o memorial: ' + esc(e.message) + '</p>');
@@ -1029,6 +1048,7 @@
     h += '<h2>2 Área</h2>' + linhas([['Área declarada no CAR', nf(decl, 2) + ' ha'], ['Área medida pelo contorno', nf(ha, 2) + ' ha'],
       ['Alqueire paulista (2,42 ha)', nf(ha / AL_PAULISTA, 2) + ' alqueires'], ['Alqueirão (4,84 ha)', nf(ha / AL_GERAL, 2) + ' alqueirões']]);
     if (dif != null && Math.abs(dif) > 0.05) h += '<div class="ar-photowarn"><b>Atenção:</b> a área medida pelo contorno é ' + nf(Math.abs(dif) * 100, 0) + '% ' + (dif > 0 ? 'maior' : 'menor') + ' que a declarada no CAR. Confira o cadastro no SICAR.</div>';
+    h += carAreasHtml(c, decl, linhas);
     h += '<h2>3 Localização</h2>' + linhas([['Centro (graus decimais)', decTxt(lat) + ' ; ' + decTxt(lon)], ['Centro (graus, minutos, segundos)', dmsTxt(lat, 'N', 'S') + ' ; ' + dmsTxt(lon, 'L', 'O')],
       ['Centro (UTM 20 N, SIRGAS 2000)', 'E ' + nf(utm[0]) + ' m · N ' + nf(utm[1]) + ' m']]);
     h += '<h2>4 Altitude</h2>' + (R.elev ? linhas([['No centro', nf(A.elevAt(lon, lat), 0) + ' m'], ['Mínima dentro do contorno', nf(R.elev.min, 0) + ' m'], ['Máxima dentro do contorno', nf(R.elev.max, 0) + ' m'], ['Média', nf(R.elev.mean, 0) + ' m']]) : '<p>Altitude indisponível.</p>');
@@ -1096,6 +1116,7 @@
   // ---------- passivo ambiental no imóvel do CAR: the car's memorial, a sketch (croqui) and satellite images with both outlines
   async function carPrep(c) {
     const A = window.FRR;
+    c.areas = await carAreasOf(c.cod);
     const rings = c.rings.filter(r => r.length >= 6);
     const area = { rings, box: boxOf(rings), title: 'Imóvel rural (CAR)', date: carDesde(), date1: today(), mun: c.mun, source: 'SICAR (CAR, declaração do proprietário)' };
     area.samples = samplesOf(rings, area.box); area.edge = edgeOf(rings);

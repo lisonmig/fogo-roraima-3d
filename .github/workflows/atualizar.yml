@@ -69,6 +69,7 @@ jobs:
         run: |
           python -I scripts/prep_estradas.py dados-3d docs || echo "::warning::falharam as estradas"
           python -I scripts/prep_car_todos.py dados-3d docs || echo "::warning::falhou o CAR"
+          python -I scripts/prep_car_areas.py dados-3d docs || echo "::warning::falharam as áreas do CAR (SIGGARR)"
 
       - name: Desmatamento medido (PRODES, baixa de novo só a cada 30 dias)
         run: python -I scripts/prep_prodes.py dados-3d docs || echo "::warning::falhou o PRODES; a camada fica indisponível"
