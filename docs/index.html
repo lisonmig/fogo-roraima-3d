@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="pt-BR">
-<script>(function(){var p=location.pathname,q=location.search,h=location.hash,m=null;if(/leve\.html$/.test(p))return;if(/[?&]3d=1(&|$)/.test(q)){try{localStorage.setItem('frr-modo','3d')}catch(e){}return}if(/[#&]v=/.test(h))return;try{m=localStorage.getItem('frr-modo')}catch(e){}if(m!=='3d')location.replace('leve.html')})()</script>
+<script>(function(){var p=location.pathname,q=location.search,h=location.hash,m=null;if(/leve\.html$/.test(p))return;if(/[?&]motor=1(&|$)/.test(q))return;if(/[?&]3d=1(&|$)/.test(q)){try{localStorage.setItem('frr-modo','3d')}catch(e){}return}if(/[#&]v=/.test(h))return;try{m=localStorage.getItem('frr-modo')}catch(e){}if(m!=='3d')location.replace('leve.html')})()</script>
 <meta name="description" content="Mapa 3D dos focos de incêndio, da seca e do risco para propriedades rurais em Roraima, com dados do INPE e da ANA. Site educativo independente.">
 <meta property="og:title" content="Fogo em Roraima 3D">
 <meta property="og:description" content="Focos de incêndio, seca dos rios e risco para o seu local, atualizados a cada 30 minutos.">
@@ -1193,6 +1193,7 @@ body.measuring #labels > * { pointer-events: none; }
   let softFull = false; try { softFull = localStorage.getItem('rr3d-soft-full') === '1'; } catch (e) {}
   const SOFT_LIGHT = SOFT && !softFull;
   if (SOFT_LIGHT) LIGHT = true;
+  const MOTOR = /[?&]motor=1(&|$)/.test(location.search); if (MOTOR) LIGHT = true; // hidden report engine of the 2D page
   $('lyLight').checked = LIGHT;
 
   // ---------- what is loading now: a small pill on the map, shown only while something takes longer than a moment
@@ -4949,7 +4950,7 @@ body.measuring #labels > * { pointer-events: none; }
     el.querySelector('.tour-next').focus();
   }
   $('helpBtn').onclick = () => { tourK = 0; showTour(); };
-  try { if (localStorage.getItem('rr3d-tour') !== '1') setTimeout(() => { tourK = 0; showTour(); }, 600); } catch (e) {}
+  try { if (!MOTOR && localStorage.getItem('rr3d-tour') !== '1') setTimeout(() => { tourK = 0; showTour(); }, 600); } catch (e) {}
   // ---------- list of fires (also a text alternative to the 3D map) and download
   function fireRows() {
     const p = st.pin, rows = windowIdx().map(i => ({ i, s: fireScore(i, st.t), d: p ? distKm(p.lon, p.lat, F.lon[i], F.lat[i]) : null }));
@@ -5250,6 +5251,34 @@ body.measuring #labels > * { pointer-events: none; }
   arP.then(J => { AR = J; renderAir(); }); arMP.then(J => { ARM = J; renderAir(); }); medP.then(J => { MED = J; renderWx(); }); doeP.then(J => { DOE = J; renderAvisos(); }); notP.then(J => { NOT = J; renderAvisos(); const L = J && J.imprensa || []; $('imSec').hidden = !L.length; $('imList').innerHTML = L.map(n => '<li><a href="' + esc(n.link) + '" target="_blank" rel="noopener">' + esc(n.t) + '</a><span>' + esc(n.fonte || '') + ' · ' + newsWhen(n.data) + '</span></li>').join(''); }); inpeP.then(() => setTimeout(renderAir, 0)); histP.then(renderHist);
   secaP.then(J => { SECA_HY0 = J && J.hy0; initSeca(J); initGauges(J); renderPeek(); drawChart(); });
   riosP.then(initRios);
-  requestAnimationFrame(frame);
+  // ---------- report engine for the 2D page: this page opens in a hidden frame (?motor=1), draws no map and only builds the documents
+  if (MOTOR) {
+    const avisa = t => { try { parent.postMessage({ frrMotor: t }, location.origin); } catch (e) {} };
+    const css2 = document.createElement('style'); css2.textContent = 'html,body{background:transparent!important}body>*:not(#report):not(#arAviso){visibility:hidden!important}'; document.head.appendChild(css2);
+    let tinha = false;
+    new MutationObserver(() => { const tem = !!$('report'); if (tem && !tinha) avisa('open'); if (!tem && tinha) avisa('closed'); tinha = tem; }).observe(document.body, { childList: true });
+    const inpePerto = (lon, lat) => {
+      let best = -1, ba = 1e18, near = -1, nd = 1.5 / 111;
+      IN.ev.forEach((e, k) => { if (!e.r) return; if (e.r.some(r => pointInRing(lon, lat, r))) { if (e.ha < ba) { ba = e.ha; best = k; } return; }
+        e.r.forEach(r => { for (let j = 0; j < r.length; j += 2) { const d = Math.hypot(r[j] - lon, r[j + 1] - lat); if (d < nd) { nd = d; near = k; } } }); });
+      return best >= 0 ? best : near;
+    };
+    const achar = async (lon, lat, kind) => {
+      await inpeP.catch(() => null); await new Promise(r => setTimeout(r, 0));
+      const so = (k, n) => k >= 0 ? { kind: n, k, lon, lat } : null;
+      const busca = { inpe: async () => so(inpePerto(lon, lat), 'inpe'), deter: async () => so(deterAt(lon, lat, 0.3), 'deter'), queim: async () => so(queimAt(lon, lat, 0.3), 'queim'),
+        prodes: async () => { await loadProdes(); return so(prodesAt(lon, lat, 0.3), 'prodes'); }, scar: async () => scarAt(lon, lat) };
+      for (const n of [kind, 'inpe', 'queim', 'deter', 'prodes', 'scar']) { if (!busca[n]) continue; const s = await busca[n](); if (s) return s; }
+      return null;
+    };
+    window.__frrMotor = { async run(q) {
+      try {
+        if (q.acao === 'memo') { await loadCarTodos(); mergeCars(); const k = carAt(q.lon, q.lat, false); if (k < 0) { avisa('none'); return; } openCarMemorial(k); }
+        else { const s = await achar(q.lon, q.lat, q.kind); if (!s) { avisa('none'); return; } st.sel = s; if (q.acao === 'prej') await openPrejuizo(); else await openAreaReport(q.acao === 'repcar'); }
+        setTimeout(() => { if (!$('report')) avisa('fail'); }, 25000);
+      } catch (e) { avisa('fail'); }
+    } };
+    avisa('ready');
+  } else requestAnimationFrame(frame);
 })();</script>
 </html>
