@@ -32,7 +32,9 @@ fires, cells = [], {}
 for la, lo, t in zip(F['lat'], F['lon'], F['t']):
     h = max(0, (gm-t)/60)
     if h <= 48: fires += [round(lo, 3), round(la, 3), int(h)]
-    if last-t <= 86400: cells[(round(lo/SC), round(la/SC))] = 1
+    if last-t <= 86400:
+        kc = (round(lo/SC), round(la/SC)); qc = cells.get(kc)
+        cells[kc] = [t, t] if qc is None else [min(qc[0], t), max(qc[1], t)]
 sc = []; px = py = 0
 for lo, la in sorted(cells): sc += [lo-px, la-py]; px, py = lo, la
 ev, nomes, cnt = [], [], {'burn': 0, 'obs': 0}
@@ -135,7 +137,11 @@ for e in E['events']:
     n = (hoje-datetime.fromisoformat(e['d1']).date()).days
     if 7 < n <= 60: sem.append({'ti': e.get('tipo'), 'ha': round(e.get('ha') or 0), 'm': e.get('mun'), 'a': e['d0'], 'b': e['d1'], 'r': [ring(r) for r in e['r']]})
 salva('inpe', sem)
+dia_c = lambda t: (T0 + timedelta(minutes=t-240)).date()
+if cells:
+    base_c = min(dia_c(v[0]) for v in cells.values()); ord_c = sorted(cells)  # mesma ordem de 'sc' no leve.json
+    salva('cicatriz', {'d0': base_c.isoformat(), 'a': [(dia_c(cells[k][0])-base_c).days for k in ord_c], 'b': [(dia_c(cells[k][1])-base_c).days for k in ord_c]})
 if Q: salva('calor', [[r[0], r[1]] for rows in Q['anos'].values() for r in rows])
-for n in 'ti mun deter queim prodes car estradas inpe calor lugares vicinais'.split():
+for n in 'ti mun deter queim prodes car estradas inpe calor lugares vicinais cicatriz'.split():
     a = os.path.join(P, 'leve_' + n + '.json')
     if os.path.exists(a): print(n, os.path.getsize(a))

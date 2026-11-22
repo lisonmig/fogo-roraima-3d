@@ -90,7 +90,7 @@ jobs:
       - name: Versão 2D leve (se falhar, mantém a cópia que está no ar)
         run: |
           python -I scripts/prep_leve.py docs || echo "::warning::falhou a versão 2D leve"
-          for f in leve leve_ti leve_mun leve_deter leve_queim leve_prodes leve_car leve_estradas leve_inpe leve_calor leve_lugares leve_vicinais; do
+          for f in leve leve_ti leve_mun leve_deter leve_queim leve_prodes leve_car leve_estradas leve_inpe leve_calor leve_lugares leve_vicinais leve_cicatriz; do
             if [ ! -s "docs/$f.json" ]; then curl -sf --max-time 120 -o "docs/$f.json" "https://fogororaima.com.br/$f.json" || rm -f "docs/$f.json"; fi
           done
 
