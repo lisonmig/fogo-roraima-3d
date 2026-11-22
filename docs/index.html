@@ -1145,7 +1145,7 @@ body.measuring #labels > * { pointer-events: none; }
           <summary>Fontes</summary>
           <div class="src" style="border:0;padding:0">
           <p class="note" style="margin:0 0 8px">📘 <a href="sobre.html">Sobre o projeto e como os números são calculados</a> · 📄 <a href="termos.html">Termos, privacidade e correções</a></p>
-          <p><b>Fontes.</b> Focos: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>. Terras Indígenas: <a href="https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas" target="_blank" rel="noopener">FUNAI</a>. Municípios e limite estadual: IBGE. Imóveis rurais: <a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">SICAR</a> (CAR, dados públicos, sem nome de dono). Desmatamento, área queimada e degradação: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE DETER</a> (alertas desde dezembro de 2024, não confirmação). Desmatamento medido por ano: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (últimos 3 anos publicados). Eventos de fogo oficiais (contorno, tipo e uso da terra): <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">INPE, Evento de Fogo</a>; o INPE lista só os eventos ativos ou em observação, então o mapa guarda cada atualização para formar o histórico a partir de 30/09/2026. Estradas, rios, vilas e fazendas: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© colaboradores do OpenStreetMap</a> (ODbL); o mapa colaborativo pode ter falhas ou estradas faltando. Vegetação: MODIS Land Cover (IGBP) 2023, NASA GIBS; floresta e desmatamento: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (mapa de classes até 2025). Relevo: Terrarium/Mapzen (SRTM). Imagem: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2025 by EOX IT Services GmbH</a> (dados Copernicus Sentinel modificados, CC BY-NC-SA 4.0). Imagem de perto: Esri World Imagery (Esri, Maxar, Earthstar Geographics). Imagem de ontem: <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">NASA GIBS/Worldview</a> (satélites VIIRS, dados públicos; mostra nuvens e fumaça). Temperatura do solo: NASA GIBS, VIIRS NOAA-20 (temperatura da superfície, média de 8 dias). Vento, umidade, temperatura e chuva: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (modelo, não estação).</p>
+          <p><b>Fontes.</b> Focos: <a href="https://terrabrasilis.dpi.inpe.br/queimadas/portal/" target="_blank" rel="noopener">INPE, Programa Queimadas</a>. Terras Indígenas: <a href="https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas" target="_blank" rel="noopener">FUNAI</a>. Municípios e limite estadual: IBGE. Imóveis rurais: <a href="https://consultapublica.car.gov.br/publico/imoveis/index" target="_blank" rel="noopener">SICAR</a> (CAR, dados públicos, sem nome de dono). Desmatamento, área queimada e degradação: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE DETER</a> (alertas desde dezembro de 2024, não confirmação). Desmatamento medido por ano: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (últimos 3 anos publicados). Eventos de fogo oficiais (contorno, tipo e uso da terra): <a href="https://data.inpe.br/queimadas/evento-fogo/" target="_blank" rel="noopener">INPE, Evento de Fogo</a>; o INPE lista só os eventos ativos ou em observação, então o mapa guarda cada atualização para formar o histórico a partir de 30/09/2026. Estradas, rios, vilas e fazendas: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© colaboradores do OpenStreetMap</a> (ODbL); o mapa colaborativo pode ter falhas ou estradas faltando. Vegetação: MODIS Land Cover (IGBP) 2023, NASA GIBS; floresta e desmatamento: <a href="https://terrabrasilis.dpi.inpe.br/" target="_blank" rel="noopener">INPE PRODES</a> (mapa de classes até 2025). Relevo: Terrarium/Mapzen (SRTM). Imagem: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2025 by EOX IT Services GmbH</a> (dados Copernicus Sentinel modificados, CC BY-NC-SA 4.0). Imagem de perto: Esri World Imagery (Esri, Vantor, Earthstar Geographics); empresa, satélite e data da foto aparecem no canto do mapa. Imagem de ontem: <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">NASA GIBS/Worldview</a> (satélites VIIRS, dados públicos; mostra nuvens e fumaça). Temperatura do solo: NASA GIBS, VIIRS NOAA-20 (temperatura da superfície, média de 8 dias). Vento, umidade, temperatura e chuva: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (modelo, não estação).</p>
           <p>Unidades de conservação ficaram de fora: o serviço do MMA consultado trazia nomes trocados com os desenhos.</p>
           <p>Site educativo independente.</p>
           </div>
@@ -1401,7 +1401,9 @@ body.measuring #labels > * { pointer-events: none; }
       }`
   });
   const terrain = new THREE.Mesh(geo, terrainMat); scene.add(terrain);
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(WKM, 6, HKM), new THREE.MeshBasicMaterial({ color: 0x2a231d })); slab.position.y = -3.02; scene.add(slab);
+  // the slab has no top face: under the terrain it only caused dark flickering patches in the lowlands (depth fighting)
+  const slabSide = new THREE.MeshBasicMaterial({ color: 0x2a231d }), slabTop = new THREE.MeshBasicMaterial({ visible: false }), slabMats = [slabSide, slabSide, slabTop, slabSide, slabSide, slabSide];
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(WKM, 6, HKM), slabMats); slab.position.y = -3.02; scene.add(slab);
 
   // ---------- draped lines (state border, TIs, municipalities, highlight, nearby circle)
   function drapeSegments(rings, step, cb) {
@@ -4656,9 +4658,58 @@ body.measuring #labels > * { pointer-events: none; }
   $('lySharp').checked = sharp.on;
   $('lySharp').onchange = e => { sharp.on = e.target.checked; try { localStorage.setItem('rr3d-sharp', sharp.on ? '1' : '0'); } catch (err) {} if (!sharp.on) terrainMat.uniforms.uDetOn.value = 0; else if (sharp.tex && sharp.base) terrainMat.uniforms.uDetOn.value = 1; };
   // close to the ground: mosaic of Esri tiles (about 1 m) drawn into one canvas, so the terrain shader stays the same
-  const sharpCredit = document.createElement('div'); sharpCredit.hidden = true; sharpCredit.textContent = 'Imagem © Esri, Maxar, Earthstar Geographics';
+  const ESRI_IMG = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer', ESRI_CREDIT = 'Imagem © Esri, Vantor, Earthstar Geographics';
+  const sharpCredit = document.createElement('div'); sharpCredit.hidden = true; sharpCredit.textContent = ESRI_CREDIT;
   sharpCredit.style.cssText = 'position:absolute;right:6px;bottom:2px;z-index:3;font:10px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);padding:1px 5px;border-radius:3px;pointer-events:none';
   view.appendChild(sharpCredit);
+  // levels 18 and 19 exist only in small parts of Roraima: ask the server where, and draw them over the level 17 mosaic
+  async function sharpHi(cv, w, s, e, n, px, mpp, token) {
+    const top = Math.min(20, Math.round(Math.log2(156543 * Math.cos(cLat * Math.PI / 180) / mpp)));
+    for (let hz = top; hz >= 18 && token === sharp.token; hz--) if (await sharpHiAt(cv, w, s, e, n, px, token, hz)) return; // best level that exists here
+  }
+  async function sharpHiAt(cv, w, s, e, n, px, token, hz) {
+    const Z = 2 ** hz, tileX = l => (l + 180) / 360 * Z, tileY = a => { const r = a * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * Z; };
+    const lonOf = x => x / Z * 360 - 180, latOf = y => Math.atan(Math.sinh(Math.PI * (1 - 2 * y / Z))) * 180 / Math.PI;
+    const x0 = Math.floor(tileX(w)), x1 = Math.floor(tileX(e)), y0 = Math.floor(tileY(n)), y1 = Math.floor(tileY(s)), tw = x1 - x0 + 1, th = y1 - y0 + 1; if (tw * th > 100) return false;
+    let m; try { m = await (await fetch(ESRI_IMG + '/tilemap/' + hz + '/' + y0 + '/' + x0 + '/' + tw + '/' + th + '?f=json')).json(); } catch (err) { return false; }
+    if (token !== sharp.token || !m || !m.data || !m.location) return false;
+    const L = m.location, list = [];
+    for (let j = 0; j < L.height; j++) for (let i = 0; i < L.width; i++) if (m.data[j * L.width + i] === 1) list.push([L.left + i, L.top + j]);
+    window.__sharpInfo.hi = { z: hz, tiles: list.length, of: tw * th }; if (!list.length) return false;
+    const imgs = []; sharp.stop = () => imgs.forEach(i => { i.onload = i.onerror = null; i.src = ''; });
+    const cx = cv.getContext('2d'), fx = l => (l - w) / (e - w) * px, fy = a => (n - a) / (n - s) * px; let left = list.length, drawn = 0;
+    const end = () => { if (--left) return; sharp.stop = null; if (drawn && token === sharp.token && sharp.tex) { sharp.tex.needsUpdate = true; sharp.zTop = hz; sharp.metaLon = 1e9; } };
+    list.forEach(([x, y]) => {
+      const img = new Image(); img.crossOrigin = 'anonymous'; imgs.push(img);
+      img.onload = () => { const X = Math.floor(fx(lonOf(x))), Y = Math.floor(fy(latOf(y))); cx.drawImage(img, X, Y, Math.ceil(fx(lonOf(x + 1))) - X, Math.ceil(fy(latOf(y + 1))) - Y); drawn++; end(); };
+      img.onerror = end; img.src = ESRI_IMG + '/tile/' + hz + '/' + y + '/' + x;
+    });
+    return true;
+  }
+  // photo credit like other map sites: company, satellite and date of the image at the centre of the view
+  const satName = c => { if (c === 'PNEO') return 'Pléiades Neo'; if (/^PHR/.test(c || '')) return 'Pléiades'; const m = /^(LG|WV|GE|QB|IK)0*(\d*)$/.exec(c || ''); if (!m) return c || ''; return { LG: 'WorldView Legion ' + m[2], WV: 'WorldView-' + m[2], GE: 'GeoEye-' + m[2], QB: 'QuickBird', IK: 'IKONOS' }[m[1]]; };
+  // how close the camera may go here: only as far as this place really has imagery (levels 18 to 20)
+  const SHARP_MIN = { 17: 0.4, 18: 0.3, 19: 0.2, 20: 0.1 };
+  async function sharpLimit(lon, lat) {
+    const id = sharp.limId = (sharp.limId || 0) + 1, r = lat * Math.PI / 180;
+    const has = await Promise.all([20, 19, 18].map(async z => { const Z = 2 ** z, x = Math.floor((lon + 180) / 360 * Z), y = Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * Z);
+      try { const m = await (await fetch(ESRI_IMG + '/tilemap/' + z + '/' + y + '/' + x + '/1/1?f=json')).json(); return m.data && m.data[0] === 1 ? z : 0; } catch (err) { return 0; } }));
+    if (id !== sharp.limId) return;
+    sharp.maxZ = Math.max(17, ...has); controls.minDistance = sharp.on && sharp.base ? SHARP_MIN[sharp.maxZ] : 0.4; window.__sharpInfo.maxZ = sharp.maxZ;
+  }
+  async function sharpMeta(lon, lat) {
+    sharpLimit(lon, lat);
+    const id = sharp.metaId = (sharp.metaId || 0) + 1, q = 0.001;
+    try {
+      const r = await (await fetch(ESRI_IMG + '/identify?f=json&geometry=' + lon.toFixed(5) + ',' + lat.toFixed(5) + '&geometryType=esriGeometryPoint&sr=4326&layers=all&tolerance=0&mapExtent=' + [lon - q, lat - q, lon + q, lat + q].map(v => v.toFixed(5)).join(',') + '&imageDisplay=256,256,96&returnGeometry=false')).json();
+      if (id !== sharp.metaId) return;
+      const cit = (r.results || []).filter(x => x.layerName === 'Citations').map(x => x.attributes), at = l => cit.filter(a => +a.FROM_CACHE_LEVEL <= l && l <= +a.TO_CACHE_LEVEL).sort((a, b) => +b.DRAW_ORDER - +a.DRAW_ORDER)[0];
+      const a = at(sharp.zTop) || at(sharp.zBase); if (!a) { sharpCredit.textContent = ESRI_CREDIT; return; }
+      const dt = /^\d{8}$/.test(a['DATE (YYYYMMDD)'] || '') ? a['DATE (YYYYMMDD)'].replace(/(\d{4})(\d\d)(\d\d)/, '$3/$2/$1') : '';
+      sharpCredit.textContent = ['Imagem © Esri', a.SOURCE, satName(a.DESCRIPTION), dt].filter(x => x && x !== 'Null').join(' · ');
+      window.__sharpInfo.meta = sharpCredit.textContent;
+    } catch (err) { if (id === sharp.metaId) sharpCredit.textContent = ESRI_CREDIT; }
+  }
   function sharpEsri(w, s, e, n, px, token, done, fail) {
     const mpp = (e - w) * KX * 1000 / px, z = Math.max(12, Math.min(17, Math.round(Math.log2(156543 * Math.cos(cLat * Math.PI / 180) / mpp)))), Z = 2 ** z;
     const tileX = l => (l + 180) / 360 * Z, tileY = a => { const r = a * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * Z; };
@@ -4680,18 +4731,36 @@ body.measuring #labels > * { pointer-events: none; }
         if (failed || token !== sharp.token) return;
         const X = Math.floor(fx(lonOf(x))), Y = Math.floor(fy(latOf(y)));
         cx.drawImage(img, X, Y, Math.ceil(fx(lonOf(x + 1))) - X, Math.ceil(fy(latOf(y + 1))) - Y);
-        if (--left === 0) { finish(); sharp.stop = null; done(cv); }
+        if (--left === 0) { finish(); sharp.stop = null; sharp.zBase = sharp.zTop = z; sharp.metaLon = 1e9; done(cv); sharpHi(cv, w, s, e, n, px, mpp, token); }
       };
       img.onerror = () => { if (failed) return; failed = true; finish(); stop(); sharp.stop = null; if (token === sharp.token) fail(); };
-      img.src = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/' + z + '/' + y + '/' + x;
+      img.src = ESRI_IMG + '/tile/' + z + '/' + y + '/' + x;
     }
   }
-  function sharpTick(now) {
+  // the credit never covers the status filters, the coordinates or hides behind the phone's bottom bar
+  function sharpLayout() {
     sharpCredit.hidden = !(sharp.esri && sharp.on && sharp.base);
+    const on = !sharpCredit.hidden, sit = $('sit'), co = $('coord'), pn = $('panel');
+    sit.style.marginBottom = on ? '10px' : '';
+    if (!(sharp.on && sharp.base)) controls.minDistance = 0.4;
+    if (!on) { co.style.marginBottom = ''; return; }
+    const v = view.getBoundingClientRect(), p = pn.getBoundingClientRect();
+    if (getComputedStyle(pn).position === 'fixed' && p.top > v.top + v.height * 0.6) sharpCredit.style.bottom = Math.max(2, Math.round(v.bottom - p.top) + 2) + 'px';
+    else if (getComputedStyle(pn).position !== 'fixed') sharpCredit.style.bottom = '2px';
+    const c = sharpCredit.getBoundingClientRect(), q = co.getBoundingClientRect();
+    co.style.marginBottom = q.width && q.right > c.left - 4 && q.left < c.right + 4 ? '14px' : '';
+  }
+  function sharpTick(now) {
+    if (now - (sharp.lay || 0) > 400) { sharp.lay = now; sharpLayout(); }
     if (!sharp.on || !sharp.base || now - sharp.at < 450 || now < sharp.retry) return; sharp.at = now;
     const tx = controls.target.x, tz = controls.target.z, still = Math.hypot(tx - sharp.lx, tz - sharp.lz) < 0.02; sharp.lx = tx; sharp.lz = tz;
     const d = camera.position.distanceTo(controls.target); if (d > 72 || !still || fly) return;
-    const BX = d <= 1 ? 2 : d <= 2 ? 4 : d <= 4 ? 8 : d <= 12 ? 16 : d <= 24 ? 32 : d <= 48 ? 64 : 128, step = BX / 4, ix = Math.round(tx / step), iz = Math.round(tz / step), key = BX + ':' + ix + ':' + iz;
+    const need = d * 0.85 * Math.max(1, camera.aspect), BN = (LIGHT ? [0.125, 0.25, 0.5, 1] : [0.25, 0.5, 1]).find(v => v >= need) || 0; // the detail window must cover the whole screen
+    const BX = BN ? BN : d <= 1 ? 2 : d <= 2 ? 4 : d <= 4 ? 8 : d <= 12 ? 16 : d <= 24 ? 32 : d <= 48 ? 64 : 128, step = BX / 4, ix = Math.round(tx / step), iz = Math.round(tz / step), key = BX + ':' + ix + ':' + iz;
+    if (sharp.esri && BX <= 16 && key === sharp.key) {
+      const mLon = cLon + tx / KX, mLat = cLat - tz / KZ;
+      if (Math.hypot((mLon - sharp.metaLon) * KX, (mLat - sharp.metaLat) * KZ) > BX / 10 || !(sharp.metaLon < 1e9)) { sharp.metaLon = mLon; sharp.metaLat = mLat; sharpMeta(mLon, mLat); }
+    }
     if (key === sharp.key || key === sharp.want) return; sharp.want = key;
     const lon = cLon + ix * step / KX, lat = cLat - iz * step / KZ, hx = BX / 2 / KX, hz = BX / 2 / KZ, useEsri = BX <= 16, px = useEsri ? Math.min(LIGHT ? 1024 : 2048, renderer.capabilities.maxTextureSize) : LIGHT && BX >= 64 ? 512 : 1024, token = ++sharp.token;
     if (sharp.stop) { sharp.stop(); sharp.stop = null; }
@@ -5112,8 +5181,8 @@ body.measuring #labels > * { pointer-events: none; }
   const old = $('base').closest('section'), NOMES = { sat: 'Satélite', relevo: 'Mapa', temp: 'Temperatura', lc: 'Vegetação', inpe: 'Floresta', risco: 'Risco', nasa: 'Ontem', none: 'Só relevo' };
   $('camBaseX').appendChild($('base').closest('label'));
   box.insertBefore($('nasaNote'), $('camBaseX')); box.insertBefore($('tempBox'), $('camBaseX'));
-  const marca = () => { $('camBases').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.b === $('base').value)); btn.style.backgroundImage = 'url(camadas/' + $('base').value + '.webp)'; };
-  [...$('base').options].forEach(o => { const b = document.createElement('button'); b.type = 'button'; b.dataset.b = o.value; b.innerHTML = '<img loading="lazy" alt="" width="72" height="72" src="camadas/' + o.value + '.webp">' + (NOMES[o.value] || o.textContent); b.title = o.textContent; b.onclick = () => { $('base').value = o.value; applyBase(o.value); marca(); }; $('camBases').appendChild(b); });
+  const marca = () => { $('camBases').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.b === $('base').value)); btn.style.backgroundImage = 'url(camadas/' + $('base').value + '.webp?v=2)'; };
+  [...$('base').options].forEach(o => { const b = document.createElement('button'); b.type = 'button'; b.dataset.b = o.value; b.innerHTML = '<img loading="lazy" alt="" width="72" height="72" src="camadas/' + o.value + '.webp?v=2">' + (NOMES[o.value] || o.textContent); b.title = o.textContent; b.onclick = () => { $('base').value = o.value; applyBase(o.value); marca(); }; $('camBases').appendChild(b); });
   $('base').addEventListener('change', marca); marca();
   rename('lyInpe', 'Contornos'); rename('lyPer', 'Contornos antigos (até 29/09)');
   ['lyFire', 'lyInpe', 'lyScar', 'lyAuth', 'lyWind', 'lyLbl', 'lyTop', 'lyRios'].forEach(id => $('camMain').appendChild(lab(id)));
