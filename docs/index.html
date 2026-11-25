@@ -1581,7 +1581,7 @@ body.measuring #labels > * { pointer-events: none; }
   fireGeo.setAttribute('aSeed', new THREE.BufferAttribute(fSeed, 1));
   const fAuth = new Float32Array(NF); fireGeo.setAttribute('aAuth', new THREE.BufferAttribute(fAuth, 1));
   function placeFires() {
-    for (let i = 0; i < NF; i++) { fPos[i * 3] = toX(F.lon[i]); fPos[i * 3 + 1] = yAt(F.lon[i], F.lat[i]) + 0.5; fPos[i * 3 + 2] = toZ(F.lat[i]); }
+    for (let i = 0; i < NF; i++) { fPos[i * 3] = toX(F.lon[i]); fPos[i * 3 + 1] = yAt(F.lon[i], F.lat[i]); fPos[i * 3 + 2] = toZ(F.lat[i]); }
     fireGeo.attributes.position.needsUpdate = true;
   }
   const fireMat = new THREE.ShaderMaterial({
@@ -1595,7 +1595,9 @@ body.measuring #labels > * { pointer-events: none; }
         if (uMode > 0.5 && uMode < 1.5 && aKind > 0.5) vis = false;
         if (uMode > 1.5 && abs(aKind - 1.0) > 0.5) vis = false;
         if (uAuth > 0.5 && abs(aAuth - (uAuth > 1.5 ? 0.0 : 1.0)) > 0.5) vis = false;
-        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        // rente ao chão de perto; de longe sobe um pouco para não sumir atrás do relevo
+        vec3 lp = position; lp.y += clamp(distance(cameraPosition, (modelMatrix * vec4(position, 1.0)).xyz) * 0.01, 0.03, 0.5);
+        vec4 mv = modelViewMatrix * vec4(lp, 1.0);
         if (!vis) { gl_PointSize = 0.0; gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vStage = 0.0; vScore = 0.0; vSeed = 0.0; vPulse = 0.0; vH = 0.0; return; }
         gl_Position = projectionMatrix * mv;
         float h = age / 60.0; vH = h;
@@ -1699,7 +1701,8 @@ body.measuring #labels > * { pointer-events: none; }
         // hide 60 days after the last fire, like the scars; from uCut on, the official INPE contours are drawn instead
         vOk = (uTime >= aFrom && uTime < aTo && uTime - aEnd < 86400.0 && uTime < uCut) ? 1.0 : 0.0;
         vA = (uTime - aEnd) < 2880.0 ? 1.0 : 0.0;
-        gl_Position = vOk > 0.5 ? projectionMatrix * modelViewMatrix * vec4(position, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
+        vec3 lp = position; lp.y += clamp(distance(cameraPosition, (modelMatrix * vec4(position, 1.0)).xyz) * 0.006, 0.03, 0.3);
+        gl_Position = vOk > 0.5 ? projectionMatrix * modelViewMatrix * vec4(lp, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
       }`,
     fragmentShader: `varying float vA; varying float vOk;
       void main(){ if (vOk < 0.5) discard; gl_FragColor = vA > 0.5 ? vec4(1.0, 0.42, 0.12, 1.0) : vec4(0.95, 0.77, 0.56, 0.75); }`,
@@ -1707,7 +1710,7 @@ body.measuring #labels > * { pointer-events: none; }
   });
   const perLines = new THREE.LineSegments(perGeo, perMat); perLines.frustumCulled = false; scene.add(perLines);
   function placePerims() {
-    for (let k = 0; k < NPV; k++) { const lon = perLL[k * 2], lat = perLL[k * 2 + 1]; perPos[k * 3] = toX(lon); perPos[k * 3 + 1] = yAt(lon, lat) + 0.3; perPos[k * 3 + 2] = toZ(lat); }
+    for (let k = 0; k < NPV; k++) { const lon = perLL[k * 2], lat = perLL[k * 2 + 1]; perPos[k * 3] = toX(lon); perPos[k * 3 + 1] = yAt(lon, lat); perPos[k * 3 + 2] = toZ(lat); }
     perGeo.attributes.position.needsUpdate = true;
   }
   function placeAll() { placeFires(); placePerims(); draped.forEach(d => d.place()); }
